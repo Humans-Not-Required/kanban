@@ -1,210 +1,73 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.10.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Webhooks ✅ + Task Dependencies ✅ + Docker ✅ + README Complete ✅ + Frontend ✅ + Unified Serving ✅
+## Current State: Auth Refactor Complete ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, batch operations, board archive/unarchive, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
+Per-board token auth model implemented. Zero-signup, link-based access control.
+
+### Auth Model (NEW)
+
+| Operation | Auth Required | How |
+|-----------|--------------|-----|
+| Create board | ❌ No | Returns `manage_key` (shown once) |
+| View board/tasks/events/deps | ❌ No | Just need board UUID |
+| List public boards | ❌ No | Shows `is_public=true` boards |
+| Write (create/update/delete tasks, columns, webhooks) | 🔑 manage_key | Bearer header, X-API-Key, or `?key=` query param |
+| Archive/unarchive board | 🔑 manage_key | Same as above |
 
 ### What's Done
 
-- **Core API** (all routes implemented):
-  - `POST /boards` — Create board with custom columns
-  - `GET /boards` — List boards (scoped by access)
-  - `GET /boards/{id}` — Board details with columns and task counts
-  - `POST /boards/{id}/columns` — Add column (Admin+)
-  - `POST /boards/{id}/tasks` — Create task (Editor+)
-  - `GET /boards/{id}/tasks` — List tasks with filters (Viewer+)
-  - `GET /boards/{id}/tasks/{id}` — Get task (Viewer+)
-  - `PATCH /boards/{id}/tasks/{id}` — Update task (Editor+)
-  - `DELETE /boards/{id}/tasks/{id}` — Delete task (Editor+)
-  - `POST .../tasks/{id}/claim` — Claim task (Editor+)
-  - `POST .../tasks/{id}/release` — Release claim (Editor+)
-  - `POST .../tasks/{id}/move/{col}` — Move task (Editor+)
-  - `GET .../tasks/{id}/events` — Task event log (Viewer+)
-  - `POST .../tasks/{id}/comment` — Comment (Viewer+)
-  - `GET /boards/{id}/collaborators` — List collaborators (Viewer+)
-  - `POST /boards/{id}/collaborators` — Add/update collaborator (Admin+)
-  - `DELETE /boards/{id}/collaborators/{keyId}` — Remove collaborator (Admin+)
-  - `GET /keys` — List API keys (admin only)
-  - `POST /keys` — Create API key (admin only)
-  - `DELETE /keys/{id}` — Revoke API key (admin only)
-  - `GET /health` — Health check
-  - `GET /openapi.json` — OpenAPI 3.0 spec (v0.3.0)
-- **Access Control:**
-  - Role hierarchy: Viewer < Editor < Admin < Owner
-  - Board owner = implicit full access (via `owner_key_id`)
-  - Global admin API keys = full access to all boards
-  - Collaborator management with upsert semantics
-- **WIP Limit Enforcement:**
-  - `check_wip_limit()` validates column capacity before adding/moving tasks
-  - Returns 409 Conflict with `WIP_LIMIT_EXCEEDED` error code
-  - Columns with `wip_limit = NULL` are unlimited
-- **Rate Limiting (NEW):**
-  - Fixed-window per-key enforcement via in-memory rate limiter
-  - Each API key has a configurable `rate_limit` (requests per window)
-  - Default: 100 req/min for regular keys
-  - Window duration configurable via `RATE_LIMIT_WINDOW_SECS` env var (default: 60s)
-  - Returns 429 Too Many Requests when limit exceeded
-  - Response headers on ALL authenticated requests:
-    - `X-RateLimit-Limit` — max requests in current window
-    - `X-RateLimit-Remaining` — requests remaining
-    - `X-RateLimit-Reset` — seconds until window resets
-  - Implemented via auth guard (single enforcement point) + Rocket fairing (headers)
-  - Zero database overhead — all tracking is in-memory
-- **Board Archiving (NEW):**
-  - `POST /boards/{id}/archive` — Archive a board (Admin+)
-    - Returns 409 if already archived
-    - Blocks all mutations: task create/update/delete, claim/release, move/reorder, batch, column creation
-    - Read-only operations remain available (list tasks, search, view events, get board)
-  - `POST /boards/{id}/unarchive` — Unarchive a board (Admin+)
-    - Returns 409 if not archived
-    - Restores normal operations; all data preserved through cycle
-  - `GET /boards?include_archived=true` — Include archived boards in listing (default: false)
-  - `require_not_archived()` helper enforces mutation block at route level
-  - Integration test covering full archive/unarchive lifecycle
-- **Batch Operations:**
-  - `POST /boards/{id}/tasks/batch` — Execute multiple operations in one request
-    - `move` — Move tasks to a different column (handles done-column completion)
-    - `update` — Update fields (priority, assigned_to, labels, due_at) on multiple tasks
-    - `delete` — Delete multiple tasks
-    - Max 50 operations per request
-    - Independent execution — failures in one don't affect others
-    - Per-operation result with success/failure, error messages, and affected count
-    - SSE events emitted for each individual task change (tagged with `batch: true`)
-    - Integration test covering move, update, and delete flows
-- **Task Search:**
-  - `GET /boards/{id}/tasks/search?q=<query>` — full-text search across title, description, labels
-  - Relevance ranking: title matches first, then by priority DESC, then by updated_at DESC
-  - Pagination via `limit` (1-100, default 50) and `offset`, with total count in response
-  - Combinable filters: `column`, `assigned`, `priority`, `label`
-  - Returns `SearchResponse` with query, tasks, total, limit, offset
-  - Integration test with title/description/label matching coverage
-- **Task Reorder/Positioning:**
-  - `POST /boards/{id}/tasks/{taskId}/reorder` — set task position within column
-  - Optional `column_id` for move+reorder in one call
-  - Shift-based positioning: tasks at/after target position move down automatically
-  - Same-column reorder closes gap at old position first
-  - Cross-column reorder checks WIP limits and sets completed_at for done columns
-  - `CreateTaskRequest` accepts optional `position` field for insert-at
-  - SSE event type: `task.reordered`
-  - Integration test: task ordering with reorder and insert-at-position
-- **SSE Real-Time Events:**
-  - `GET /boards/{id}/events/stream` — Server-Sent Events stream (Viewer+)
-  - EventBus using `tokio::sync::broadcast` channels per board (lazy creation)
-  - 7 event types: task.created, task.updated, task.deleted, task.claimed, task.released, task.moved, task.comment
-  - 15-second heartbeat to keep connections alive
-  - Graceful lagged-client handling (warning event if >256 events buffered)
-  - Channel capacity: 256 events per board
-  - No persistence — events are fire-and-forget to connected subscribers
-- **Task Dependencies (NEW):**
-  - `POST /boards/{id}/dependencies` — Create dependency between two tasks (Editor+)
-    - "blocker blocks blocked" semantics
-    - Validates both tasks exist on the board
-    - Prevents self-dependency
-    - Circular dependency detection: direct (reverse exists) + transitive (BFS graph traversal)
-    - UNIQUE constraint on (blocker_task_id, blocked_task_id)
-    - Returns rich response with task titles, columns, completion status
-    - Emits `task.dependency.added` SSE event
-  - `GET /boards/{id}/dependencies?task=<id>` — List dependencies (Viewer+)
-    - All board dependencies, or filtered by task (as blocker or blocked)
-    - Includes blocker completion status for easy "is this blocked?" checks
-  - `DELETE /boards/{id}/dependencies/{id}` — Remove dependency (Editor+)
-    - Emits `task.dependency.removed` SSE event
-    - Logs removal in task event history
-  - CASCADE delete: removing a task auto-removes its dependencies
-  - DB indexes on blocker_task_id, blocked_task_id, board_id
-  - Integration test covering CRUD, uniqueness, cascade behavior
-- **Auth:** API key authentication via `Authorization: Bearer` or `X-API-Key` header
-- **Database:** SQLite with WAL mode, auto-creates admin key on first run
-- **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
-- **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Frontend:**
-  - React + Vite dashboard served from Rocket via FileServer
-  - Board sidebar with create/archive toggle
-  - Column-based kanban view with HTML5 drag-and-drop for task movement
-  - Create task modal (title, description, priority, column, labels, assignment)
-  - Full-text search bar
-  - WIP limit display (count/limit) per column
-  - Priority color-coding: critical (red), high (orange), medium (yellow), low (green)
-  - Claimed/assigned/due/completed indicators on cards
-  - Label tags on cards
-  - API key stored in localStorage, rate limit display in header
-  - SPA catch-all fallback route (rank 20) for client-side routing
-  - STATIC_DIR env var for configurable frontend path (default: ../frontend/dist)
-  - Dark theme (slate/indigo palette matching qr-service)
-- **Tests:** 16 tests passing (3 rate limiter unit + 13 integration)
-- **Code Quality:** Zero clippy warnings, cargo fmt clean
-- **Deployment:** Single-port unified serving (API + frontend on same origin)
+- **Auth refactor** — per-board tokens replacing global API keys
+  - `POST /boards` returns `manage_key`, `view_url`, `manage_url`, `api_base`
+  - `BoardToken` request guard extracts token from 3 sources (Bearer, X-API-Key, ?key=)
+  - Read routes are fully public (just need board UUID)
+  - Write routes verify manage_key hash against board
+  - Removed: global API keys (/keys CRUD), collaborator system, per-key rate limiting
+  - Added: `is_public` flag, `actor_name` fields, `?agent=` on claim
+- **Core API** — all routes working with new auth model
+- **Frontend** — React + Vite dashboard with drag-and-drop
+- **Docker** — 3-stage multi-stage build
+- **Tests** — 17 passing (3 unit + 14 integration), zero clippy warnings
+- **Deployed** — kanban.ckbdev.com via Cloudflare Tunnel
 
 ### Tech Stack
 
 - Rust 1.83+ / Rocket 0.5 / SQLite (rusqlite)
+- React + Vite frontend, unified serving on single port
 - CORS: wide open (all origins) — tighten for production
-
-### Key Product Decisions
-
-- **Agent-first claim vs assignment**
-  - `assigned_to` = responsibility
-  - `claimed_by` = actively working right now (conflict prevention / coordination)
-- **SQLite first** for self-hosted simplicity
-- **Event log** (`task_events`) is first-class: agents can read history and add comments
-- **Role-based access per board** — Owner/Admin/Editor/Viewer hierarchy
-- **In-memory rate limiter** — no DB overhead per request; resets on restart (acceptable trade-off)
-- **Rate limit check in auth guard** — single enforcement point; all authenticated routes covered automatically
 
 ### What's Next (Priority Order)
 
-1. ~~**Batch operations**~~ ✅ Done
-2. ~~**Board archiving**~~ ✅ Done
-3. ~~**Webhooks**~~ ✅ Done — CRUD + HMAC signatures + auto-disable after failures
-4. ~~**Task Dependencies**~~ ✅ Done — blocker/blocked relationships + circular dependency detection + cascade delete
-5. ~~**Frontend**~~ ✅ Done — React dashboard with drag-and-drop kanban board + unified serving
-6. ~~**Update Dockerfile**~~ ✅ Done — 3-stage build (Node → Rust → runtime), STATIC_DIR configured
-7. ~~**Update README**~~ ✅ Done — Frontend docs, STATIC_DIR, unified serving, architecture updates
-
-**Deployed:** ✅ Running at kanban.ckbdev.com (Cloudflare Tunnel → 192.168.0.79:3002 → nginx → localhost:8001). Systemd user service `kanban`.
-
-**⚡ NEXT MILESTONE: Auth Refactor** — see DESIGN.md "API Changes Needed" section. This is the #1 priority. The current global API key auth blocks real usage. We need per-board tokens so users can create and share boards without a global key.
-
-### What's Next (Current Priority)
-
-1. **AUTH REFACTOR (CRITICAL)** — Replace global `AuthenticatedKey` with per-board token auth:
-   - Board creation requires NO auth → returns a `manage_key`
-   - Read endpoints (view board, list tasks) require NO auth — just the board UUID
-   - Write endpoints require the board's `manage_key` (Bearer header or `?key=` query param)
-   - Remove global API key management routes (`/keys` CRUD)
-   - Frontend: detect `key` in URL → enable/disable edit mode
-   - See DESIGN.md for full spec
-2. **Comments visible in frontend** — task comments exist in API but need UI
-3. **Identity on actions** — add optional `actor_name` param to write endpoints so we can see who did what
-4. **Webhook → Signal notification** — notify when board changes happen
+1. **Frontend auth integration** — detect `?key=` in URL, store in localStorage, enable/disable edit mode based on whether manage key is present. Currently frontend expects global API key.
+2. **Deploy updated backend** — rebuild on staging server with new DB schema (breaking change — fresh DB required)
+3. **Comments visible in frontend** — task comments exist in API but need UI
+4. **Identity on actions** — use `actor_name` in frontend when manage key is present
+5. **IP-based rate limiting for board creation** — prevent spam (rate_limit module already exists, repurpose for IP-based)
 
 ### ⚠️ Gotchas
 
+- **Breaking DB change** — new schema has no `api_keys` table. Fresh DB required. Old DBs will not work.
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
-- Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.10.0 — 25 paths incl. webhooks + dependencies, 26 schemas
-- WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
-- Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
-
-- Circular dependency detection uses BFS — O(V+E) per check, fine for typical board sizes
-- Dependencies are board-scoped — cross-board dependencies not supported
-- `blocker_completed` in response is derived from `completed_at IS NOT NULL` — reflects current state at query time
+- Rate limiter module kept but unused — will be repurposed for IP-based limiting on board creation
 
 ### Architecture Notes
 
-- `access.rs` module with `BoardRole` enum using `PartialOrd`/`Ord` for role comparison
-- `require_role()` is the single access enforcement point
-- `rate_limit.rs` uses `Mutex<HashMap>` with fixed-window algorithm — O(1) per check
-- Rate limit headers via Rocket fairing reading request-local state from auth guard
-- `events.rs` — EventBus with `Mutex<HashMap<String, broadcast::Sender>>` (lazy per-board channels)
-- SSE stream uses `rocket::response::stream::EventStream` with `tokio::select!` for graceful shutdown
-- `require_not_archived()` helper called in every mutation route — single enforcement pattern
+- `auth.rs` — `BoardToken` request guard extracts token from Bearer/X-API-Key/?key=
+- `access.rs` — `require_manage_key()`, `require_board_exists()`, `require_not_archived()`
+- `routes.rs` — all write routes take `BoardToken`, hash it, verify against board's `manage_key_hash`
+- `db.rs` — `boards` table has `manage_key_hash` and `is_public` columns
+- No user/account system — boards are the only resource, tokens are per-board
 - Single-threaded SQLite via `Mutex<Connection>`
-- CORS wide open (all origins)
-- Redirect route for short URLs at root (`/`), API routes at `/api/v1`
+
+### Key Product Decisions
+
+- **Pastebin/Excalidraw model** — create board → get management URL, share with others
+- **View URL** = read-only, **Manage URL** = full access
+- **Unlisted by default** — boards are accessible by UUID but not discoverable unless `is_public=true`
+- **actor_name is optional free text** — no identity verification, trust-based
+- **Claim vs assignment** preserved — `claimed_by` = actively working, `assigned_to` = responsibility
 
 ---
 
-*Last updated: 2026-02-07 14:05 UTC — Session: 3-stage Dockerfile + README update + clippy lint fix. Kanban is complete.*
+*Last updated: 2026-02-07 21:30 UTC — Session: Auth refactor complete. Per-board tokens, zero-signup, link-based access. 17 tests passing, zero clippy warnings.*
