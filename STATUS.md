@@ -1,8 +1,8 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.6.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.7.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Docker ✅ + README Complete ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
+Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, batch operations, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
 ### What's Done
 
@@ -50,7 +50,17 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
     - `X-RateLimit-Reset` — seconds until window resets
   - Implemented via auth guard (single enforcement point) + Rocket fairing (headers)
   - Zero database overhead — all tracking is in-memory
-- **Task Search (NEW):**
+- **Batch Operations (NEW):**
+  - `POST /boards/{id}/tasks/batch` — Execute multiple operations in one request
+    - `move` — Move tasks to a different column (handles done-column completion)
+    - `update` — Update fields (priority, assigned_to, labels, due_at) on multiple tasks
+    - `delete` — Delete multiple tasks
+    - Max 50 operations per request
+    - Independent execution — failures in one don't affect others
+    - Per-operation result with success/failure, error messages, and affected count
+    - SSE events emitted for each individual task change (tagged with `batch: true`)
+    - Integration test covering move, update, and delete flows
+- **Task Search:**
   - `GET /boards/{id}/tasks/search?q=<query>` — full-text search across title, description, labels
   - Relevance ranking: title matches first, then by priority DESC, then by updated_at DESC
   - Pagination via `limit` (1-100, default 50) and `offset`, with total count in response
@@ -78,7 +88,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - **Database:** SQLite with WAL mode, auto-creates admin key on first run
 - **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
 - **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Tests:** 15 tests passing (3 access control unit + 3 rate limiter unit + 9 integration)
+- **Tests:** 16 tests passing (3 access control unit + 3 rate limiter unit + 10 integration)
 - **Code Quality:** Zero clippy warnings, cargo fmt clean
 
 ### Tech Stack
@@ -99,7 +109,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ### What's Next (Priority Order)
 
-1. **Batch operations** (bulk move, bulk update, bulk delete)
+1. ~~**Batch operations**~~ ✅ Done
 2. **Board archiving** (archive/unarchive boards via API)
 3. **Webhooks** (notify external URLs on task events)
 
@@ -110,7 +120,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.6.0 — 18 paths, search endpoint + SearchResponse schema documented
+- OpenAPI spec is at v0.7.0 — 19 paths, batch + search endpoints + BatchRequest/Response/Operation/Result schemas documented
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
 - Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
@@ -129,4 +139,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 11:35 UTC — Session: Task search endpoint with relevance ranking*
+*Last updated: 2026-02-07 11:47 UTC — Session: Batch task operations (move/update/delete)*
