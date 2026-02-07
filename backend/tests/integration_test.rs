@@ -387,6 +387,117 @@ fn test_db_wal_mode() {
 }
 
 #[test]
+fn test_task_search() {
+    let db_path = format!("/tmp/kanban_test_search_{}.db", uuid::Uuid::new_v4());
+    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let pool = kanban::db::init_db().expect("DB should initialize");
+    let conn = pool.lock().unwrap();
+
+    let admin_key_id: String = conn
+        .query_row("SELECT id FROM api_keys WHERE is_admin = 1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+
+    // Create board + column
+    let board_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, 'Search Test', '', ?2)",
+        rusqlite::params![board_id, admin_key_id],
+    )
+    .unwrap();
+
+    let col_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position) VALUES (?1, ?2, 'Todo', 0)",
+        rusqlite::params![col_id, board_id],
+    )
+    .unwrap();
+
+    // Create tasks with varying content
+    let tasks = vec![
+        (
+            "Fix login bug",
+            "Users cannot login with OAuth",
+            r#"["bug","auth"]"#,
+        ),
+        (
+            "Add search endpoint",
+            "Implement full-text search for tasks",
+            r#"["feature","api"]"#,
+        ),
+        (
+            "Update auth docs",
+            "Document the OAuth flow changes",
+            r#"["docs","auth"]"#,
+        ),
+        (
+            "Deploy to production",
+            "Final deployment steps",
+            r#"["ops"]"#,
+        ),
+    ];
+
+    for (i, (title, desc, labels)) in tasks.iter().enumerate() {
+        let tid = uuid::Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO tasks (id, board_id, column_id, title, description, labels, position, created_by, priority)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'test', ?8)",
+            rusqlite::params![tid, board_id, col_id, title, desc, labels, i as i32, (4 - i) as i32],
+        )
+        .unwrap();
+    }
+
+    // Test: search by title keyword
+    let mut stmt = conn
+        .prepare(
+            "SELECT COUNT(*) FROM tasks WHERE board_id = ?1 AND (title LIKE ?2 OR description LIKE ?2 OR labels LIKE ?2)",
+        )
+        .unwrap();
+
+    let count: i64 = stmt
+        .query_row(rusqlite::params![board_id, "%login%"], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 1, "Should find 1 task matching 'login'");
+
+    // Test: search by description keyword
+    let count: i64 = stmt
+        .query_row(rusqlite::params![board_id, "%OAuth%"], |row| row.get(0))
+        .unwrap();
+    assert_eq!(
+        count, 2,
+        "Should find 2 tasks matching 'OAuth' (login bug + auth docs)"
+    );
+
+    // Test: search by label
+    let count: i64 = stmt
+        .query_row(rusqlite::params![board_id, "%auth%"], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 2, "Should find 2 tasks matching 'auth' (login bug has 'auth' label, auth docs has 'auth' in title + label)");
+
+    // Test: search with no results
+    let count: i64 = stmt
+        .query_row(rusqlite::params![board_id, "%xyznonexistent%"], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(count, 0, "Should find 0 tasks for nonsense query");
+
+    // Test: search for 'deploy' — only in title
+    let count: i64 = stmt
+        .query_row(rusqlite::params![board_id, "%deploy%"], |row| row.get(0))
+        .unwrap();
+    // "Deploy to production" in title + "deployment" in description = 1 task
+    assert_eq!(count, 1, "Should find 1 task matching 'deploy'");
+
+    drop(stmt);
+    drop(conn);
+    drop(pool);
+    let _ = std::fs::remove_file(&db_path);
+}
+
+#[test]
 fn test_task_ordering_positions() {
     let db_path = format!("/tmp/kanban_test_order_{}.db", uuid::Uuid::new_v4());
     std::env::set_var("DATABASE_PATH", &db_path);

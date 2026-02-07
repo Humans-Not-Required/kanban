@@ -53,6 +53,7 @@ fn rocket() -> _ {
                 routes::create_column,
                 // Tasks
                 routes::create_task,
+                routes::search_tasks,
                 routes::list_tasks,
                 routes::get_task,
                 routes::update_task,

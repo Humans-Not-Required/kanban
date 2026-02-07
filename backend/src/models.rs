@@ -174,6 +174,17 @@ fn default_collaborator_role() -> String {
     "editor".to_string()
 }
 
+// ============ Search ============
+
+#[derive(Debug, Serialize)]
+pub struct SearchResponse {
+    pub query: String,
+    pub tasks: Vec<TaskResponse>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
 // ============ Common ============
 
 #[derive(Debug, Serialize)]

@@ -129,11 +129,14 @@ Full OpenAPI 3.0 spec available at `GET /api/v1/openapi.json`.
 |--------|------|------|-------------|
 | POST | `/boards/{id}/tasks` | Editor | Create a task |
 | GET | `/boards/{id}/tasks` | Viewer | List tasks (with filters) |
+| GET | `/boards/{id}/tasks/search?q=` | Viewer | Search tasks (title, description, labels) |
 | GET | `/boards/{id}/tasks/{taskId}` | Viewer | Get task details |
 | PATCH | `/boards/{id}/tasks/{taskId}` | Editor | Update task (partial) |
 | DELETE | `/boards/{id}/tasks/{taskId}` | Editor | Delete task |
 
 **Query filters for list:** `?column=`, `?assigned=`, `?claimed=`, `?priority=`, `?label=`
+
+**Search:** `GET /boards/{id}/tasks/search?q=<query>` searches across titles, descriptions, and labels. Results are ranked by relevance (title matches first, then priority). Supports pagination via `?limit=` (1-100, default 50) and `?offset=`. Additional filters: `?column=`, `?assigned=`, `?priority=`, `?label=`.
 
 ### Agent Coordination
 
