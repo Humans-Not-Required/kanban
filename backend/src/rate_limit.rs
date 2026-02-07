@@ -1,3 +1,7 @@
+// Rate limiter is kept for future IP-based rate limiting on board creation.
+// Currently unused after auth refactor removed per-key rate limiting.
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};

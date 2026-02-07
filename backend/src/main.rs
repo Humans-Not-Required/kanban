@@ -11,10 +11,8 @@ mod routes;
 mod webhooks;
 
 use std::path::PathBuf;
-use std::time::Duration;
 
 use events::EventBus;
-use rate_limit::{RateLimitHeaders, RateLimiter};
 use rocket::fs::{FileServer, Options};
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
@@ -26,12 +24,6 @@ fn rocket() -> _ {
         .allowed_origins(AllowedOrigins::all())
         .to_cors()
         .expect("CORS configuration failed");
-
-    // Rate limit window: configurable via RATE_LIMIT_WINDOW_SECS (default: 60s)
-    let window_secs: u64 = std::env::var("RATE_LIMIT_WINDOW_SECS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(60);
 
     // Frontend static files directory (default: ../frontend/dist relative to CWD)
     let static_dir: PathBuf = std::env::var("STATIC_DIR")
@@ -46,59 +38,49 @@ fn rocket() -> _ {
 
     let mut build = rocket::build()
         .attach(cors)
-        .attach(RateLimitHeaders)
         .manage(db)
-        .manage(RateLimiter::new(Duration::from_secs(window_secs)))
         .manage(EventBus::with_webhooks(webhook_db))
         .mount(
             "/api/v1",
             routes![
                 routes::health,
                 routes::openapi,
-                // Boards
+                // Boards (create = no auth, list = public only)
                 routes::create_board,
                 routes::list_boards,
                 routes::get_board,
                 routes::archive_board,
                 routes::unarchive_board,
-                // Columns
+                // Columns (manage key required)
                 routes::create_column,
-                // Tasks
+                // Tasks (read = public, write = manage key)
                 routes::create_task,
                 routes::search_tasks,
                 routes::list_tasks,
                 routes::get_task,
                 routes::update_task,
                 routes::delete_task,
-                // Batch operations
+                // Batch operations (manage key required)
                 routes::batch_tasks,
-                // Agent-first: claim/release/move/reorder
+                // Agent-first: claim/release/move/reorder (manage key required)
                 routes::claim_task,
                 routes::release_task,
                 routes::move_task,
                 routes::reorder_task,
-                // Task events & comments
+                // Task events (read = public) & comments (manage key required)
                 routes::get_task_events,
                 routes::comment_on_task,
-                // SSE event stream
+                // SSE event stream (public)
                 routes::board_event_stream,
-                // Board collaborators
-                routes::list_collaborators,
-                routes::add_collaborator,
-                routes::remove_collaborator,
-                // Task dependencies
+                // Task dependencies (read = public, write = manage key)
                 routes::create_dependency,
                 routes::list_dependencies,
                 routes::delete_dependency,
-                // Webhooks
+                // Webhooks (manage key required)
                 routes::create_webhook,
                 routes::list_webhooks,
                 routes::update_webhook,
                 routes::delete_webhook,
-                // API keys
-                routes::list_keys,
-                routes::create_key,
-                routes::delete_key,
             ],
         );
 

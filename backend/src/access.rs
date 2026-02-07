@@ -1,83 +1,13 @@
-use crate::auth::AuthenticatedKey;
 use crate::models::ApiError;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rusqlite::Connection;
 
-/// Roles for board collaborators (ordered by privilege level)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum BoardRole {
-    Viewer = 0,
-    Editor = 1,
-    Admin = 2,
-    Owner = 3,
-}
-
-impl BoardRole {
-    pub fn parse(s: &str) -> Option<Self> {
-        match s {
-            "viewer" => Some(BoardRole::Viewer),
-            "editor" => Some(BoardRole::Editor),
-            "admin" => Some(BoardRole::Admin),
-            "owner" => Some(BoardRole::Owner),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            BoardRole::Viewer => "viewer",
-            BoardRole::Editor => "editor",
-            BoardRole::Admin => "admin",
-            BoardRole::Owner => "owner",
-        }
-    }
-}
-
-/// Check what role a key has on a board. Returns None if no access.
-pub fn get_board_role(
+/// Check if a board exists. Returns Err(404) if not.
+pub fn require_board_exists(
     conn: &Connection,
     board_id: &str,
-    key: &AuthenticatedKey,
-) -> Option<BoardRole> {
-    // Global admin keys have full access to all boards
-    if key.is_admin {
-        return Some(BoardRole::Admin);
-    }
-
-    // Check if owner
-    let is_owner: bool = conn
-        .query_row(
-            "SELECT COUNT(*) > 0 FROM boards WHERE id = ?1 AND owner_key_id = ?2",
-            rusqlite::params![board_id, key.id],
-            |row| row.get(0),
-        )
-        .unwrap_or(false);
-
-    if is_owner {
-        return Some(BoardRole::Owner);
-    }
-
-    // Check collaborator role
-    let role_str: Option<String> = conn
-        .query_row(
-            "SELECT role FROM board_collaborators WHERE board_id = ?1 AND key_id = ?2",
-            rusqlite::params![board_id, key.id],
-            |row| row.get(0),
-        )
-        .ok();
-
-    role_str.and_then(|r| BoardRole::parse(&r))
-}
-
-/// Require at least the given role. Returns error if insufficient access.
-pub fn require_role(
-    conn: &Connection,
-    board_id: &str,
-    key: &AuthenticatedKey,
-    min_role: BoardRole,
-) -> Result<BoardRole, (Status, Json<ApiError>)> {
-    // First check if board exists
+) -> Result<(), (Status, Json<ApiError>)> {
     let exists: bool = conn
         .query_row(
             "SELECT COUNT(*) > 0 FROM boards WHERE id = ?1",
@@ -86,37 +16,83 @@ pub fn require_role(
         )
         .unwrap_or(false);
 
-    if !exists {
-        return Err((
+    if exists {
+        Ok(())
+    } else {
+        Err((
             Status::NotFound,
             Json(ApiError {
                 error: "Board not found".to_string(),
                 code: "NOT_FOUND".to_string(),
                 status: 404,
             }),
-        ));
+        ))
     }
+}
 
-    match get_board_role(conn, board_id, key) {
-        Some(role) if role >= min_role => Ok(role),
-        Some(_) => Err((
+/// Check if a board is archived. Returns error if it is.
+pub fn require_not_archived(
+    conn: &Connection,
+    board_id: &str,
+) -> Result<(), (Status, Json<ApiError>)> {
+    let archived: bool = conn
+        .query_row(
+            "SELECT archived = 1 FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if archived {
+        Err((
+            Status::Conflict,
+            Json(ApiError {
+                error: "Board is archived. Unarchive it before making changes.".to_string(),
+                code: "BOARD_ARCHIVED".to_string(),
+                status: 409,
+            }),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+/// Verify that the given token hash matches the board's manage_key_hash.
+/// Used by write routes to authorize modifications.
+pub fn require_manage_key(
+    conn: &Connection,
+    board_id: &str,
+    token_hash: &str,
+) -> Result<(), (Status, Json<ApiError>)> {
+    require_board_exists(conn, board_id)?;
+
+    let stored_hash: String = conn
+        .query_row(
+            "SELECT manage_key_hash FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| {
+            (
+                Status::NotFound,
+                Json(ApiError {
+                    error: "Board not found".to_string(),
+                    code: "NOT_FOUND".to_string(),
+                    status: 404,
+                }),
+            )
+        })?;
+
+    if stored_hash == token_hash {
+        Ok(())
+    } else {
+        Err((
             Status::Forbidden,
             Json(ApiError {
-                error: format!(
-                    "Insufficient permissions. Required: {} or higher",
-                    min_role.as_str()
-                ),
-                code: "INSUFFICIENT_ROLE".to_string(),
+                error: "Invalid management key for this board".to_string(),
+                code: "INVALID_KEY".to_string(),
                 status: 403,
             }),
-        )),
-        None => Err((
-            Status::Forbidden,
-            Json(ApiError {
-                error: "You don't have access to this board".to_string(),
-                code: "NO_ACCESS".to_string(),
-                status: 403,
-            }),
-        )),
+        ))
     }
 }

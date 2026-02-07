@@ -7,9 +7,26 @@ pub struct CreateBoardRequest {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    /// Optional initial columns. If omitted, creates default: Backlog, In Progress, Done
+    /// Optional initial columns. If omitted, creates default: Backlog, In Progress, Review, Done
     #[serde(default)]
     pub columns: Vec<String>,
+    /// Optional: make the board publicly listed (default: false = unlisted)
+    #[serde(default)]
+    pub is_public: bool,
+}
+
+/// Returned when creating a board. Includes the manage_key (shown only once).
+#[derive(Debug, Serialize)]
+pub struct CreateBoardResponse {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub columns: Vec<ColumnResponse>,
+    pub manage_key: String,
+    pub view_url: String,
+    pub manage_url: String,
+    pub api_base: String,
+    pub created_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -17,10 +34,10 @@ pub struct BoardResponse {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub owner: String,
     pub columns: Vec<ColumnResponse>,
     pub task_count: usize,
     pub archived: bool,
+    pub is_public: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -32,6 +49,7 @@ pub struct BoardSummary {
     pub description: String,
     pub task_count: i64,
     pub archived: bool,
+    pub is_public: bool,
     pub created_at: String,
 }
 
@@ -73,6 +91,9 @@ pub struct CreateTaskRequest {
     #[serde(default = "default_metadata")]
     pub metadata: serde_json::Value,
     pub due_at: Option<String>,
+    /// Optional: identify who created this task (free text, e.g. "nanook", "jordan")
+    #[serde(default)]
+    pub actor_name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,6 +106,9 @@ pub struct UpdateTaskRequest {
     pub labels: Option<Vec<String>>,
     pub metadata: Option<serde_json::Value>,
     pub due_at: Option<String>,
+    /// Optional: identify who made this update
+    #[serde(default)]
+    pub actor_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,54 +148,6 @@ pub struct TaskEventResponse {
     pub actor: String,
     pub data: serde_json::Value,
     pub created_at: String,
-}
-
-// ============ API Keys ============
-
-#[derive(Debug, Deserialize)]
-pub struct CreateKeyRequest {
-    pub name: String,
-    /// Optional agent identifier (e.g. "nanook", "claude-agent-1")
-    pub agent_id: Option<String>,
-    #[serde(default = "default_rate_limit")]
-    pub rate_limit: i64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct KeyResponse {
-    pub id: String,
-    pub name: String,
-    pub agent_id: Option<String>,
-    pub key: Option<String>,
-    pub created_at: String,
-    pub last_used_at: Option<String>,
-    pub requests_count: i64,
-    pub rate_limit: i64,
-    pub active: bool,
-}
-
-// ============ Board Collaborators ============
-
-#[derive(Debug, Deserialize)]
-pub struct AddCollaboratorRequest {
-    pub key_id: String,
-    /// Role: "viewer", "editor", or "admin"
-    #[serde(default = "default_collaborator_role")]
-    pub role: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CollaboratorResponse {
-    pub key_id: String,
-    pub key_name: String,
-    pub agent_id: Option<String>,
-    pub role: String,
-    pub added_by: String,
-    pub created_at: String,
-}
-
-fn default_collaborator_role() -> String {
-    "editor".to_string()
 }
 
 // ============ Search ============
@@ -253,8 +229,6 @@ pub struct CreateWebhookRequest {
     pub url: String,
     /// Optional filter: list of event types to subscribe to.
     /// If empty, all events are delivered.
-    /// Valid types: task.created, task.updated, task.deleted, task.claimed,
-    /// task.released, task.moved, task.reordered, task.comment
     #[serde(default)]
     pub events: Vec<String>,
 }
@@ -336,8 +310,4 @@ pub struct PaginatedResponse<T: Serialize> {
 
 fn default_metadata() -> serde_json::Value {
     serde_json::json!({})
-}
-
-fn default_rate_limit() -> i64 {
-    100
 }

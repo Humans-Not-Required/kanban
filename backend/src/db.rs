@@ -22,30 +22,18 @@ pub fn init_db() -> Result<DbPool, String> {
 
     conn.execute_batch(
         "
-        -- API keys for authentication
-        CREATE TABLE IF NOT EXISTS api_keys (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            key_hash TEXT NOT NULL UNIQUE,
-            is_admin INTEGER NOT NULL DEFAULT 0,
-            agent_id TEXT,
-            rate_limit INTEGER NOT NULL DEFAULT 100,
-            active INTEGER NOT NULL DEFAULT 1,
-            requests_count INTEGER NOT NULL DEFAULT 0,
-            last_used_at TEXT,
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-
         -- Boards group related tasks
+        -- No user accounts: board creation returns a manage_key token.
+        -- Anyone with the board UUID can read; manage_key required to write.
         CREATE TABLE IF NOT EXISTS boards (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT NOT NULL DEFAULT '',
-            owner_key_id TEXT NOT NULL,
+            manage_key_hash TEXT NOT NULL,
+            is_public INTEGER NOT NULL DEFAULT 0,
             archived INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (owner_key_id) REFERENCES api_keys(id)
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
         -- Columns define workflow stages within a board
@@ -68,7 +56,7 @@ pub fn init_db() -> Result<DbPool, String> {
             description TEXT NOT NULL DEFAULT '',
             priority INTEGER NOT NULL DEFAULT 0,
             position INTEGER NOT NULL DEFAULT 0,
-            created_by TEXT NOT NULL,
+            created_by TEXT NOT NULL DEFAULT '',
             assigned_to TEXT,
             claimed_by TEXT,
             claimed_at TEXT,
@@ -93,18 +81,6 @@ pub fn init_db() -> Result<DbPool, String> {
             FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );
 
-        -- Board collaborators for access control
-        CREATE TABLE IF NOT EXISTS board_collaborators (
-            board_id TEXT NOT NULL,
-            key_id TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'editor',
-            added_by TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            PRIMARY KEY (board_id, key_id),
-            FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
-            FOREIGN KEY (key_id) REFERENCES api_keys(id)
-        );
-
         -- Webhooks for external notifications
         CREATE TABLE IF NOT EXISTS webhooks (
             id TEXT PRIMARY KEY,
@@ -112,7 +88,7 @@ pub fn init_db() -> Result<DbPool, String> {
             url TEXT NOT NULL,
             secret TEXT NOT NULL,
             events TEXT NOT NULL DEFAULT '[]',
-            created_by TEXT NOT NULL,
+            created_by TEXT NOT NULL DEFAULT '',
             active INTEGER NOT NULL DEFAULT 1,
             failure_count INTEGER NOT NULL DEFAULT 0,
             last_triggered_at TEXT,
@@ -126,7 +102,7 @@ pub fn init_db() -> Result<DbPool, String> {
             board_id TEXT NOT NULL,
             blocker_task_id TEXT NOT NULL,
             blocked_task_id TEXT NOT NULL,
-            created_by TEXT NOT NULL,
+            created_by TEXT NOT NULL DEFAULT '',
             note TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
@@ -142,39 +118,14 @@ pub fn init_db() -> Result<DbPool, String> {
         CREATE INDEX IF NOT EXISTS idx_tasks_claimed ON tasks(claimed_by);
         CREATE INDEX IF NOT EXISTS idx_events_task ON task_events(task_id);
         CREATE INDEX IF NOT EXISTS idx_columns_board ON columns(board_id);
-        CREATE INDEX IF NOT EXISTS idx_collaborators_key ON board_collaborators(key_id);
         CREATE INDEX IF NOT EXISTS idx_webhooks_board ON webhooks(board_id);
         CREATE INDEX IF NOT EXISTS idx_deps_blocker ON task_dependencies(blocker_task_id);
         CREATE INDEX IF NOT EXISTS idx_deps_blocked ON task_dependencies(blocked_task_id);
         CREATE INDEX IF NOT EXISTS idx_deps_board ON task_dependencies(board_id);
+        CREATE INDEX IF NOT EXISTS idx_boards_public ON boards(is_public);
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))?;
-
-    // Create admin key if none exists
-    let key_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM api_keys", [], |row| row.get(0))
-        .unwrap_or(0);
-
-    if key_count == 0 {
-        let admin_key = format!(
-            "kb_admin_{}",
-            uuid::Uuid::new_v4().to_string().replace('-', "")
-        );
-        let key_hash = hash_key(&admin_key);
-        let id = uuid::Uuid::new_v4().to_string();
-
-        conn.execute(
-            "INSERT INTO api_keys (id, name, key_hash, is_admin, agent_id) VALUES (?1, ?2, ?3, 1, 'admin')",
-            rusqlite::params![id, "Admin", key_hash],
-        )
-        .map_err(|e| format!("Failed to create admin key: {}", e))?;
-
-        println!("╔══════════════════════════════════════════════════════════╗");
-        println!("║  ADMIN API KEY (save this — it won't be shown again):   ║");
-        println!("║  {}  ║", admin_key);
-        println!("╚══════════════════════════════════════════════════════════╝");
-    }
 
     Ok(Mutex::new(conn))
 }

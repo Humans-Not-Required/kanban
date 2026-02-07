@@ -7,9 +7,9 @@ use rocket::tokio::select;
 use rocket::tokio::time::Duration;
 use rocket::{Shutdown, State};
 
-use crate::access::{self, BoardRole};
-use crate::auth::AuthenticatedKey;
-use crate::db::DbPool;
+use crate::access;
+use crate::auth::BoardToken;
+use crate::db::{hash_key, DbPool};
 use crate::events::EventBus;
 use crate::models::*;
 
@@ -30,16 +30,16 @@ pub fn openapi() -> (ContentType, &'static str) {
 
 // ============ SSE Event Stream ============
 
+/// Public: anyone with the board UUID can subscribe to events.
 #[get("/boards/<board_id>/events/stream")]
 pub fn board_event_stream(
     board_id: &str,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
     bus: &State<EventBus>,
     mut shutdown: Shutdown,
 ) -> Result<EventStream![], (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+    access::require_board_exists(&conn, board_id)?;
     drop(conn);
 
     let mut rx = bus.subscribe(board_id);
@@ -65,12 +65,12 @@ pub fn board_event_stream(
 
 // ============ Boards ============
 
+/// Create a board — no auth required. Returns a manage_key (shown only once).
 #[post("/boards", format = "json", data = "<req>")]
 pub fn create_board(
     req: Json<CreateBoardRequest>,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
-) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
+) -> Result<Json<CreateBoardResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
 
     if req.name.trim().is_empty() {
@@ -85,11 +85,14 @@ pub fn create_board(
     }
 
     let board_id = uuid::Uuid::new_v4().to_string();
+    let manage_key = format!("kb_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+    let manage_key_hash = hash_key(&manage_key);
+
     let conn = db.lock().unwrap();
 
     conn.execute(
-        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, ?2, ?3, ?4)",
-        rusqlite::params![board_id, req.name.trim(), req.description, key.id],
+        "INSERT INTO boards (id, name, description, manage_key_hash, is_public) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![board_id, req.name.trim(), req.description, manage_key_hash, req.is_public as i32],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
@@ -123,108 +126,77 @@ pub fn create_board(
         });
     }
 
-    let owner = key.agent_id.unwrap_or_else(|| key.id.clone());
-
-    Ok(Json(BoardResponse {
-        id: board_id,
+    Ok(Json(CreateBoardResponse {
+        id: board_id.clone(),
         name: req.name,
         description: req.description,
-        owner,
         columns: col_responses,
-        task_count: 0,
-        archived: false,
+        manage_key: manage_key.clone(),
+        view_url: format!("/board/{}", board_id),
+        manage_url: format!("/board/{}?key={}", board_id, manage_key),
+        api_base: format!("/api/v1/boards/{}", board_id),
         created_at: chrono::Utc::now().to_rfc3339(),
-        updated_at: chrono::Utc::now().to_rfc3339(),
     }))
 }
 
+/// List boards — public boards only (unless authenticated, future feature).
 #[get("/boards?<include_archived>")]
 pub fn list_boards(
     include_archived: Option<bool>,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<BoardSummary>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     let show_archived = include_archived.unwrap_or(false);
 
-    // Admin keys see all boards; regular keys see boards they own, collaborate on, or have tasks in
     let archive_filter = if show_archived {
         ""
     } else {
         " AND b.archived = 0"
     };
 
-    let (sql, param1, param2) = if key.is_admin {
-        (
-            format!(
-                "SELECT b.id, b.name, b.description, b.archived, b.created_at,
-                    (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
-                 FROM boards b
-                 WHERE 1=1{}
-                 ORDER BY b.created_at DESC",
-                archive_filter
-            ),
-            String::new(),
-            String::new(),
-        )
-    } else {
-        let agent = key.agent_id.as_deref().unwrap_or(&key.id);
-        (
-            format!(
-                "SELECT b.id, b.name, b.description, b.archived, b.created_at,
-                    (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
-                 FROM boards b
-                 WHERE (b.owner_key_id = ?1
-                    OR b.id IN (SELECT board_id FROM board_collaborators WHERE key_id = ?1)
-                    OR b.id IN (SELECT DISTINCT board_id FROM tasks WHERE created_by = ?1 OR assigned_to = ?2 OR claimed_by = ?2)){}
-                 ORDER BY b.created_at DESC",
-                archive_filter
-            ),
-            key.id.clone(),
-            agent.to_string(),
-        )
-    };
+    // Only show public boards in the listing
+    let sql = format!(
+        "SELECT b.id, b.name, b.description, b.archived, b.is_public, b.created_at,
+                (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
+         FROM boards b
+         WHERE b.is_public = 1{}
+         ORDER BY b.created_at DESC",
+        archive_filter
+    );
 
     let mut stmt = conn.prepare(&sql).map_err(|e| db_error(&e.to_string()))?;
 
-    let board_mapper = |row: &rusqlite::Row| {
-        Ok(BoardSummary {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            description: row.get(2)?,
-            archived: row.get::<_, i32>(3)? == 1,
-            created_at: row.get(4)?,
-            task_count: row.get(5)?,
+    let boards: Vec<BoardSummary> = stmt
+        .query_map([], |row| {
+            Ok(BoardSummary {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                description: row.get(2)?,
+                archived: row.get::<_, i32>(3)? == 1,
+                is_public: row.get::<_, i32>(4)? == 1,
+                created_at: row.get(5)?,
+                task_count: row.get(6)?,
+            })
         })
-    };
-
-    let boards: Vec<BoardSummary> = if key.is_admin {
-        stmt.query_map([], board_mapper)
-            .map_err(|e| db_error(&e.to_string()))?
-            .filter_map(|r| r.ok())
-            .collect()
-    } else {
-        stmt.query_map(rusqlite::params![param1, param2], board_mapper)
-            .map_err(|e| db_error(&e.to_string()))?
-            .filter_map(|r| r.ok())
-            .collect()
-    };
+        .map_err(|e| db_error(&e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect();
 
     Ok(Json(boards))
 }
 
 // ============ Board Archive / Unarchive ============
 
-/// Archive a board — prevents new task creation and modifications.
-/// Requires Admin role on the board.
+/// Archive a board — requires manage key.
 #[post("/boards/<board_id>/archive")]
 pub fn archive_board(
     board_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
 
     let already_archived: bool = conn
         .query_row(
@@ -254,16 +226,16 @@ pub fn archive_board(
     load_board_response(&conn, board_id)
 }
 
-/// Unarchive a board — restores normal operations.
-/// Requires Admin role on the board.
+/// Unarchive a board — requires manage key.
 #[post("/boards/<board_id>/unarchive")]
 pub fn unarchive_board(
     board_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
 
     let is_archived: bool = conn
         .query_row(
@@ -293,32 +265,32 @@ pub fn unarchive_board(
     load_board_response(&conn, board_id)
 }
 
+/// Get board details — public, no auth required. Anyone with the UUID can view.
 #[get("/boards/<board_id>")]
 pub fn get_board(
     board_id: &str,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
     load_board_response(&conn, board_id)
 }
 
 // ============ Columns ============
 
+/// Create a column — requires manage key.
 #[post("/boards/<board_id>/columns", format = "json", data = "<req>")]
 pub fn create_column(
     board_id: &str,
     req: Json<CreateColumnRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<ColumnResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
 
-    // Require admin role to modify board structure
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
-    require_not_archived(&conn, board_id)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
     let position = req.position.unwrap_or_else(|| {
         conn.query_row(
@@ -347,20 +319,21 @@ pub fn create_column(
 
 // ============ Tasks ============
 
+/// Create a task — requires manage key.
 #[post("/boards/<board_id>/tasks", format = "json", data = "<req>")]
 pub fn create_task(
     board_id: &str,
     req: Json<CreateTaskRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
 
-    // Require editor role to create tasks
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
     if req.title.trim().is_empty() {
         return Err((
@@ -376,7 +349,6 @@ pub fn create_task(
     // Resolve column: use provided ID, or first column of the board
     let column_id = match req.column_id {
         Some(ref cid) => {
-            // Verify column belongs to board
             let exists: bool = conn
                 .query_row(
                     "SELECT COUNT(*) > 0 FROM columns WHERE id = ?1 AND board_id = ?2",
@@ -414,18 +386,21 @@ pub fn create_task(
             })?,
     };
 
-    // Check WIP limit before creating task in this column
+    // Check WIP limit
     check_wip_limit(&conn, &column_id, None)?;
 
     let task_id = uuid::Uuid::new_v4().to_string();
-    let creator = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let creator = if req.actor_name.is_empty() {
+        "anonymous".to_string()
+    } else {
+        req.actor_name.clone()
+    };
     let labels_json = serde_json::to_string(&req.labels).unwrap_or_else(|_| "[]".to_string());
     let metadata_json = serde_json::to_string(&req.metadata).unwrap_or_else(|_| "{}".to_string());
 
-    // Determine position: explicit or append to end
+    // Determine position
     let position: i32 = if let Some(pos) = req.position {
         let pos = pos.max(0);
-        // Shift existing tasks to make room
         conn.execute(
             "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= ?2",
             rusqlite::params![column_id, pos],
@@ -461,7 +436,6 @@ pub fn create_task(
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
-    // Log creation event
     let event_data = serde_json::json!({"title": req.title, "task_id": task_id, "column_id": column_id, "creator": creator});
     log_event(&conn, &task_id, "created", &creator, &event_data);
 
@@ -474,6 +448,7 @@ pub fn create_task(
     load_task_response(&conn, &task_id)
 }
 
+/// Search tasks — public, no auth required.
 #[allow(clippy::too_many_arguments)]
 #[get(
     "/boards/<board_id>/tasks/search?<q>&<column>&<assigned>&<priority>&<label>&<limit>&<offset>"
@@ -487,11 +462,10 @@ pub fn search_tasks(
     label: Option<&str>,
     limit: Option<i64>,
     offset: Option<i64>,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<SearchResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+    access::require_board_exists(&conn, board_id)?;
 
     let query = q.trim();
     if query.is_empty() {
@@ -541,7 +515,7 @@ pub fn search_tasks(
         sql.push_str(&format!(" AND t.labels LIKE ?{}", params.len()));
     }
 
-    // Count total matches (for pagination)
+    // Count total matches
     let count_sql = sql.replace(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
@@ -555,7 +529,6 @@ pub fn search_tasks(
         .query_row(&count_sql, count_param_refs.as_slice(), |row| row.get(0))
         .unwrap_or(0);
 
-    // Order by relevance: title matches first, then by priority
     sql.push_str(&format!(
         " ORDER BY CASE WHEN t.title LIKE ?{p} THEN 0 ELSE 1 END, t.priority DESC, t.updated_at DESC LIMIT ?{l} OFFSET ?{o}",
         p = params.len() + 1,
@@ -584,6 +557,7 @@ pub fn search_tasks(
     }))
 }
 
+/// List tasks — public, no auth required.
 #[allow(clippy::too_many_arguments)]
 #[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>")]
 pub fn list_tasks(
@@ -593,11 +567,10 @@ pub fn list_tasks(
     claimed: Option<&str>,
     priority: Option<i32>,
     label: Option<&str>,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<TaskResponse>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+    access::require_board_exists(&conn, board_id)?;
 
     let mut sql = String::from(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
@@ -645,35 +618,36 @@ pub fn list_tasks(
     Ok(Json(tasks))
 }
 
+/// Get a single task — public, no auth required.
 #[get("/boards/<board_id>/tasks/<task_id>")]
 pub fn get_task(
     board_id: &str,
     task_id: &str,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+    access::require_board_exists(&conn, board_id)?;
     load_task_response(&conn, task_id)
 }
 
+/// Update a task — requires manage key.
 #[patch("/boards/<board_id>/tasks/<task_id>", format = "json", data = "<req>")]
 pub fn update_task(
     board_id: &str,
     task_id: &str,
     req: Json<UpdateTaskRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
 
-    // Require editor role to update tasks
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
     let _existing = load_task_response(&conn, task_id)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let actor = req.actor_name.clone().unwrap_or_else(|| "anonymous".to_string());
     let mut changes = serde_json::Map::new();
 
     if let Some(ref title) = req.title {
@@ -695,7 +669,6 @@ pub fn update_task(
     }
 
     if let Some(ref col_id) = req.column_id {
-        // Check WIP limit on target column (exclude this task)
         check_wip_limit(&conn, col_id, Some(task_id))?;
         conn.execute(
             "UPDATE tasks SET column_id = ?1, updated_at = datetime('now') WHERE id = ?2",
@@ -769,24 +742,24 @@ pub fn update_task(
     load_task_response(&conn, task_id)
 }
 
+/// Delete a task — requires manage key.
 #[delete("/boards/<board_id>/tasks/<task_id>")]
 pub fn delete_task(
     board_id: &str,
     task_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    let conn_check = db.lock().unwrap();
-    access::require_role(&conn_check, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn_check, board_id)?;
-    drop(conn_check);
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
     let conn = db.lock().unwrap();
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
+
     let affected = conn
         .execute(
-            "DELETE FROM tasks WHERE id = ?1",
-            rusqlite::params![task_id],
+            "DELETE FROM tasks WHERE id = ?1 AND board_id = ?2",
+            rusqlite::params![task_id, board_id],
         )
         .unwrap_or(0);
 
@@ -794,7 +767,7 @@ pub fn delete_task(
         bus.emit(crate::events::BoardEvent {
             event: "task.deleted".to_string(),
             board_id: board_id.to_string(),
-            data: serde_json::json!({"task_id": task_id, "actor": actor}),
+            data: serde_json::json!({"task_id": task_id}),
         });
         Ok(Json(serde_json::json!({"deleted": true, "id": task_id})))
     } else {
@@ -804,27 +777,28 @@ pub fn delete_task(
 
 // ============ Agent-First: Claim / Release ============
 
-/// Claim a task — marks you as actively working on it.
-/// Different from assignment: assignment is "this is your responsibility",
-/// claiming is "I'm working on this right now". Prevents conflicts.
-#[post("/boards/<board_id>/tasks/<task_id>/claim")]
+/// Claim a task — requires manage key.
+#[post("/boards/<board_id>/tasks/<task_id>/claim?<agent>")]
 pub fn claim_task(
     board_id: &str,
     task_id: &str,
-    key: AuthenticatedKey,
+    agent: Option<&str>,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
+
+    let actor = agent.unwrap_or("anonymous").to_string();
 
     // Check if already claimed by someone else
     let current_claim: Option<String> = conn
         .query_row(
-            "SELECT claimed_by FROM tasks WHERE id = ?1",
-            rusqlite::params![task_id],
+            "SELECT claimed_by FROM tasks WHERE id = ?1 AND board_id = ?2",
+            rusqlite::params![task_id, board_id],
             |row| row.get(0),
         )
         .map_err(|_| not_found("Task"))?;
@@ -840,12 +814,11 @@ pub fn claim_task(
                 }),
             ));
         }
-        // Already claimed by us — idempotent, just return
     }
 
     conn.execute(
-        "UPDATE tasks SET claimed_by = ?1, claimed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?2",
-        rusqlite::params![actor, task_id],
+        "UPDATE tasks SET claimed_by = ?1, claimed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?2 AND board_id = ?3",
+        rusqlite::params![actor, task_id, board_id],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
@@ -861,28 +834,28 @@ pub fn claim_task(
     load_task_response(&conn, task_id)
 }
 
-/// Release a claimed task — you're no longer working on it.
+/// Release a claimed task — requires manage key.
 #[post("/boards/<board_id>/tasks/<task_id>/release")]
 pub fn release_task(
     board_id: &str,
     task_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
     conn.execute(
-        "UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, updated_at = datetime('now') WHERE id = ?1",
-        rusqlite::params![task_id],
+        "UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, updated_at = datetime('now') WHERE id = ?1 AND board_id = ?2",
+        rusqlite::params![task_id, board_id],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
-    let event_data = serde_json::json!({"task_id": task_id, "agent": actor});
-    log_event(&conn, task_id, "released", &actor, &event_data);
+    let event_data = serde_json::json!({"task_id": task_id});
+    log_event(&conn, task_id, "released", "anonymous", &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.released".to_string(),
@@ -893,22 +866,20 @@ pub fn release_task(
     load_task_response(&conn, task_id)
 }
 
-/// Move a task to a different column (workflow transition)
+/// Move a task to a different column — requires manage key.
 #[post("/boards/<board_id>/tasks/<task_id>/move/<target_column_id>")]
 pub fn move_task(
     board_id: &str,
     task_id: &str,
     target_column_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
-
-    // Require editor role to move tasks
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
     // Verify target column belongs to the board
     let col_exists: bool = conn
@@ -930,19 +901,16 @@ pub fn move_task(
         ));
     }
 
-    // Check WIP limit on target column (exclude this task since it's being moved)
     check_wip_limit(&conn, target_column_id, Some(task_id))?;
 
-    // Get current column for the event log
     let from_col: String = conn
         .query_row(
-            "SELECT column_id FROM tasks WHERE id = ?1",
-            rusqlite::params![task_id],
+            "SELECT column_id FROM tasks WHERE id = ?1 AND board_id = ?2",
+            rusqlite::params![task_id, board_id],
             |row| row.get(0),
         )
         .map_err(|_| not_found("Task"))?;
 
-    // Check if moving to a "done" column (last column by position)
     let is_done_column: bool = conn
         .query_row(
             "SELECT position = (SELECT MAX(position) FROM columns WHERE board_id = ?1) FROM columns WHERE id = ?2",
@@ -953,20 +921,20 @@ pub fn move_task(
 
     if is_done_column {
         conn.execute(
-            "UPDATE tasks SET column_id = ?1, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?2",
-            rusqlite::params![target_column_id, task_id],
+            "UPDATE tasks SET column_id = ?1, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?2 AND board_id = ?3",
+            rusqlite::params![target_column_id, task_id, board_id],
         )
         .map_err(|e| db_error(&e.to_string()))?;
     } else {
         conn.execute(
-            "UPDATE tasks SET column_id = ?1, completed_at = NULL, updated_at = datetime('now') WHERE id = ?2",
-            rusqlite::params![target_column_id, task_id],
+            "UPDATE tasks SET column_id = ?1, completed_at = NULL, updated_at = datetime('now') WHERE id = ?2 AND board_id = ?3",
+            rusqlite::params![target_column_id, task_id, board_id],
         )
         .map_err(|e| db_error(&e.to_string()))?;
     }
 
-    let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": target_column_id, "actor": actor});
-    log_event(&conn, task_id, "moved", &actor, &event_data);
+    let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": target_column_id});
+    log_event(&conn, task_id, "moved", "anonymous", &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.moved".to_string(),
@@ -979,8 +947,7 @@ pub fn move_task(
 
 // ============ Task Reorder ============
 
-/// Reorder a task within its column (or move + reorder in one call).
-/// Sets the task to the given position and shifts other tasks to make room.
+/// Reorder a task — requires manage key.
 #[post(
     "/boards/<board_id>/tasks/<task_id>/reorder",
     format = "json",
@@ -990,17 +957,16 @@ pub fn reorder_task(
     board_id: &str,
     task_id: &str,
     req: Json<ReorderTaskRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
-    // Get the task's current column
     let current_column: String = conn
         .query_row(
             "SELECT column_id FROM tasks WHERE id = ?1 AND board_id = ?2",
@@ -1012,7 +978,6 @@ pub fn reorder_task(
     let target_column = req.column_id.as_deref().unwrap_or(&current_column);
     let moving_columns = target_column != current_column;
 
-    // If moving to a different column, verify it belongs to the board and check WIP
     if moving_columns {
         let col_exists: bool = conn
             .query_row(
@@ -1038,7 +1003,6 @@ pub fn reorder_task(
 
     let new_pos = req.position.max(0);
 
-    // If staying in the same column, close the gap where the task was
     if !moving_columns {
         conn.execute(
             "UPDATE tasks SET position = position - 1 WHERE column_id = ?1 AND position > (SELECT position FROM tasks WHERE id = ?2) AND id != ?2",
@@ -1047,16 +1011,13 @@ pub fn reorder_task(
         .map_err(|e| db_error(&e.to_string()))?;
     }
 
-    // Shift tasks at and after the target position down to make room
     conn.execute(
         "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= ?2 AND id != ?3",
         rusqlite::params![target_column, new_pos, task_id],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
-    // Place the task at the target position (and column if moving)
     if moving_columns {
-        // Check if moving to a "done" column
         let is_done_column: bool = conn
             .query_row(
                 "SELECT position = (SELECT MAX(position) FROM columns WHERE board_id = ?1) FROM columns WHERE id = ?2",
@@ -1080,12 +1041,11 @@ pub fn reorder_task(
         )
         .map_err(|e| db_error(&e.to_string()))?;
 
-        // Close the gap in the old column
         conn.execute(
             "UPDATE tasks SET position = position - 1 WHERE column_id = ?1 AND position > 0 AND id NOT IN (SELECT id FROM tasks WHERE column_id = ?1 AND position = 0) ORDER BY position",
             rusqlite::params![current_column],
         )
-        .ok(); // Best-effort gap cleanup
+        .ok();
     } else {
         conn.execute(
             "UPDATE tasks SET position = ?1, updated_at = datetime('now') WHERE id = ?2",
@@ -1099,9 +1059,8 @@ pub fn reorder_task(
         "position": new_pos,
         "column_id": target_column,
         "from_column": current_column,
-        "actor": actor,
     });
-    log_event(&conn, task_id, "reordered", &actor, &event_data);
+    log_event(&conn, task_id, "reordered", "anonymous", &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.reordered".to_string(),
@@ -1114,22 +1073,20 @@ pub fn reorder_task(
 
 // ============ Batch Operations ============
 
-/// Execute multiple operations on tasks in a single request.
-/// Max 50 operations per request. Each operation is independent —
-/// failures in one don't roll back others.
+/// Batch operations — requires manage key.
 #[post("/boards/<board_id>/tasks/batch", format = "json", data = "<req>")]
 pub fn batch_tasks(
     board_id: &str,
     req: Json<BatchRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<BatchResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
     if req.operations.is_empty() {
         return Err((
@@ -1163,7 +1120,7 @@ pub fn batch_tasks(
                 task_ids,
                 column_id,
             } => {
-                let result = batch_move(&conn, board_id, task_ids, column_id, &actor, bus);
+                let result = batch_move(&conn, board_id, task_ids, column_id, bus);
                 match result {
                     Ok(affected) => {
                         succeeded += 1;
@@ -1188,7 +1145,7 @@ pub fn batch_tasks(
                 }
             }
             BatchOperation::Update { task_ids, fields } => {
-                let result = batch_update(&conn, board_id, task_ids, fields, &actor, bus);
+                let result = batch_update(&conn, board_id, task_ids, fields, bus);
                 match result {
                     Ok(affected) => {
                         succeeded += 1;
@@ -1213,7 +1170,7 @@ pub fn batch_tasks(
                 }
             }
             BatchOperation::Delete { task_ids } => {
-                let result = batch_delete(&conn, board_id, task_ids, &actor, bus);
+                let result = batch_delete(&conn, board_id, task_ids, bus);
                 match result {
                     Ok(affected) => {
                         succeeded += 1;
@@ -1253,10 +1210,8 @@ fn batch_move(
     board_id: &str,
     task_ids: &[String],
     column_id: &str,
-    actor: &str,
     bus: &EventBus,
 ) -> Result<usize, String> {
-    // Verify column belongs to board
     let col_exists: bool = conn
         .query_row(
             "SELECT COUNT(*) > 0 FROM columns WHERE id = ?1 AND board_id = ?2",
@@ -1269,7 +1224,6 @@ fn batch_move(
         return Err("Target column not found in this board".to_string());
     }
 
-    // Check if target is the "done" column
     let is_done_column: bool = conn
         .query_row(
             "SELECT position = (SELECT MAX(position) FROM columns WHERE board_id = ?1) FROM columns WHERE id = ?2",
@@ -1280,7 +1234,6 @@ fn batch_move(
 
     let mut affected = 0;
     for task_id in task_ids {
-        // Verify task belongs to this board
         let belongs: bool = conn
             .query_row(
                 "SELECT COUNT(*) > 0 FROM tasks WHERE id = ?1 AND board_id = ?2",
@@ -1290,7 +1243,7 @@ fn batch_move(
             .unwrap_or(false);
 
         if !belongs {
-            continue; // Skip tasks not in this board
+            continue;
         }
 
         let from_col: String = conn
@@ -1317,8 +1270,8 @@ fn batch_move(
 
         if rows > 0 {
             affected += 1;
-            let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": column_id, "actor": actor, "batch": true});
-            log_event(conn, task_id, "moved", actor, &event_data);
+            let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": column_id, "batch": true});
+            log_event(conn, task_id, "moved", "batch", &event_data);
             bus.emit(crate::events::BoardEvent {
                 event: "task.moved".to_string(),
                 board_id: board_id.to_string(),
@@ -1335,13 +1288,11 @@ fn batch_update(
     board_id: &str,
     task_ids: &[String],
     fields: &BatchUpdateFields,
-    actor: &str,
     bus: &EventBus,
 ) -> Result<usize, String> {
     let mut affected = 0;
 
     for task_id in task_ids {
-        // Verify task belongs to this board
         let belongs: bool = conn
             .query_row(
                 "SELECT COUNT(*) > 0 FROM tasks WHERE id = ?1 AND board_id = ?2",
@@ -1396,11 +1347,10 @@ fn batch_update(
         if !changes.is_empty() {
             affected += 1;
             let event_data = serde_json::Value::Object(changes.clone());
-            log_event(conn, task_id, "updated", actor, &event_data);
+            log_event(conn, task_id, "updated", "batch", &event_data);
 
             let mut emit_data = changes;
             emit_data.insert("task_id".into(), serde_json::json!(task_id));
-            emit_data.insert("actor".into(), serde_json::json!(actor));
             emit_data.insert("batch".into(), serde_json::json!(true));
             bus.emit(crate::events::BoardEvent {
                 event: "task.updated".to_string(),
@@ -1417,7 +1367,6 @@ fn batch_delete(
     conn: &Connection,
     board_id: &str,
     task_ids: &[String],
-    actor: &str,
     bus: &EventBus,
 ) -> Result<usize, String> {
     let mut affected = 0;
@@ -1435,7 +1384,7 @@ fn batch_delete(
             bus.emit(crate::events::BoardEvent {
                 event: "task.deleted".to_string(),
                 board_id: board_id.to_string(),
-                data: serde_json::json!({"task_id": task_id, "actor": actor, "batch": true}),
+                data: serde_json::json!({"task_id": task_id, "batch": true}),
             });
         }
     }
@@ -1445,15 +1394,15 @@ fn batch_delete(
 
 // ============ Task Events ============
 
+/// Get task events — public, no auth required.
 #[get("/boards/<board_id>/tasks/<task_id>/events")]
 pub fn get_task_events(
     board_id: &str,
     task_id: &str,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<TaskEventResponse>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+    access::require_board_exists(&conn, board_id)?;
 
     let mut stmt = conn
         .prepare(
@@ -1481,7 +1430,7 @@ pub fn get_task_events(
     Ok(Json(events))
 }
 
-/// Post a comment on a task
+/// Post a comment on a task — requires manage key.
 #[post(
     "/boards/<board_id>/tasks/<task_id>/comment",
     format = "json",
@@ -1491,14 +1440,19 @@ pub fn comment_on_task(
     board_id: &str,
     task_id: &str,
     body: Json<serde_json::Value>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskEventResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    // Viewers can comment (reading + lightweight contribution)
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+
+    let actor = body
+        .get("actor_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("anonymous")
+        .to_string();
 
     let message = body.get("message").and_then(|v| v.as_str()).unwrap_or("");
 
@@ -1514,7 +1468,7 @@ pub fn comment_on_task(
     }
 
     let event_id = uuid::Uuid::new_v4().to_string();
-    let data = serde_json::json!({"message": message});
+    let data = serde_json::json!({"message": message, "actor": actor});
     let data_str = serde_json::to_string(&data).unwrap();
 
     conn.execute(
@@ -1546,295 +1500,21 @@ pub fn comment_on_task(
     }))
 }
 
-// ============ Board Collaborators ============
-
-/// List collaborators on a board
-#[get("/boards/<board_id>/collaborators")]
-pub fn list_collaborators(
-    board_id: &str,
-    key: AuthenticatedKey,
-    db: &State<DbPool>,
-) -> Result<Json<Vec<CollaboratorResponse>>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
-
-    let mut stmt = conn
-        .prepare(
-            "SELECT bc.key_id, k.name, k.agent_id, bc.role, bc.added_by, bc.created_at
-             FROM board_collaborators bc
-             JOIN api_keys k ON bc.key_id = k.id
-             WHERE bc.board_id = ?1
-             ORDER BY bc.created_at ASC",
-        )
-        .map_err(|e| db_error(&e.to_string()))?;
-
-    let collabs = stmt
-        .query_map(rusqlite::params![board_id], |row| {
-            Ok(CollaboratorResponse {
-                key_id: row.get(0)?,
-                key_name: row.get(1)?,
-                agent_id: row.get(2)?,
-                role: row.get(3)?,
-                added_by: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })
-        .map_err(|e| db_error(&e.to_string()))?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(Json(collabs))
-}
-
-/// Add a collaborator to a board (requires admin role on the board)
-#[post("/boards/<board_id>/collaborators", format = "json", data = "<req>")]
-pub fn add_collaborator(
-    board_id: &str,
-    req: Json<AddCollaboratorRequest>,
-    key: AuthenticatedKey,
-    db: &State<DbPool>,
-) -> Result<Json<CollaboratorResponse>, (Status, Json<ApiError>)> {
-    let req = req.into_inner();
-    let conn = db.lock().unwrap();
-
-    // Require admin role on the board to manage collaborators
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
-
-    // Validate role
-    let valid_roles = ["viewer", "editor", "admin"];
-    if !valid_roles.contains(&req.role.as_str()) {
-        return Err((
-            Status::BadRequest,
-            Json(ApiError {
-                error: format!(
-                    "Invalid role '{}'. Valid roles: viewer, editor, admin",
-                    req.role
-                ),
-                code: "INVALID_ROLE".to_string(),
-                status: 400,
-            }),
-        ));
-    }
-
-    // Can't add the board owner as a collaborator
-    let is_owner: bool = conn
-        .query_row(
-            "SELECT COUNT(*) > 0 FROM boards WHERE id = ?1 AND owner_key_id = ?2",
-            rusqlite::params![board_id, req.key_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(false);
-
-    if is_owner {
-        return Err((
-            Status::BadRequest,
-            Json(ApiError {
-                error: "Cannot add the board owner as a collaborator".to_string(),
-                code: "IS_OWNER".to_string(),
-                status: 400,
-            }),
-        ));
-    }
-
-    // Verify the key exists and is active
-    let key_info = conn.query_row(
-        "SELECT name, agent_id FROM api_keys WHERE id = ?1 AND active = 1",
-        rusqlite::params![req.key_id],
-        |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
-    );
-
-    let (key_name, agent_id) = match key_info {
-        Ok(info) => info,
-        Err(_) => {
-            return Err((
-                Status::NotFound,
-                Json(ApiError {
-                    error: "API key not found or inactive".to_string(),
-                    code: "KEY_NOT_FOUND".to_string(),
-                    status: 404,
-                }),
-            ));
-        }
-    };
-
-    let adder = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
-
-    // Upsert: update role if already a collaborator
-    conn.execute(
-        "INSERT INTO board_collaborators (board_id, key_id, role, added_by)
-         VALUES (?1, ?2, ?3, ?4)
-         ON CONFLICT(board_id, key_id) DO UPDATE SET role = ?3",
-        rusqlite::params![board_id, req.key_id, req.role, adder],
-    )
-    .map_err(|e| db_error(&e.to_string()))?;
-
-    let created_at: String = conn
-        .query_row(
-            "SELECT created_at FROM board_collaborators WHERE board_id = ?1 AND key_id = ?2",
-            rusqlite::params![board_id, req.key_id],
-            |row| row.get(0),
-        )
-        .unwrap_or_else(|_| chrono::Utc::now().to_rfc3339());
-
-    Ok(Json(CollaboratorResponse {
-        key_id: req.key_id,
-        key_name,
-        agent_id,
-        role: req.role,
-        added_by: adder,
-        created_at,
-    }))
-}
-
-/// Remove a collaborator from a board (requires admin role on the board)
-#[delete("/boards/<board_id>/collaborators/<collab_key_id>")]
-pub fn remove_collaborator(
-    board_id: &str,
-    collab_key_id: &str,
-    key: AuthenticatedKey,
-    db: &State<DbPool>,
-) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
-
-    let affected = conn
-        .execute(
-            "DELETE FROM board_collaborators WHERE board_id = ?1 AND key_id = ?2",
-            rusqlite::params![board_id, collab_key_id],
-        )
-        .unwrap_or(0);
-
-    if affected > 0 {
-        Ok(Json(
-            serde_json::json!({"removed": true, "key_id": collab_key_id}),
-        ))
-    } else {
-        Err((
-            Status::NotFound,
-            Json(ApiError {
-                error: "Collaborator not found on this board".to_string(),
-                code: "NOT_FOUND".to_string(),
-                status: 404,
-            }),
-        ))
-    }
-}
-
-// ============ API Keys ============
-
-#[get("/keys")]
-pub fn list_keys(
-    key: AuthenticatedKey,
-    db: &State<DbPool>,
-) -> Result<Json<Vec<KeyResponse>>, (Status, Json<ApiError>)> {
-    if !key.is_admin {
-        return Err(forbidden());
-    }
-
-    let conn = db.lock().unwrap();
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, name, agent_id, created_at, last_used_at, requests_count, rate_limit, active
-             FROM api_keys ORDER BY created_at DESC",
-        )
-        .map_err(|e| db_error(&e.to_string()))?;
-
-    let keys = stmt
-        .query_map([], |row| {
-            Ok(KeyResponse {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                agent_id: row.get(2)?,
-                key: None,
-                created_at: row.get(3)?,
-                last_used_at: row.get(4)?,
-                requests_count: row.get(5)?,
-                rate_limit: row.get(6)?,
-                active: row.get::<_, i32>(7)? == 1,
-            })
-        })
-        .map_err(|e| db_error(&e.to_string()))?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(Json(keys))
-}
-
-#[post("/keys", format = "json", data = "<req>")]
-pub fn create_key(
-    req: Json<CreateKeyRequest>,
-    key: AuthenticatedKey,
-    db: &State<DbPool>,
-) -> Result<Json<KeyResponse>, (Status, Json<ApiError>)> {
-    if !key.is_admin {
-        return Err(forbidden());
-    }
-
-    let req = req.into_inner();
-    let new_key = format!("kb_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
-    let key_hash = crate::db::hash_key(&new_key);
-    let id = uuid::Uuid::new_v4().to_string();
-
-    let conn = db.lock().unwrap();
-    conn.execute(
-        "INSERT INTO api_keys (id, name, key_hash, agent_id, rate_limit) VALUES (?1, ?2, ?3, ?4, ?5)",
-        rusqlite::params![id, req.name, key_hash, req.agent_id, req.rate_limit],
-    )
-    .map_err(|e| db_error(&e.to_string()))?;
-
-    Ok(Json(KeyResponse {
-        id,
-        name: req.name,
-        agent_id: req.agent_id,
-        key: Some(new_key),
-        created_at: chrono::Utc::now().to_rfc3339(),
-        last_used_at: None,
-        requests_count: 0,
-        rate_limit: req.rate_limit,
-        active: true,
-    }))
-}
-
-#[delete("/keys/<id>")]
-pub fn delete_key(
-    id: &str,
-    key: AuthenticatedKey,
-    db: &State<DbPool>,
-) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    if !key.is_admin {
-        return Err(forbidden());
-    }
-
-    let conn = db.lock().unwrap();
-    let affected = conn
-        .execute(
-            "UPDATE api_keys SET active = 0 WHERE id = ?1",
-            rusqlite::params![id],
-        )
-        .unwrap_or(0);
-
-    if affected > 0 {
-        Ok(Json(serde_json::json!({"revoked": true, "id": id})))
-    } else {
-        Err(not_found("API key"))
-    }
-}
-
 // ============ Webhooks ============
 
-/// Register a webhook for a board. Requires Admin role.
-/// Returns the webhook with its secret (shown only once).
+/// Create a webhook — requires manage key.
 #[post("/boards/<board_id>/webhooks", format = "json", data = "<req>")]
 pub fn create_webhook(
     board_id: &str,
     req: Json<CreateWebhookRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<WebhookResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
 
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
 
     if req.url.trim().is_empty() {
         return Err((
@@ -1847,7 +1527,6 @@ pub fn create_webhook(
         ));
     }
 
-    // Validate event types if provided
     let valid_events = [
         "task.created",
         "task.updated",
@@ -1882,12 +1561,11 @@ pub fn create_webhook(
         "whsec_{}",
         uuid::Uuid::new_v4().to_string().replace('-', "")
     );
-    let creator = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
     let events_json = serde_json::to_string(&req.events).unwrap_or_else(|_| "[]".to_string());
 
     conn.execute(
-        "INSERT INTO webhooks (id, board_id, url, secret, events, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![webhook_id, board_id, req.url.trim(), secret, events_json, creator],
+        "INSERT INTO webhooks (id, board_id, url, secret, events) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![webhook_id, board_id, req.url.trim(), secret, events_json],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
@@ -1904,16 +1582,16 @@ pub fn create_webhook(
     }))
 }
 
-/// List webhooks for a board. Requires Admin role.
-/// Secrets are never shown after creation.
+/// List webhooks — requires manage key.
 #[get("/boards/<board_id>/webhooks")]
 pub fn list_webhooks(
     board_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<WebhookResponse>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
 
     let mut stmt = conn
         .prepare(
@@ -1946,7 +1624,7 @@ pub fn list_webhooks(
     Ok(Json(webhooks))
 }
 
-/// Update a webhook (URL, events filter, active status). Requires Admin role.
+/// Update a webhook — requires manage key.
 #[patch(
     "/boards/<board_id>/webhooks/<webhook_id>",
     format = "json",
@@ -1956,14 +1634,14 @@ pub fn update_webhook(
     board_id: &str,
     webhook_id: &str,
     req: Json<UpdateWebhookRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<WebhookResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
 
-    // Verify webhook exists and belongs to this board
     let exists: bool = conn
         .query_row(
             "SELECT COUNT(*) > 0 FROM webhooks WHERE id = ?1 AND board_id = ?2",
@@ -2029,7 +1707,6 @@ pub fn update_webhook(
 
     if let Some(active) = req.active {
         let active_int: i32 = if active { 1 } else { 0 };
-        // Reset failure count when re-enabling
         if active {
             conn.execute(
                 "UPDATE webhooks SET active = ?1, failure_count = 0 WHERE id = ?2",
@@ -2045,7 +1722,6 @@ pub fn update_webhook(
         }
     }
 
-    // Load and return updated webhook
     let wh = conn
         .query_row(
             "SELECT id, board_id, url, events, active, failure_count, last_triggered_at, created_at
@@ -2072,16 +1748,17 @@ pub fn update_webhook(
     Ok(Json(wh))
 }
 
-/// Delete a webhook. Requires Admin role.
+/// Delete a webhook — requires manage key.
 #[delete("/boards/<board_id>/webhooks/<webhook_id>")]
 pub fn delete_webhook(
     board_id: &str,
     webhook_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
 
     let affected = conn
         .execute(
@@ -2099,23 +1776,21 @@ pub fn delete_webhook(
 
 // ============ Task Dependencies ============
 
-/// Add a dependency between two tasks on the same board.
-/// "blocker blocks blocked" — blocked_task cannot proceed until blocker_task is complete.
+/// Create a dependency — requires manage key.
 #[post("/boards/<board_id>/dependencies", format = "json", data = "<req>")]
 pub fn create_dependency(
     board_id: &str,
     req: Json<CreateDependencyRequest>,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<DependencyResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
-    // Can't depend on yourself
     if req.blocker_task_id == req.blocked_task_id {
         return Err((
             Status::BadRequest,
@@ -2127,7 +1802,6 @@ pub fn create_dependency(
         ));
     }
 
-    // Both tasks must belong to this board
     let blocker_exists: bool = conn
         .query_row(
             "SELECT COUNT(*) > 0 FROM tasks WHERE id = ?1 AND board_id = ?2",
@@ -2151,7 +1825,6 @@ pub fn create_dependency(
         return Err(not_found("Blocked task"));
     }
 
-    // Check for circular dependency (would the reverse already exist?)
     let reverse_exists: bool = conn
         .query_row(
             "SELECT COUNT(*) > 0 FROM task_dependencies WHERE blocker_task_id = ?1 AND blocked_task_id = ?2",
@@ -2171,7 +1844,6 @@ pub fn create_dependency(
         ));
     }
 
-    // Check for transitive circular deps: can we reach blocker from blocked via existing deps?
     if has_path(&conn, &req.blocked_task_id, &req.blocker_task_id) {
         return Err((
             Status::Conflict,
@@ -2186,8 +1858,8 @@ pub fn create_dependency(
 
     let dep_id = uuid::Uuid::new_v4().to_string();
     let result = conn.execute(
-        "INSERT INTO task_dependencies (id, board_id, blocker_task_id, blocked_task_id, created_by, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![dep_id, board_id, req.blocker_task_id, req.blocked_task_id, actor, req.note],
+        "INSERT INTO task_dependencies (id, board_id, blocker_task_id, blocked_task_id, note) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![dep_id, board_id, req.blocker_task_id, req.blocked_task_id, req.note],
     );
 
     match result {
@@ -2205,19 +1877,17 @@ pub fn create_dependency(
         Err(e) => return Err(db_error(&e.to_string())),
     }
 
-    // Log event on the blocked task
     let event_data = serde_json::json!({
         "dependency_id": dep_id,
         "blocker_task_id": req.blocker_task_id,
         "blocked_task_id": req.blocked_task_id,
         "note": req.note,
-        "actor": actor,
     });
     log_event(
         &conn,
         &req.blocked_task_id,
         "dependency.added",
-        &actor,
+        "anonymous",
         &event_data,
     );
 
@@ -2230,17 +1900,15 @@ pub fn create_dependency(
     load_dependency_response(&conn, &dep_id)
 }
 
-/// List all dependencies for a board, or filter by a specific task.
-/// Use `?task=<id>` to see all dependencies involving that task (as blocker or blocked).
+/// List dependencies — public, no auth required.
 #[get("/boards/<board_id>/dependencies?<task>")]
 pub fn list_dependencies(
     board_id: &str,
     task: Option<&str>,
-    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<DependencyResponse>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+    access::require_board_exists(&conn, board_id)?;
 
     let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(task_id) = task
     {
@@ -2301,21 +1969,20 @@ pub fn list_dependencies(
     Ok(Json(deps))
 }
 
-/// Delete a dependency.
+/// Delete a dependency — requires manage key.
 #[delete("/boards/<board_id>/dependencies/<dep_id>")]
 pub fn delete_dependency(
     board_id: &str,
     dep_id: &str,
-    key: AuthenticatedKey,
+    token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
-    require_not_archived(&conn, board_id)?;
-    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
 
-    // Get dep info before deleting
     let dep_info = conn.query_row(
         "SELECT blocker_task_id, blocked_task_id FROM task_dependencies WHERE id = ?1 AND board_id = ?2",
         rusqlite::params![dep_id, board_id],
@@ -2339,13 +2006,12 @@ pub fn delete_dependency(
             "dependency_id": dep_id,
             "blocker_task_id": blocker_id,
             "blocked_task_id": blocked_id,
-            "actor": actor,
         });
         log_event(
             &conn,
             &blocked_id,
             "dependency.removed",
-            &actor,
+            "anonymous",
             &event_data,
         );
 
@@ -2363,8 +2029,6 @@ pub fn delete_dependency(
 
 // ============ Helpers ============
 
-/// Check if there's a path from `from_task` to `to_task` via blocker_task_id → blocked_task_id edges.
-/// Used for transitive circular dependency detection.
 fn has_path(conn: &Connection, from_task: &str, to_task: &str) -> bool {
     let mut visited = std::collections::HashSet::new();
     let mut queue = std::collections::VecDeque::new();
@@ -2377,7 +2041,6 @@ fn has_path(conn: &Connection, from_task: &str, to_task: &str) -> bool {
         if !visited.insert(current.clone()) {
             continue;
         }
-        // Follow edges: current blocks X → X is in blocked_task_id where current is blocker
         if let Ok(mut stmt) =
             conn.prepare("SELECT blocked_task_id FROM task_dependencies WHERE blocker_task_id = ?1")
         {
@@ -2451,10 +2114,8 @@ fn load_board_response(
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
     let board = conn
         .query_row(
-            "SELECT b.id, b.name, b.description, b.archived, b.created_at, b.updated_at,
-                    COALESCE(k.agent_id, b.owner_key_id)
+            "SELECT b.id, b.name, b.description, b.archived, b.is_public, b.created_at, b.updated_at
              FROM boards b
-             LEFT JOIN api_keys k ON b.owner_key_id = k.id
              WHERE b.id = ?1",
             rusqlite::params![board_id],
             |row| {
@@ -2463,7 +2124,7 @@ fn load_board_response(
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, i32>(3)? == 1,
-                    row.get::<_, String>(4)?,
+                    row.get::<_, i32>(4)? == 1,
                     row.get::<_, String>(5)?,
                     row.get::<_, String>(6)?,
                 ))
@@ -2500,12 +2161,12 @@ fn load_board_response(
         id: board.0,
         name: board.1,
         description: board.2,
-        owner: board.6,
         columns,
         task_count,
         archived: board.3,
-        created_at: board.4,
-        updated_at: board.5,
+        is_public: board.4,
+        created_at: board.5,
+        updated_at: board.6,
     }))
 }
 
@@ -2578,44 +2239,7 @@ fn not_found(entity: &str) -> (Status, Json<ApiError>) {
     )
 }
 
-fn forbidden() -> (Status, Json<ApiError>) {
-    (
-        Status::Forbidden,
-        Json(ApiError {
-            error: "Admin access required".to_string(),
-            code: "FORBIDDEN".to_string(),
-            status: 403,
-        }),
-    )
-}
-
-/// Check if a board is archived. Returns error if it is.
-fn require_not_archived(conn: &Connection, board_id: &str) -> Result<(), (Status, Json<ApiError>)> {
-    let archived: bool = conn
-        .query_row(
-            "SELECT archived = 1 FROM boards WHERE id = ?1",
-            rusqlite::params![board_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(false);
-
-    if archived {
-        return Err((
-            Status::Conflict,
-            Json(ApiError {
-                error: "Board is archived. Unarchive it before making changes.".to_string(),
-                code: "BOARD_ARCHIVED".to_string(),
-                status: 409,
-            }),
-        ));
-    }
-
-    Ok(())
-}
-
 /// Check if adding a task to a column would exceed its WIP limit.
-/// `exclude_task_id` allows excluding a specific task (for moves — the task being moved
-/// is already counted in its current column, not the target).
 fn check_wip_limit(
     conn: &Connection,
     column_id: &str,
@@ -2675,9 +2299,6 @@ fn check_wip_limit(
 
 // ============ SPA Fallback ============
 
-/// Catch-all route for client-side routing. Serves index.html for any GET
-/// request that didn't match an API route or static file.
-/// Rank 20 ensures this runs after FileServer and all other routes.
 #[get("/<_path..>", rank = 20)]
 pub fn spa_fallback(_path: PathBuf) -> Option<(ContentType, Vec<u8>)> {
     let static_dir: PathBuf = std::env::var("STATIC_DIR")
