@@ -8,13 +8,15 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '12px 20px', background: '#1e293b', borderBottom: '1px solid #334155',
   },
-  logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9' },
+  logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer' },
   headerRight: { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.85rem' },
-  rateInfo: { color: '#94a3b8' },
-  keyInput: {
-    background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
-    padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', width: '200px',
-  },
+  modeBadge: (canEdit) => ({
+    fontSize: '0.75rem', fontWeight: 600,
+    padding: '3px 10px', borderRadius: '12px',
+    background: canEdit ? '#22c55e22' : '#64748b22',
+    color: canEdit ? '#22c55e' : '#94a3b8',
+    border: `1px solid ${canEdit ? '#22c55e44' : '#64748b44'}`,
+  }),
   main: { flex: 1, display: 'flex', overflow: 'hidden' },
   sidebar: {
     width: '240px', minWidth: '240px', background: '#1e293b',
@@ -51,7 +53,7 @@ const styles = {
     minWidth: '280px', maxWidth: '320px', flex: '0 0 280px',
     background: isDragOver ? '#1e293b' : '#1a2332', borderRadius: '8px',
     border: isDragOver ? '2px dashed #6366f1' : '1px solid #334155',
-    display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 160px)',
+    display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 200px)',
   }),
   columnHeader: {
     padding: '12px 14px', fontWeight: 600, fontSize: '0.9rem',
@@ -68,9 +70,11 @@ const styles = {
     border: `1px solid ${priorityColor(priority)}33`,
     borderLeft: `3px solid ${priorityColor(priority)}`,
     borderRadius: '6px', padding: '10px 12px', marginBottom: '8px',
-    cursor: 'grab', opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'default',
+    opacity: isDragging ? 0.5 : 1,
     transition: 'all 0.15s ease',
   }),
+  cardDraggable: { cursor: 'grab' },
   cardTitle: { fontSize: '0.88rem', fontWeight: 500, color: '#e2e8f0', marginBottom: '4px' },
   cardMeta: { display: 'flex', gap: '8px', fontSize: '0.73rem', color: '#64748b', flexWrap: 'wrap' },
   label: (color) => ({
@@ -113,6 +117,24 @@ const styles = {
   searchBar: {
     display: 'flex', gap: '8px', padding: '0 20px', paddingBottom: '0',
   },
+  urlBox: {
+    background: '#0f172a', border: '1px solid #334155', borderRadius: '4px',
+    padding: '10px 14px', fontSize: '0.82rem', color: '#94a3b8',
+    fontFamily: 'monospace', wordBreak: 'break-all', marginBottom: '10px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+  },
+  urlLabel: {
+    fontSize: '0.73rem', fontWeight: 600, color: '#64748b',
+    textTransform: 'uppercase', marginBottom: '4px',
+  },
+  successBox: {
+    background: '#22c55e11', border: '1px solid #22c55e33', borderRadius: '8px',
+    padding: '16px', marginBottom: '16px',
+  },
+  directBoardInput: {
+    background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
+    padding: '6px 10px', borderRadius: '4px', fontSize: '0.8rem', width: '240px',
+  },
 };
 
 function priorityColor(p) {
@@ -123,14 +145,36 @@ function priorityColor(p) {
   return '#64748b';
 }
 
+// ---- Copy to clipboard helper ----
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(
+    () => {},
+    () => {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  );
+}
+
 // ---- Components ----
 
-function TaskCard({ task, boardId, onRefresh, archived }) {
+function TaskCard({ task, boardId, canEdit, onRefresh, archived }) {
   const [dragging, setDragging] = useState(false);
+  const draggable = canEdit && !archived;
+
   return (
     <div
-      style={styles.card(dragging, task.priority)}
-      draggable={!archived}
+      style={{
+        ...styles.card(dragging, task.priority),
+        ...(draggable ? styles.cardDraggable : {}),
+      }}
+      draggable={draggable}
       onDragStart={(e) => { setDragging(true); e.dataTransfer.setData('taskId', task.id); }}
       onDragEnd={() => setDragging(false)}
     >
@@ -151,7 +195,7 @@ function TaskCard({ task, boardId, onRefresh, archived }) {
   );
 }
 
-function Column({ column, tasks, boardId, onRefresh, archived }) {
+function Column({ column, tasks, boardId, canEdit, onRefresh, archived }) {
   const [dragOver, setDragOver] = useState(false);
   const colTasks = tasks.filter(t => t.column_id === column.id)
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
@@ -159,8 +203,9 @@ function Column({ column, tasks, boardId, onRefresh, archived }) {
   const handleDrop = async (e) => {
     e.preventDefault();
     setDragOver(false);
+    if (!canEdit || archived) return;
     const taskId = e.dataTransfer.getData('taskId');
-    if (!taskId || archived) return;
+    if (!taskId) return;
     try {
       await api.moveTask(boardId, taskId, column.id);
       onRefresh();
@@ -177,10 +222,10 @@ function Column({ column, tasks, boardId, onRefresh, archived }) {
 
   return (
     <div
-      style={styles.column(dragOver)}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={handleDrop}
+      style={styles.column(dragOver && canEdit)}
+      onDragOver={canEdit ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
+      onDragLeave={canEdit ? () => setDragOver(false) : undefined}
+      onDrop={canEdit ? handleDrop : undefined}
     >
       <div style={styles.columnHeader}>
         <span>{column.name}</span>
@@ -189,11 +234,18 @@ function Column({ column, tasks, boardId, onRefresh, archived }) {
       <div style={styles.taskList}>
         {colTasks.length === 0 && (
           <div style={{ ...styles.empty, padding: '20px 10px', fontSize: '0.8rem' }}>
-            Drop tasks here
+            {canEdit ? 'Drop tasks here' : 'No tasks'}
           </div>
         )}
         {colTasks.map(t => (
-          <TaskCard key={t.id} task={t} boardId={boardId} onRefresh={onRefresh} archived={archived} />
+          <TaskCard
+            key={t.id}
+            task={t}
+            boardId={boardId}
+            canEdit={canEdit}
+            onRefresh={onRefresh}
+            archived={archived}
+          />
         ))}
       </div>
     </div>
@@ -267,7 +319,10 @@ function CreateBoardModal({ onClose, onCreated }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [columns, setColumns] = useState('To Do, In Progress, Done');
+  const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [copied, setCopied] = useState(null);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -275,23 +330,102 @@ function CreateBoardModal({ onClose, onCreated }) {
     setLoading(true);
     try {
       const cols = columns.split(',').map(c => c.trim()).filter(Boolean);
-      await api.createBoard({
+      const { data } = await api.createBoard({
         name: name.trim(),
         description: desc.trim() || undefined,
+        is_public: isPublic,
         columns: cols.map((n, i) => ({
           name: n,
           position: i,
           is_done_column: i === cols.length - 1,
         })),
       });
-      onCreated();
-      onClose();
+      setResult(data);
     } catch (err) {
       alert(err.error || 'Failed to create board');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleCopy = (text, label) => {
+    copyToClipboard(text);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const handleDone = () => {
+    onCreated(result?.board_id);
+    onClose();
+  };
+
+  // After creation — show the manage URL
+  if (result) {
+    const origin = window.location.origin;
+    const viewUrl = `${origin}/board/${result.board_id}`;
+    const manageUrl = `${origin}/board/${result.board_id}?key=${result.manage_key}`;
+
+    return (
+      <div style={styles.modal} onClick={handleDone}>
+        <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          <div style={styles.successBox}>
+            <h3 style={{ color: '#22c55e', marginBottom: '8px' }}>✅ Board Created!</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+              Save your management link — it's the only way to edit this board.
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <div style={styles.urlLabel}>🔗 View Link (read-only, share freely)</div>
+            <div style={styles.urlBox}>
+              <span style={{ flex: 1 }}>{viewUrl}</span>
+              <button
+                style={styles.btnSmall}
+                onClick={() => handleCopy(viewUrl, 'view')}
+              >
+                {copied === 'view' ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <div style={styles.urlLabel}>🔑 Manage Link (full access — keep private!)</div>
+            <div style={{ ...styles.urlBox, borderColor: '#6366f155' }}>
+              <span style={{ flex: 1, color: '#a5b4fc' }}>{manageUrl}</span>
+              <button
+                style={{ ...styles.btnSmall, borderColor: '#6366f1', color: '#a5b4fc' }}
+                onClick={() => handleCopy(manageUrl, 'manage')}
+              >
+                {copied === 'manage' ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <div style={styles.urlLabel}>🤖 API Base (for programmatic access)</div>
+            <div style={styles.urlBox}>
+              <span style={{ flex: 1 }}>{origin}{result.api_base}</span>
+              <button
+                style={styles.btnSmall}
+                onClick={() => handleCopy(`${origin}${result.api_base}`, 'api')}
+              >
+                {copied === 'api' ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+            <p style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '4px' }}>
+              Use <code style={{ color: '#94a3b8' }}>Authorization: Bearer {'{manage_key}'}</code> for write operations.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button style={styles.btn('primary')} onClick={handleDone}>
+              Open Board →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.modal} onClick={onClose}>
@@ -304,7 +438,15 @@ function CreateBoardModal({ onClose, onCreated }) {
           <p style={{ fontSize: '0.73rem', color: '#64748b', marginBottom: '12px' }}>
             Last column is automatically marked as "done" column.
           </p>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <label style={{ fontSize: '0.85rem', color: '#94a3b8', cursor: 'pointer', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={e => setIsPublic(e.target.checked)}
+            />
+            Make board public (visible in board listing)
+          </label>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
             <button type="button" style={styles.btn('secondary')} onClick={onClose}>Cancel</button>
             <button type="submit" style={styles.btn('primary')} disabled={loading || !name.trim()}>
               {loading ? 'Creating...' : 'Create Board'}
@@ -316,7 +458,7 @@ function CreateBoardModal({ onClose, onCreated }) {
   );
 }
 
-function BoardView({ board, onRefresh }) {
+function BoardView({ board, canEdit, onRefresh }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
@@ -332,19 +474,6 @@ function BoardView({ board, onRefresh }) {
   }, [board.id]);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
-
-  // SSE for real-time updates
-  useEffect(() => {
-    const key = api.getKey();
-    if (!key) return;
-    const url = `/api/v1/boards/${board.id}/events/stream`;
-    const es = new EventSource(url);
-    // EventSource doesn't support custom headers, so SSE won't work without cookie/query auth.
-    // For now, we'll poll on task changes via the create/move callbacks.
-    // TODO: Add query-param auth support to backend for SSE
-    es.onerror = () => es.close();
-    return () => es.close();
-  }, [board.id]);
 
   const doSearch = async () => {
     if (!search.trim()) { setSearchResults(null); return; }
@@ -370,8 +499,11 @@ function BoardView({ board, onRefresh }) {
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{board.description}</p>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {!archived && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span style={styles.modeBadge(canEdit)}>
+            {canEdit ? '✏️ Edit Mode' : '👁️ View Only'}
+          </span>
+          {canEdit && !archived && (
             <button style={styles.btn('primary')} onClick={() => setShowCreate(true)}>+ New Task</button>
           )}
         </div>
@@ -398,12 +530,13 @@ function BoardView({ board, onRefresh }) {
             column={col}
             tasks={displayTasks}
             boardId={board.id}
+            canEdit={canEdit}
             onRefresh={loadTasks}
             archived={archived}
           />
         ))}
         {columns.length === 0 && (
-          <div style={styles.empty}>No columns. Add columns via the API.</div>
+          <div style={styles.empty}>No columns yet.</div>
         )}
       </div>
 
@@ -419,132 +552,172 @@ function BoardView({ board, onRefresh }) {
   );
 }
 
+// ---- Open Board by ID (direct access) ----
+
+function DirectBoardInput({ onOpen }) {
+  const [boardId, setBoardId] = useState('');
+
+  const submit = (e) => {
+    e.preventDefault();
+    const id = boardId.trim();
+    if (!id) return;
+    // Handle full URL or just board ID
+    const match = id.match(/\/board\/([a-f0-9-]+)/i);
+    onOpen(match ? match[1] : id);
+    setBoardId('');
+  };
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', gap: '6px', padding: '8px 16px' }}>
+      <input
+        style={styles.directBoardInput}
+        placeholder="Board ID or URL..."
+        value={boardId}
+        onChange={e => setBoardId(e.target.value)}
+      />
+      <button type="submit" style={styles.btnSmall}>Open</button>
+    </form>
+  );
+}
+
 function App() {
-  const [apiKey, setApiKey] = useState(api.getKey());
   const [boards, setBoards] = useState([]);
-  const [selectedBoard, setSelectedBoard] = useState(null);
+  const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [boardDetail, setBoardDetail] = useState(null);
-  const [rateLimit, setRateLimit] = useState(null);
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
+  // On mount: check URL for ?key= and /board/{id} patterns
+  useEffect(() => {
+    const { boardId, key } = api.extractKeyFromUrl();
+    if (boardId && key) {
+      // Store the key for this board and clean URL
+      api.setBoardKey(boardId, key);
+      api.cleanKeyFromUrl();
+      setSelectedBoardId(boardId);
+    } else if (boardId) {
+      // Direct board link without key (read-only)
+      setSelectedBoardId(boardId);
+    }
+  }, []);
+
+  // Load public boards list
   const loadBoards = useCallback(async () => {
     try {
-      const { data, rateLimit: rl } = await api.listBoards(showArchived);
+      const { data } = await api.listBoards(showArchived);
       setBoards(data.boards || data || []);
-      if (rl.remaining) setRateLimit(rl);
     } catch (err) {
-      if (err.status === 401) setBoards([]);
       console.error('Failed to load boards:', err);
     }
   }, [showArchived]);
 
-  useEffect(() => {
-    if (apiKey) loadBoards();
-  }, [apiKey, loadBoards]);
+  useEffect(() => { loadBoards(); }, [loadBoards]);
 
+  // Load selected board detail
   useEffect(() => {
-    if (!selectedBoard) { setBoardDetail(null); return; }
+    if (!selectedBoardId) { setBoardDetail(null); setLoadError(null); return; }
+    setLoadError(null);
     (async () => {
       try {
-        const { data, rateLimit: rl } = await api.getBoard(selectedBoard);
+        const { data } = await api.getBoard(selectedBoardId);
         setBoardDetail(data);
-        if (rl.remaining) setRateLimit(rl);
       } catch (err) {
         console.error('Failed to load board:', err);
+        setLoadError(err.status === 404 ? 'Board not found.' : 'Failed to load board.');
+        setBoardDetail(null);
       }
     })();
-  }, [selectedBoard]);
+  }, [selectedBoardId]);
 
-  const handleKeyChange = (e) => {
-    const key = e.target.value;
-    setApiKey(key);
-    api.setKey(key);
+  const canEdit = selectedBoardId ? api.hasBoardKey(selectedBoardId) : false;
+
+  const handleBoardCreated = (newBoardId) => {
+    loadBoards();
+    if (newBoardId) setSelectedBoardId(newBoardId);
   };
 
-  if (!apiKey) {
-    return (
-      <div style={{ ...styles.app, alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', maxWidth: '400px' }}>
-          <h1 style={{ fontSize: '2rem', marginBottom: '8px' }}>📋 Kanban</h1>
-          <p style={{ color: '#94a3b8', marginBottom: '24px' }}>Humans Not Required</p>
-          <input
-            style={{ ...styles.input, textAlign: 'center', fontSize: '1rem' }}
-            placeholder="Enter your API key"
-            value={apiKey}
-            onChange={handleKeyChange}
-            autoFocus
-          />
-          <p style={{ color: '#475569', fontSize: '0.8rem', marginTop: '8px' }}>
-            Run the backend to get your admin API key.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const handleOpenDirect = (boardId) => {
+    setSelectedBoardId(boardId);
+  };
 
   return (
     <div style={styles.app}>
       <div style={styles.header}>
-        <div style={styles.logo}>📋 Kanban</div>
+        <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
+          📋 Kanban
+        </div>
         <div style={styles.headerRight}>
-          {rateLimit && rateLimit.remaining && (
-            <span style={styles.rateInfo}>
-              {rateLimit.remaining}/{rateLimit.limit} req
+          {selectedBoardId && (
+            <span style={styles.modeBadge(canEdit)}>
+              {canEdit ? '✏️ Edit' : '👁️ View'}
             </span>
           )}
-          <input
-            style={styles.keyInput}
-            type="password"
-            value={apiKey}
-            onChange={handleKeyChange}
-            placeholder="API Key"
-            title="API Key"
-          />
         </div>
       </div>
 
       <div style={styles.main}>
         <div style={styles.sidebar}>
           <div style={styles.sidebarHeader}>
-            <span>Boards</span>
-            <button style={styles.btnSmall} onClick={() => setShowCreateBoard(true)}>+</button>
+            <span>Public Boards</span>
+            <button style={styles.btnSmall} onClick={() => setShowCreateBoard(true)}>+ New</button>
           </div>
           {boards.map(b => (
             <div
               key={b.id}
-              style={styles.boardItem(selectedBoard === b.id)}
-              onClick={() => setSelectedBoard(b.id)}
+              style={styles.boardItem(selectedBoardId === b.id)}
+              onClick={() => setSelectedBoardId(b.id)}
             >
               <span>{b.name}</span>
               {b.archived_at && <span style={styles.archivedBadge}>📦</span>}
             </div>
           ))}
           {boards.length === 0 && (
-            <div style={{ ...styles.empty, padding: '20px 16px' }}>
-              {apiKey ? 'No boards yet.' : 'Set API key above.'}
+            <div style={{ ...styles.empty, padding: '20px 16px', fontSize: '0.8rem' }}>
+              No public boards yet.
             </div>
           )}
-          <div style={{ padding: '8px 16px', borderTop: '1px solid #334155', marginTop: 'auto' }}>
-            <label style={{ fontSize: '0.75rem', color: '#64748b', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={e => setShowArchived(e.target.checked)}
-                style={{ marginRight: '6px' }}
-              />
-              Show archived
-            </label>
+
+          <div style={{ borderTop: '1px solid #334155', marginTop: 'auto' }}>
+            <div style={{ padding: '8px 16px' }}>
+              <label style={{ fontSize: '0.75rem', color: '#64748b', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={e => setShowArchived(e.target.checked)}
+                  style={{ marginRight: '6px' }}
+                />
+                Show archived
+              </label>
+            </div>
+            <div style={{ padding: '0 16px 4px', fontSize: '0.7rem', color: '#475569' }}>
+              Open by ID:
+            </div>
+            <DirectBoardInput onOpen={handleOpenDirect} />
           </div>
         </div>
 
         {boardDetail ? (
-          <BoardView board={boardDetail} onRefresh={() => setSelectedBoard(s => s)} />
+          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => setSelectedBoardId(s => s)} />
+        ) : loadError ? (
+          <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
+            <div>
+              <p style={{ fontSize: '1.1rem', marginBottom: '8px', color: '#ef4444' }}>{loadError}</p>
+              <p style={{ fontSize: '0.85rem' }}>Check the board ID and try again.</p>
+            </div>
+          </div>
         ) : (
           <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>
-              <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Select a board or create one</p>
-              <p style={{ fontSize: '0.85rem' }}>Agent-centric task coordination</p>
+              <p style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📋 Kanban</p>
+              <p style={{ color: '#94a3b8', marginBottom: '4px' }}>Humans Not Required</p>
+              <p style={{ fontSize: '0.85rem', maxWidth: '400px', lineHeight: '1.5' }}>
+                Select a public board, open one by ID, or create a new one.
+                <br />
+                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                  No signup required — create a board and get a management link.
+                </span>
+              </p>
             </div>
           </div>
         )}
@@ -553,7 +726,7 @@ function App() {
       {showCreateBoard && (
         <CreateBoardModal
           onClose={() => setShowCreateBoard(false)}
-          onCreated={() => { loadBoards(); setShowCreateBoard(false); }}
+          onCreated={handleBoardCreated}
         />
       )}
     </div>
