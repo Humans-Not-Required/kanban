@@ -1,65 +1,61 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.2.0 ✅ + Access Control ✅ + WIP Limits ✅ + Docker ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.3.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + Docker ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
+Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
 ### What's Done
 
-- Rust/Rocket API server (`/api/v1`)
-- SQLite schema (WAL mode) with tables:
-  - `api_keys`, `boards`, `columns`, `tasks`, `task_events`, `board_collaborators`
-- Admin API key auto-generated on first run (printed to stdout)
-- **Access Control** (NEW):
+- **Core API** (all routes implemented):
+  - `POST /boards` — Create board with custom columns
+  - `GET /boards` — List boards (scoped by access)
+  - `GET /boards/{id}` — Board details with columns and task counts
+  - `POST /boards/{id}/columns` — Add column (Admin+)
+  - `POST /boards/{id}/tasks` — Create task (Editor+)
+  - `GET /boards/{id}/tasks` — List tasks with filters (Viewer+)
+  - `GET /boards/{id}/tasks/{id}` — Get task (Viewer+)
+  - `PATCH /boards/{id}/tasks/{id}` — Update task (Editor+)
+  - `DELETE /boards/{id}/tasks/{id}` — Delete task (Editor+)
+  - `POST .../tasks/{id}/claim` — Claim task (Editor+)
+  - `POST .../tasks/{id}/release` — Release claim (Editor+)
+  - `POST .../tasks/{id}/move/{col}` — Move task (Editor+)
+  - `GET .../tasks/{id}/events` — Task event log (Viewer+)
+  - `POST .../tasks/{id}/comment` — Comment (Viewer+)
+  - `GET /boards/{id}/collaborators` — List collaborators (Viewer+)
+  - `POST /boards/{id}/collaborators` — Add/update collaborator (Admin+)
+  - `DELETE /boards/{id}/collaborators/{keyId}` — Remove collaborator (Admin+)
+  - `GET /keys` — List API keys (admin only)
+  - `POST /keys` — Create API key (admin only)
+  - `DELETE /keys/{id}` — Revoke API key (admin only)
+  - `GET /health` — Health check
+  - `GET /openapi.json` — OpenAPI 3.0 spec (v0.3.0)
+- **Access Control:**
   - Role hierarchy: Viewer < Editor < Admin < Owner
   - Board owner = implicit full access (via `owner_key_id`)
   - Global admin API keys = full access to all boards
-  - Collaborator management:
-    - `GET /boards/{id}/collaborators` — list collaborators (requires Viewer)
-    - `POST /boards/{id}/collaborators` — add/update collaborator (requires Admin)
-    - `DELETE /boards/{id}/collaborators/{key_id}` — remove collaborator (requires Admin)
-  - **WIP Limit Enforcement** (NEW):
-    - `check_wip_limit()` helper validates column capacity before adding tasks
-    - Enforced on: `create_task`, `move_task`, `update_task` (when column_id changes)
-    - Returns 409 Conflict with `WIP_LIMIT_EXCEEDED` error code and column name
-    - Excludes the task being moved from count (prevents false positives on moves)
-    - Columns with `wip_limit = NULL` are unlimited (no enforcement)
-  - Role enforcement on all routes:
-    - **Viewer:** read boards, list tasks, get task, view events, post comments
-    - **Editor:** create/update/delete tasks, claim/release/move tasks
-    - **Admin:** create columns, manage collaborators
-    - **Owner:** all of the above (implicit, not stored in collaborators table)
-  - Upsert semantics: adding an existing collaborator updates their role
-  - Can't add board owner as collaborator (already has Owner role)
-  - `list_boards` includes boards the user owns, collaborates on, or has tasks in
-- Core endpoints:
-  - Health: `GET /health`
-  - OpenAPI: `GET /openapi.json`
-  - Boards: `POST /boards`, `GET /boards`, `GET /boards/{id}`
-  - Columns: `POST /boards/{id}/columns`
-  - Tasks: create/list/get/update/delete
-  - Agent-first coordination: claim/release/move
-  - Task events: list events + add comment
-  - API keys (admin): list/create/revoke
-- **OpenAPI 3.0 Spec** (v0.2.0):
-  - 21 paths with full request/response documentation
-  - 18 schemas (including AddCollaboratorRequest, CollaboratorResponse)
-  - Tags: System, Boards, Columns, Access Control, Tasks, Coordination, Events, Admin
-  - Access control documented: role hierarchy, 403 error codes (NO_ACCESS, INSUFFICIENT_ROLE), role requirements on every endpoint
-  - WIP limit enforcement documented with 409 Conflict responses
-  - All error codes enumerated in ApiError schema
-- Tests (6 passing):
-  - DB init creates schema + admin key
-  - WAL mode enabled
-  - Deterministic key hashing
-  - board_collaborators table exists with correct schema
-  - Access control role logic (owner/admin/collaborator/outsider)
-  - WIP limit enforcement (column schema, limit storage, task counts)
-
-- **Docker:** Multi-stage Dockerfile + docker-compose.yml
-  - Builder: `rust:1.83-slim-bookworm`, runtime: `debian:bookworm-slim`
-  - Non-root user, healthcheck on `/api/v1/health`, named volume for SQLite data
-  - `.env.example` with configuration reference
+  - Collaborator management with upsert semantics
+- **WIP Limit Enforcement:**
+  - `check_wip_limit()` validates column capacity before adding/moving tasks
+  - Returns 409 Conflict with `WIP_LIMIT_EXCEEDED` error code
+  - Columns with `wip_limit = NULL` are unlimited
+- **Rate Limiting (NEW):**
+  - Fixed-window per-key enforcement via in-memory rate limiter
+  - Each API key has a configurable `rate_limit` (requests per window)
+  - Default: 100 req/min for regular keys
+  - Window duration configurable via `RATE_LIMIT_WINDOW_SECS` env var (default: 60s)
+  - Returns 429 Too Many Requests when limit exceeded
+  - Response headers on ALL authenticated requests:
+    - `X-RateLimit-Limit` — max requests in current window
+    - `X-RateLimit-Remaining` — requests remaining
+    - `X-RateLimit-Reset` — seconds until window resets
+  - Implemented via auth guard (single enforcement point) + Rocket fairing (headers)
+  - Zero database overhead — all tracking is in-memory
+- **Auth:** API key authentication via `Authorization: Bearer` or `X-API-Key` header
+- **Database:** SQLite with WAL mode, auto-creates admin key on first run
+- **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
+- **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
+- **Tests:** 13 tests passing (3 lib unit + 3 rate limiter unit + 7 integration)
+- **Code Quality:** Zero clippy warnings, cargo fmt clean
 
 ### Tech Stack
 
@@ -74,43 +70,38 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - **SQLite first** for self-hosted simplicity
 - **Event log** (`task_events`) is first-class: agents can read history and add comments
 - **Role-based access per board** — Owner/Admin/Editor/Viewer hierarchy
-  - Owner is implicit (board creator), never stored in collaborators table
-  - Global admin keys bypass all board-level checks
-  - Viewer can comment (lightweight contribution) but can't modify tasks
-- **OpenAPI at v0.2.0** — separate from crate version, tracks API evolution
-
-### What's Done (This Session)
-
-- Docker support: multi-stage Dockerfile, docker-compose.yml, .env.example
-- Fixed README docker build context path and volume mount
-- Added .env to .gitignore
+- **In-memory rate limiter** — no DB overhead per request; resets on restart (acceptable trade-off)
+- **Rate limit check in auth guard** — single enforcement point; all authenticated routes covered automatically
 
 ### What's Next (Priority Order)
 
-1. **Rate limiting** — port fixed-window in-memory rate limiter from qr-service; enforce on all authenticated routes
+1. **README update** — Document rate limiting, update feature list, add API examples
 2. **WebSocket / SSE event stream** for real-time updates
 3. **Task ordering** improvements (drag/drop positions + stable sorting)
 4. **Search** (full-text for title/description/labels)
+
+**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
 
 ### ⚠️ Gotchas
 
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
-- No rate limiting yet — all requests allowed regardless of rate_limit field in api_keys table
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.2.0 — 21 paths, 18 schemas, access control fully documented
-- WIP limit enforcement uses 409 Conflict — agents should handle this gracefully (move tasks out of full columns first)
-- Access checks use `require_role` which checks board existence + role in one call (replaces old `verify_board_exists`)
-- **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution. Use `cargo test -- --test-threads=1`
+- OpenAPI spec is at v0.3.0 — 21 paths, 19 schemas, rate limiting fully documented
+- WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
+- Rate limiter state is in-memory — resets on server restart
+- **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
 
 ### Architecture Notes
 
-- `access.rs` module with `BoardRole` enum (Viewer/Editor/Admin/Owner) using `PartialOrd`/`Ord` for role comparison
-- `require_role()` is the single enforcement point — checks board exists, then role. Returns structured errors (NO_ACCESS, INSUFFICIENT_ROLE, NOT_FOUND)
-- `get_board_role()` checks: admin key → owner → collaborator table (in that order)
-- Collaborators table uses `ON CONFLICT DO UPDATE` for upsert semantics
-- All routes now use `key: AuthenticatedKey` (not `_key`) since access checks need the key
+- `access.rs` module with `BoardRole` enum using `PartialOrd`/`Ord` for role comparison
+- `require_role()` is the single access enforcement point
+- `rate_limit.rs` uses `Mutex<HashMap>` with fixed-window algorithm — O(1) per check
+- Rate limit headers via Rocket fairing reading request-local state from auth guard
+- Single-threaded SQLite via `Mutex<Connection>`
+- CORS wide open (all origins)
+- Redirect route for short URLs at root (`/`), API routes at `/api/v1`
 
 ---
 
-*Last updated: 2026-02-07 10:05 UTC — Session: Docker support (Dockerfile + docker-compose.yml)*
+*Last updated: 2026-02-07 10:10 UTC — Session: Rate limiting (ported from qr-service)*
