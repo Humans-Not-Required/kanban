@@ -92,6 +92,18 @@ pub fn init_db() -> Result<DbPool, String> {
             FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );
 
+        -- Board collaborators for access control
+        CREATE TABLE IF NOT EXISTS board_collaborators (
+            board_id TEXT NOT NULL,
+            key_id TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'editor',
+            added_by TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (board_id, key_id),
+            FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
+            FOREIGN KEY (key_id) REFERENCES api_keys(id)
+        );
+
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_tasks_board ON tasks(board_id);
         CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id);
@@ -99,6 +111,7 @@ pub fn init_db() -> Result<DbPool, String> {
         CREATE INDEX IF NOT EXISTS idx_tasks_claimed ON tasks(claimed_by);
         CREATE INDEX IF NOT EXISTS idx_events_task ON task_events(task_id);
         CREATE INDEX IF NOT EXISTS idx_columns_board ON columns(board_id);
+        CREATE INDEX IF NOT EXISTS idx_collaborators_key ON board_collaborators(key_id);
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))?;

@@ -2,6 +2,7 @@ use rocket::http::{ContentType, Status};
 use rocket::serde::json::Json;
 use rocket::State;
 
+use crate::access::{self, BoardRole};
 use crate::auth::AuthenticatedKey;
 use crate::db::DbPool;
 use crate::models::*;
@@ -103,35 +104,56 @@ pub fn list_boards(
 ) -> Result<Json<Vec<BoardSummary>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
 
-    // Show boards the key owns or where the key has tasks
-    let mut stmt = conn
-        .prepare(
+    // Admin keys see all boards; regular keys see boards they own, collaborate on, or have tasks in
+    let (sql, param1, param2) = if key.is_admin {
+        (
             "SELECT b.id, b.name, b.description, b.archived, b.created_at,
                 (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
              FROM boards b
-             WHERE b.owner_key_id = ?1 OR b.id IN (
-                SELECT DISTINCT board_id FROM tasks WHERE created_by = ?1 OR assigned_to = ?2 OR claimed_by = ?2
-             )
-             ORDER BY b.created_at DESC",
+             ORDER BY b.created_at DESC"
+                .to_string(),
+            String::new(),
+            String::new(),
         )
-        .map_err(|e| db_error(&e.to_string()))?;
+    } else {
+        let agent = key.agent_id.as_deref().unwrap_or(&key.id);
+        (
+            "SELECT b.id, b.name, b.description, b.archived, b.created_at,
+                (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
+             FROM boards b
+             WHERE b.owner_key_id = ?1
+                OR b.id IN (SELECT board_id FROM board_collaborators WHERE key_id = ?1)
+                OR b.id IN (SELECT DISTINCT board_id FROM tasks WHERE created_by = ?1 OR assigned_to = ?2 OR claimed_by = ?2)
+             ORDER BY b.created_at DESC".to_string(),
+            key.id.clone(),
+            agent.to_string(),
+        )
+    };
 
-    let agent = key.agent_id.as_deref().unwrap_or(&key.id);
+    let mut stmt = conn.prepare(&sql).map_err(|e| db_error(&e.to_string()))?;
 
-    let boards = stmt
-        .query_map(rusqlite::params![key.id, agent], |row| {
-            Ok(BoardSummary {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                description: row.get(2)?,
-                archived: row.get::<_, i32>(3)? == 1,
-                created_at: row.get(4)?,
-                task_count: row.get(5)?,
-            })
+    let board_mapper = |row: &rusqlite::Row| {
+        Ok(BoardSummary {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            description: row.get(2)?,
+            archived: row.get::<_, i32>(3)? == 1,
+            created_at: row.get(4)?,
+            task_count: row.get(5)?,
         })
-        .map_err(|e| db_error(&e.to_string()))?
-        .filter_map(|r| r.ok())
-        .collect();
+    };
+
+    let boards: Vec<BoardSummary> = if key.is_admin {
+        stmt.query_map([], board_mapper)
+            .map_err(|e| db_error(&e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect()
+    } else {
+        stmt.query_map(rusqlite::params![param1, param2], board_mapper)
+            .map_err(|e| db_error(&e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
 
     Ok(Json(boards))
 }
@@ -139,10 +161,11 @@ pub fn list_boards(
 #[get("/boards/<board_id>")]
 pub fn get_board(
     board_id: &str,
-    _key: AuthenticatedKey,
+    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
     load_board_response(&conn, board_id)
 }
 
@@ -152,14 +175,14 @@ pub fn get_board(
 pub fn create_column(
     board_id: &str,
     req: Json<CreateColumnRequest>,
-    _key: AuthenticatedKey,
+    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<ColumnResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
 
-    // Verify board exists
-    verify_board_exists(&conn, board_id)?;
+    // Require admin role to modify board structure
+    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
 
     let position = req.position.unwrap_or_else(|| {
         conn.query_row(
@@ -198,7 +221,8 @@ pub fn create_task(
     let req = req.into_inner();
     let conn = db.lock().unwrap();
 
-    verify_board_exists(&conn, board_id)?;
+    // Require editor role to create tasks
+    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
 
     if req.title.trim().is_empty() {
         return Err((
@@ -307,11 +331,11 @@ pub fn list_tasks(
     claimed: Option<&str>,
     priority: Option<i32>,
     label: Option<&str>,
-    _key: AuthenticatedKey,
+    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<TaskResponse>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
-    verify_board_exists(&conn, board_id)?;
+    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
 
     let mut sql = String::from(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
@@ -359,20 +383,21 @@ pub fn list_tasks(
     Ok(Json(tasks))
 }
 
-#[get("/boards/<_board_id>/tasks/<task_id>")]
+#[get("/boards/<board_id>/tasks/<task_id>")]
 pub fn get_task(
-    _board_id: &str,
+    board_id: &str,
     task_id: &str,
-    _key: AuthenticatedKey,
+    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
     load_task_response(&conn, task_id)
 }
 
-#[patch("/boards/<_board_id>/tasks/<task_id>", format = "json", data = "<req>")]
+#[patch("/boards/<board_id>/tasks/<task_id>", format = "json", data = "<req>")]
 pub fn update_task(
-    _board_id: &str,
+    board_id: &str,
     task_id: &str,
     req: Json<UpdateTaskRequest>,
     key: AuthenticatedKey,
@@ -381,7 +406,8 @@ pub fn update_task(
     let req = req.into_inner();
     let conn = db.lock().unwrap();
 
-    // Verify task exists
+    // Require editor role to update tasks
+    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
     let _existing = load_task_response(&conn, task_id)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
     let mut changes = serde_json::Map::new();
@@ -473,13 +499,16 @@ pub fn update_task(
     load_task_response(&conn, task_id)
 }
 
-#[delete("/boards/<_board_id>/tasks/<task_id>")]
+#[delete("/boards/<board_id>/tasks/<task_id>")]
 pub fn delete_task(
-    _board_id: &str,
+    board_id: &str,
     task_id: &str,
-    _key: AuthenticatedKey,
+    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    let conn_check = db.lock().unwrap();
+    access::require_role(&conn_check, board_id, &key, BoardRole::Editor)?;
+    drop(conn_check);
     let conn = db.lock().unwrap();
     let affected = conn
         .execute(
@@ -500,14 +529,15 @@ pub fn delete_task(
 /// Claim a task — marks you as actively working on it.
 /// Different from assignment: assignment is "this is your responsibility",
 /// claiming is "I'm working on this right now". Prevents conflicts.
-#[post("/boards/<_board_id>/tasks/<task_id>/claim")]
+#[post("/boards/<board_id>/tasks/<task_id>/claim")]
 pub fn claim_task(
-    _board_id: &str,
+    board_id: &str,
     task_id: &str,
     key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
 
     // Check if already claimed by someone else
@@ -551,14 +581,15 @@ pub fn claim_task(
 }
 
 /// Release a claimed task — you're no longer working on it.
-#[post("/boards/<_board_id>/tasks/<task_id>/release")]
+#[post("/boards/<board_id>/tasks/<task_id>/release")]
 pub fn release_task(
-    _board_id: &str,
+    board_id: &str,
     task_id: &str,
     key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
 
     conn.execute(
@@ -589,6 +620,9 @@ pub fn move_task(
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+
+    // Require editor role to move tasks
+    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
 
     // Verify target column belongs to the board
     let col_exists: bool = conn
@@ -655,14 +689,15 @@ pub fn move_task(
 
 // ============ Task Events ============
 
-#[get("/boards/<_board_id>/tasks/<task_id>/events")]
+#[get("/boards/<board_id>/tasks/<task_id>/events")]
 pub fn get_task_events(
-    _board_id: &str,
+    board_id: &str,
     task_id: &str,
-    _key: AuthenticatedKey,
+    key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<TaskEventResponse>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
 
     let mut stmt = conn
         .prepare(
@@ -692,18 +727,20 @@ pub fn get_task_events(
 
 /// Post a comment on a task
 #[post(
-    "/boards/<_board_id>/tasks/<task_id>/comment",
+    "/boards/<board_id>/tasks/<task_id>/comment",
     format = "json",
     data = "<body>"
 )]
 pub fn comment_on_task(
-    _board_id: &str,
+    board_id: &str,
     task_id: &str,
     body: Json<serde_json::Value>,
     key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<TaskEventResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
+    // Viewers can comment (reading + lightweight contribution)
+    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
 
     let message = body.get("message").and_then(|v| v.as_str()).unwrap_or("");
@@ -744,6 +781,180 @@ pub fn comment_on_task(
         data,
         created_at,
     }))
+}
+
+// ============ Board Collaborators ============
+
+/// List collaborators on a board
+#[get("/boards/<board_id>/collaborators")]
+pub fn list_collaborators(
+    board_id: &str,
+    key: AuthenticatedKey,
+    db: &State<DbPool>,
+) -> Result<Json<Vec<CollaboratorResponse>>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT bc.key_id, k.name, k.agent_id, bc.role, bc.added_by, bc.created_at
+             FROM board_collaborators bc
+             JOIN api_keys k ON bc.key_id = k.id
+             WHERE bc.board_id = ?1
+             ORDER BY bc.created_at ASC",
+        )
+        .map_err(|e| db_error(&e.to_string()))?;
+
+    let collabs = stmt
+        .query_map(rusqlite::params![board_id], |row| {
+            Ok(CollaboratorResponse {
+                key_id: row.get(0)?,
+                key_name: row.get(1)?,
+                agent_id: row.get(2)?,
+                role: row.get(3)?,
+                added_by: row.get(4)?,
+                created_at: row.get(5)?,
+            })
+        })
+        .map_err(|e| db_error(&e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(Json(collabs))
+}
+
+/// Add a collaborator to a board (requires admin role on the board)
+#[post("/boards/<board_id>/collaborators", format = "json", data = "<req>")]
+pub fn add_collaborator(
+    board_id: &str,
+    req: Json<AddCollaboratorRequest>,
+    key: AuthenticatedKey,
+    db: &State<DbPool>,
+) -> Result<Json<CollaboratorResponse>, (Status, Json<ApiError>)> {
+    let req = req.into_inner();
+    let conn = db.lock().unwrap();
+
+    // Require admin role on the board to manage collaborators
+    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+
+    // Validate role
+    let valid_roles = ["viewer", "editor", "admin"];
+    if !valid_roles.contains(&req.role.as_str()) {
+        return Err((
+            Status::BadRequest,
+            Json(ApiError {
+                error: format!(
+                    "Invalid role '{}'. Valid roles: viewer, editor, admin",
+                    req.role
+                ),
+                code: "INVALID_ROLE".to_string(),
+                status: 400,
+            }),
+        ));
+    }
+
+    // Can't add the board owner as a collaborator
+    let is_owner: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM boards WHERE id = ?1 AND owner_key_id = ?2",
+            rusqlite::params![board_id, req.key_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if is_owner {
+        return Err((
+            Status::BadRequest,
+            Json(ApiError {
+                error: "Cannot add the board owner as a collaborator".to_string(),
+                code: "IS_OWNER".to_string(),
+                status: 400,
+            }),
+        ));
+    }
+
+    // Verify the key exists and is active
+    let key_info = conn.query_row(
+        "SELECT name, agent_id FROM api_keys WHERE id = ?1 AND active = 1",
+        rusqlite::params![req.key_id],
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
+    );
+
+    let (key_name, agent_id) = match key_info {
+        Ok(info) => info,
+        Err(_) => {
+            return Err((
+                Status::NotFound,
+                Json(ApiError {
+                    error: "API key not found or inactive".to_string(),
+                    code: "KEY_NOT_FOUND".to_string(),
+                    status: 404,
+                }),
+            ));
+        }
+    };
+
+    let adder = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+
+    // Upsert: update role if already a collaborator
+    conn.execute(
+        "INSERT INTO board_collaborators (board_id, key_id, role, added_by)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(board_id, key_id) DO UPDATE SET role = ?3",
+        rusqlite::params![board_id, req.key_id, req.role, adder],
+    )
+    .map_err(|e| db_error(&e.to_string()))?;
+
+    let created_at: String = conn
+        .query_row(
+            "SELECT created_at FROM board_collaborators WHERE board_id = ?1 AND key_id = ?2",
+            rusqlite::params![board_id, req.key_id],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| chrono::Utc::now().to_rfc3339());
+
+    Ok(Json(CollaboratorResponse {
+        key_id: req.key_id,
+        key_name,
+        agent_id,
+        role: req.role,
+        added_by: adder,
+        created_at,
+    }))
+}
+
+/// Remove a collaborator from a board (requires admin role on the board)
+#[delete("/boards/<board_id>/collaborators/<collab_key_id>")]
+pub fn remove_collaborator(
+    board_id: &str,
+    collab_key_id: &str,
+    key: AuthenticatedKey,
+    db: &State<DbPool>,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+
+    let affected = conn
+        .execute(
+            "DELETE FROM board_collaborators WHERE board_id = ?1 AND key_id = ?2",
+            rusqlite::params![board_id, collab_key_id],
+        )
+        .unwrap_or(0);
+
+    if affected > 0 {
+        Ok(Json(
+            serde_json::json!({"removed": true, "key_id": collab_key_id}),
+        ))
+    } else {
+        Err((
+            Status::NotFound,
+            Json(ApiError {
+                error: "Collaborator not found on this board".to_string(),
+                code: "NOT_FOUND".to_string(),
+                status: 404,
+            }),
+        ))
+    }
 }
 
 // ============ API Keys ============
@@ -970,22 +1181,6 @@ fn row_to_task(row: &rusqlite::Row) -> Result<TaskResponse, rusqlite::Error> {
         created_at: row.get(16)?,
         updated_at: row.get(17)?,
     })
-}
-
-fn verify_board_exists(conn: &Connection, board_id: &str) -> Result<(), (Status, Json<ApiError>)> {
-    let exists: bool = conn
-        .query_row(
-            "SELECT COUNT(*) > 0 FROM boards WHERE id = ?1",
-            rusqlite::params![board_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(false);
-
-    if !exists {
-        Err(not_found("Board"))
-    } else {
-        Ok(())
-    }
 }
 
 use rusqlite::Connection;

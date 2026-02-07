@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+mod access;
 mod auth;
 mod db;
 mod models;
@@ -48,6 +49,10 @@ fn rocket() -> _ {
                 // Task events & comments
                 routes::get_task_events,
                 routes::comment_on_task,
+                // Board collaborators
+                routes::list_collaborators,
+                routes::add_collaborator,
+                routes::remove_collaborator,
                 // API keys
                 routes::list_keys,
                 routes::create_key,

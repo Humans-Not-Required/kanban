@@ -140,6 +140,30 @@ pub struct KeyResponse {
     pub active: bool,
 }
 
+// ============ Board Collaborators ============
+
+#[derive(Debug, Deserialize)]
+pub struct AddCollaboratorRequest {
+    pub key_id: String,
+    /// Role: "viewer", "editor", or "admin"
+    #[serde(default = "default_collaborator_role")]
+    pub role: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CollaboratorResponse {
+    pub key_id: String,
+    pub key_name: String,
+    pub agent_id: Option<String>,
+    pub role: String,
+    pub added_by: String,
+    pub created_at: String,
+}
+
+fn default_collaborator_role() -> String {
+    "editor".to_string()
+}
+
 // ============ Common ============
 
 #[derive(Debug, Serialize)]
