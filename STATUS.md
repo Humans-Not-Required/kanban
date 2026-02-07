@@ -1,8 +1,8 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.2.0 ✅ + Access Control ✅ + WIP Limits ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.2.0 ✅ + Access Control ✅ + WIP Limits ✅ + Docker ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, and WIP limit enforcement. Compiles cleanly (clippy -D warnings), all tests pass.
+Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
 ### What's Done
 
@@ -56,6 +56,11 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
   - Access control role logic (owner/admin/collaborator/outsider)
   - WIP limit enforcement (column schema, limit storage, task counts)
 
+- **Docker:** Multi-stage Dockerfile + docker-compose.yml
+  - Builder: `rust:1.83-slim-bookworm`, runtime: `debian:bookworm-slim`
+  - Non-root user, healthcheck on `/api/v1/health`, named volume for SQLite data
+  - `.env.example` with configuration reference
+
 ### Tech Stack
 
 - Rust 1.83+ / Rocket 0.5 / SQLite (rusqlite)
@@ -74,14 +79,18 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
   - Viewer can comment (lightweight contribution) but can't modify tasks
 - **OpenAPI at v0.2.0** — separate from crate version, tracks API evolution
 
+### What's Done (This Session)
+
+- Docker support: multi-stage Dockerfile, docker-compose.yml, .env.example
+- Fixed README docker build context path and volume mount
+- Added .env to .gitignore
+
 ### What's Next (Priority Order)
 
-1. **README** — setup instructions, API overview, Docker support
-4. **Docker** — Dockerfile + docker-compose.yml for easy deployment
-5. **WebSocket / SSE event stream** for real-time updates
-6. **Task ordering** improvements (drag/drop positions + stable sorting)
-7. **Search** (full-text for title/description/labels)
-8. **Rate limiting** — currently no rate limiting (needs rate_limit module like qr-service)
+1. **Rate limiting** — port fixed-window in-memory rate limiter from qr-service; enforce on all authenticated routes
+2. **WebSocket / SSE event stream** for real-time updates
+3. **Task ordering** improvements (drag/drop positions + stable sorting)
+4. **Search** (full-text for title/description/labels)
 
 ### ⚠️ Gotchas
 
@@ -92,6 +101,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - OpenAPI spec is at v0.2.0 — 21 paths, 18 schemas, access control fully documented
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully (move tasks out of full columns first)
 - Access checks use `require_role` which checks board existence + role in one call (replaces old `verify_board_exists`)
+- **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution. Use `cargo test -- --test-threads=1`
 
 ### Architecture Notes
 
@@ -103,4 +113,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 09:54 UTC — Session: OpenAPI v0.2.0 with collaborator endpoints and access control docs*
+*Last updated: 2026-02-07 10:05 UTC — Session: Docker support (Dockerfile + docker-compose.yml)*
