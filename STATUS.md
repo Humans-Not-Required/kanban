@@ -1,6 +1,6 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.9.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Webhooks ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.10.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Webhooks ✅ + Task Dependencies ✅ + Docker ✅ + README Complete ✅
 
 Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, batch operations, board archive/unarchive, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
@@ -95,11 +95,29 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
   - Graceful lagged-client handling (warning event if >256 events buffered)
   - Channel capacity: 256 events per board
   - No persistence — events are fire-and-forget to connected subscribers
+- **Task Dependencies (NEW):**
+  - `POST /boards/{id}/dependencies` — Create dependency between two tasks (Editor+)
+    - "blocker blocks blocked" semantics
+    - Validates both tasks exist on the board
+    - Prevents self-dependency
+    - Circular dependency detection: direct (reverse exists) + transitive (BFS graph traversal)
+    - UNIQUE constraint on (blocker_task_id, blocked_task_id)
+    - Returns rich response with task titles, columns, completion status
+    - Emits `task.dependency.added` SSE event
+  - `GET /boards/{id}/dependencies?task=<id>` — List dependencies (Viewer+)
+    - All board dependencies, or filtered by task (as blocker or blocked)
+    - Includes blocker completion status for easy "is this blocked?" checks
+  - `DELETE /boards/{id}/dependencies/{id}` — Remove dependency (Editor+)
+    - Emits `task.dependency.removed` SSE event
+    - Logs removal in task event history
+  - CASCADE delete: removing a task auto-removes its dependencies
+  - DB indexes on blocker_task_id, blocked_task_id, board_id
+  - Integration test covering CRUD, uniqueness, cascade behavior
 - **Auth:** API key authentication via `Authorization: Bearer` or `X-API-Key` header
 - **Database:** SQLite with WAL mode, auto-creates admin key on first run
 - **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
 - **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Tests:** 17 tests passing (3 access control unit + 3 rate limiter unit + 11 integration)
+- **Tests:** 18 tests passing (3 access control unit + 3 rate limiter unit + 12 integration)
 - **Code Quality:** Zero clippy warnings, cargo fmt clean
 
 ### Tech Stack
@@ -123,18 +141,24 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 1. ~~**Batch operations**~~ ✅ Done
 2. ~~**Board archiving**~~ ✅ Done
 3. ~~**Webhooks**~~ ✅ Done — CRUD + HMAC signatures + auto-disable after failures
+4. ~~**Task Dependencies**~~ ✅ Done — blocker/blocked relationships + circular dependency detection + cascade delete
+5. **Frontend** — React dashboard for human users
 
-**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
+**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, task dependencies with cycle detection, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
 
 ### ⚠️ Gotchas
 
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.9.0 — 23 paths incl. webhooks + 24 schemas
+- OpenAPI spec is at v0.10.0 — 25 paths incl. webhooks + dependencies, 26 schemas
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
 - Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
+
+- Circular dependency detection uses BFS — O(V+E) per check, fine for typical board sizes
+- Dependencies are board-scoped — cross-board dependencies not supported
+- `blocker_completed` in response is derived from `completed_at IS NOT NULL` — reflects current state at query time
 
 ### Architecture Notes
 
@@ -151,4 +175,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 12:09 UTC — Session: Webhooks shipped (CRUD + HMAC signing + auto-disable)*
+*Last updated: 2026-02-07 13:30 UTC — Session: Task dependencies shipped (blocker/blocked + circular detection + cascade delete)*
