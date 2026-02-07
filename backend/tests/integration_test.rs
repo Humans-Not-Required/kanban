@@ -150,7 +150,7 @@ fn test_access_control_roles() {
     assert!(BoardRole::Editor >= BoardRole::Viewer);
     assert!(BoardRole::Admin >= BoardRole::Editor);
     assert!(BoardRole::Owner >= BoardRole::Admin);
-    assert!(!(BoardRole::Viewer >= BoardRole::Editor));
+    assert!(BoardRole::Viewer < BoardRole::Editor);
 
     drop(conn);
     drop(pool);

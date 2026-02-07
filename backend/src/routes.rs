@@ -1,10 +1,14 @@
 use rocket::http::{ContentType, Status};
+use rocket::response::stream::{Event, EventStream};
 use rocket::serde::json::Json;
-use rocket::State;
+use rocket::tokio::select;
+use rocket::tokio::time::Duration;
+use rocket::{Shutdown, State};
 
 use crate::access::{self, BoardRole};
 use crate::auth::AuthenticatedKey;
 use crate::db::DbPool;
+use crate::events::EventBus;
 use crate::models::*;
 
 // ============ Health & OpenAPI ============
@@ -20,6 +24,41 @@ pub fn health() -> Json<HealthResponse> {
 #[get("/openapi.json")]
 pub fn openapi() -> (ContentType, &'static str) {
     (ContentType::JSON, include_str!("../openapi.json"))
+}
+
+// ============ SSE Event Stream ============
+
+#[get("/boards/<board_id>/events/stream")]
+pub fn board_event_stream(
+    board_id: &str,
+    key: AuthenticatedKey,
+    db: &State<DbPool>,
+    bus: &State<EventBus>,
+    mut shutdown: Shutdown,
+) -> Result<EventStream![], (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Viewer)?;
+    drop(conn);
+
+    let mut rx = bus.subscribe(board_id);
+
+    Ok(EventStream! {
+        loop {
+            select! {
+                msg = rx.recv() => match msg {
+                    Ok(event) => {
+                        yield Event::json(&event.data).event(event.event);
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        yield Event::data("events_lost").event("warning".to_string());
+                    }
+                },
+                _ = &mut shutdown => break,
+            }
+        }
+    }
+    .heartbeat(Duration::from_secs(15)))
 }
 
 // ============ Boards ============
@@ -217,6 +256,7 @@ pub fn create_task(
     req: Json<CreateTaskRequest>,
     key: AuthenticatedKey,
     db: &State<DbPool>,
+    bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
@@ -314,13 +354,14 @@ pub fn create_task(
     .map_err(|e| db_error(&e.to_string()))?;
 
     // Log creation event
-    log_event(
-        &conn,
-        &task_id,
-        "created",
-        &creator,
-        &serde_json::json!({"title": req.title}),
-    );
+    let event_data = serde_json::json!({"title": req.title, "task_id": task_id, "column_id": column_id, "creator": creator});
+    log_event(&conn, &task_id, "created", &creator, &event_data);
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.created".to_string(),
+        board_id: board_id.to_string(),
+        data: event_data,
+    });
 
     load_task_response(&conn, &task_id)
 }
@@ -405,6 +446,7 @@ pub fn update_task(
     req: Json<UpdateTaskRequest>,
     key: AuthenticatedKey,
     db: &State<DbPool>,
+    bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
     let conn = db.lock().unwrap();
@@ -492,13 +534,17 @@ pub fn update_task(
     }
 
     if !changes.is_empty() {
-        log_event(
-            &conn,
-            task_id,
-            "updated",
-            &actor,
-            &serde_json::Value::Object(changes),
-        );
+        let event_data = serde_json::Value::Object(changes.clone());
+        log_event(&conn, task_id, "updated", &actor, &event_data);
+
+        let mut emit_data = changes;
+        emit_data.insert("task_id".into(), serde_json::json!(task_id));
+        emit_data.insert("actor".into(), serde_json::json!(actor));
+        bus.emit(crate::events::BoardEvent {
+            event: "task.updated".to_string(),
+            board_id: board_id.to_string(),
+            data: serde_json::Value::Object(emit_data),
+        });
     }
 
     load_task_response(&conn, task_id)
@@ -510,10 +556,12 @@ pub fn delete_task(
     task_id: &str,
     key: AuthenticatedKey,
     db: &State<DbPool>,
+    bus: &State<EventBus>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
     let conn_check = db.lock().unwrap();
     access::require_role(&conn_check, board_id, &key, BoardRole::Editor)?;
     drop(conn_check);
+    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
     let conn = db.lock().unwrap();
     let affected = conn
         .execute(
@@ -523,6 +571,11 @@ pub fn delete_task(
         .unwrap_or(0);
 
     if affected > 0 {
+        bus.emit(crate::events::BoardEvent {
+            event: "task.deleted".to_string(),
+            board_id: board_id.to_string(),
+            data: serde_json::json!({"task_id": task_id, "actor": actor}),
+        });
         Ok(Json(serde_json::json!({"deleted": true, "id": task_id})))
     } else {
         Err(not_found("Task"))
@@ -540,6 +593,7 @@ pub fn claim_task(
     task_id: &str,
     key: AuthenticatedKey,
     db: &State<DbPool>,
+    bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
@@ -574,13 +628,14 @@ pub fn claim_task(
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
-    log_event(
-        &conn,
-        task_id,
-        "claimed",
-        &actor,
-        &serde_json::json!({"agent": actor}),
-    );
+    let event_data = serde_json::json!({"task_id": task_id, "agent": actor});
+    log_event(&conn, task_id, "claimed", &actor, &event_data);
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.claimed".to_string(),
+        board_id: board_id.to_string(),
+        data: event_data,
+    });
 
     load_task_response(&conn, task_id)
 }
@@ -592,6 +647,7 @@ pub fn release_task(
     task_id: &str,
     key: AuthenticatedKey,
     db: &State<DbPool>,
+    bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
@@ -603,13 +659,14 @@ pub fn release_task(
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
-    log_event(
-        &conn,
-        task_id,
-        "released",
-        &actor,
-        &serde_json::json!({"agent": actor}),
-    );
+    let event_data = serde_json::json!({"task_id": task_id, "agent": actor});
+    log_event(&conn, task_id, "released", &actor, &event_data);
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.released".to_string(),
+        board_id: board_id.to_string(),
+        data: event_data,
+    });
 
     load_task_response(&conn, task_id)
 }
@@ -622,6 +679,7 @@ pub fn move_task(
     target_column_id: &str,
     key: AuthenticatedKey,
     db: &State<DbPool>,
+    bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
@@ -684,13 +742,14 @@ pub fn move_task(
         .map_err(|e| db_error(&e.to_string()))?;
     }
 
-    log_event(
-        &conn,
-        task_id,
-        "moved",
-        &actor,
-        &serde_json::json!({"from": from_col, "to": target_column_id}),
-    );
+    let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": target_column_id, "actor": actor});
+    log_event(&conn, task_id, "moved", &actor, &event_data);
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.moved".to_string(),
+        board_id: board_id.to_string(),
+        data: event_data,
+    });
 
     load_task_response(&conn, task_id)
 }
@@ -745,6 +804,7 @@ pub fn comment_on_task(
     body: Json<serde_json::Value>,
     key: AuthenticatedKey,
     db: &State<DbPool>,
+    bus: &State<EventBus>,
 ) -> Result<Json<TaskEventResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     // Viewers can comment (reading + lightweight contribution)
@@ -781,6 +841,12 @@ pub fn comment_on_task(
             |row| row.get(0),
         )
         .unwrap_or_else(|_| chrono::Utc::now().to_rfc3339());
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.comment".to_string(),
+        board_id: board_id.to_string(),
+        data: serde_json::json!({"task_id": task_id, "actor": &actor, "message": message}),
+    });
 
     Ok(Json(TaskEventResponse {
         id: event_id,

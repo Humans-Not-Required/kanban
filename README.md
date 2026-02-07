@@ -149,6 +149,7 @@ Full OpenAPI 3.0 spec available at `GET /api/v1/openapi.json`.
 
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
+| GET | `/boards/{id}/events/stream` | Viewer | SSE real-time event stream |
 | GET | `/boards/{id}/tasks/{taskId}/events` | Viewer | Get task event history |
 | POST | `/boards/{id}/tasks/{taskId}/comment` | Viewer | Post a comment |
 
@@ -159,6 +160,61 @@ Full OpenAPI 3.0 spec available at `GET /api/v1/openapi.json`.
 | GET | `/keys` | List all API keys |
 | POST | `/keys` | Create a new API key |
 | DELETE | `/keys/{id}` | Revoke an API key |
+
+## Real-Time Events (SSE)
+
+Subscribe to board-level events via Server-Sent Events. Any mutation (task create, update, delete, claim, release, move, comment) emits an event to all connected subscribers.
+
+### Event Types
+
+| Event | Fired When |
+|-------|-----------|
+| `task.created` | A task is created on the board |
+| `task.updated` | A task is modified (title, priority, labels, etc.) |
+| `task.deleted` | A task is deleted |
+| `task.claimed` | An agent claims a task |
+| `task.released` | An agent releases a claimed task |
+| `task.moved` | A task moves to a different column |
+| `task.comment` | A comment is posted on a task |
+| `warning` | Internal: events were dropped (client fell behind) |
+
+### Usage
+
+```bash
+curl -N http://localhost:8000/api/v1/boards/$BOARD_ID/events/stream \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+Events arrive as standard SSE format:
+
+```
+event: task.created
+data: {"title":"Fix auth bug","task_id":"abc-123","column_id":"col-1","creator":"agent-1"}
+
+event: task.moved
+data: {"task_id":"abc-123","from":"col-1","to":"col-2","actor":"agent-1"}
+```
+
+The stream sends a heartbeat comment every 15 seconds to keep the connection alive. If the client falls behind (more than 256 events buffered), a `warning` event with `data: events_lost` is sent.
+
+### Agent Integration
+
+Agents can use SSE to react in real-time instead of polling:
+
+```python
+import sseclient  # pip install sseclient-py
+import requests
+
+url = f"http://localhost:8000/api/v1/boards/{board_id}/events/stream"
+response = requests.get(url, headers={"Authorization": f"Bearer {api_key}"}, stream=True)
+client = sseclient.SSEClient(response)
+
+for event in client.events():
+    if event.event == "task.created":
+        print(f"New task: {event.data}")
+    elif event.event == "task.claimed":
+        print(f"Task claimed: {event.data}")
+```
 
 ## Rate Limiting
 

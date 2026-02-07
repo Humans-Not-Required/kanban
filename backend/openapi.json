@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Kanban Board API",
-    "description": "AI-Centric Kanban Board — agent-first task coordination with full API. Features board management, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
-    "version": "0.3.0",
+    "description": "AI-Centric Kanban Board \u2014 agent-first task coordination with full API. Features board management, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
+    "version": "0.4.0",
     "license": {
       "name": "MIT"
     }
@@ -15,8 +15,12 @@
     }
   ],
   "security": [
-    { "BearerAuth": [] },
-    { "ApiKeyAuth": [] }
+    {
+      "BearerAuth": []
+    },
+    {
+      "ApiKeyAuth": []
+    }
   ],
   "paths": {
     "/health": {
@@ -24,13 +28,17 @@
         "summary": "Health check",
         "operationId": "health",
         "security": [],
-        "tags": ["System"],
+        "tags": [
+          "System"
+        ],
         "responses": {
           "200": {
             "description": "Service is healthy",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           }
@@ -42,12 +50,16 @@
         "summary": "Create a board",
         "description": "Creates a new board with optional custom columns. If no columns are specified, defaults to: Backlog, In Progress, Review, Done. The creating key becomes the board Owner.",
         "operationId": "createBoard",
-        "tags": ["Boards"],
+        "tags": [
+          "Boards"
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateBoardRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardRequest"
+              }
             }
           }
         },
@@ -56,19 +68,27 @@
             "description": "Board created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/BoardResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
         }
       },
       "get": {
         "summary": "List boards",
         "description": "Lists boards the authenticated key has access to: boards they own, collaborate on, or have tasks in. Admin keys see all boards.",
         "operationId": "listBoards",
-        "tags": ["Boards"],
+        "tags": [
+          "Boards"
+        ],
         "responses": {
           "200": {
             "description": "List of boards",
@@ -76,12 +96,16 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/BoardSummary" }
+                  "items": {
+                    "$ref": "#/components/schemas/BoardSummary"
+                  }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
         }
       }
     },
@@ -90,22 +114,34 @@
         "summary": "Get board details",
         "description": "Returns full board details including columns with task counts. Requires Viewer role or higher.",
         "operationId": "getBoard",
-        "tags": ["Boards"],
+        "tags": [
+          "Boards"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          }
         ],
         "responses": {
           "200": {
             "description": "Board details",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/BoardResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -114,15 +150,21 @@
         "summary": "Add a column to a board",
         "description": "Creates a new column. Position defaults to the end if not specified. Optionally set a WIP (work-in-progress) limit. Requires Admin role on the board.",
         "operationId": "createColumn",
-        "tags": ["Columns"],
+        "tags": [
+          "Columns"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateColumnRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateColumnRequest"
+              }
             }
           }
         },
@@ -131,14 +173,24 @@
             "description": "Column created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ColumnResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -147,9 +199,13 @@
         "summary": "List board collaborators",
         "description": "Lists all collaborators on a board with their roles. Does not include the board owner (who has implicit Owner access). Requires Viewer role or higher.",
         "operationId": "listCollaborators",
-        "tags": ["Access Control"],
+        "tags": [
+          "Access Control"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          }
         ],
         "responses": {
           "200": {
@@ -158,29 +214,43 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/CollaboratorResponse" }
+                  "items": {
+                    "$ref": "#/components/schemas/CollaboratorResponse"
+                  }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "post": {
         "summary": "Add or update a collaborator",
         "description": "Adds a collaborator to the board with the specified role, or updates their role if they're already a collaborator (upsert). Cannot add the board owner as a collaborator. The target key must exist and be active. Requires Admin role on the board.",
         "operationId": "addCollaborator",
-        "tags": ["Access Control"],
+        "tags": [
+          "Access Control"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AddCollaboratorRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/AddCollaboratorRequest"
+              }
             }
           }
         },
@@ -189,7 +259,9 @@
             "description": "Collaborator added or role updated",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CollaboratorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CollaboratorResponse"
+                }
               }
             }
           },
@@ -197,17 +269,25 @@
             "description": "Invalid role or attempting to add board owner",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
           "404": {
             "description": "Board or API key not found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           }
@@ -219,15 +299,22 @@
         "summary": "Remove a collaborator",
         "description": "Removes a collaborator from the board. Their existing tasks remain on the board but they lose access. Requires Admin role on the board.",
         "operationId": "removeCollaborator",
-        "tags": ["Access Control"],
+        "tags": [
+          "Access Control"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
           {
             "name": "keyId",
             "in": "path",
             "required": true,
             "description": "API key ID of the collaborator to remove",
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -238,16 +325,26 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "removed": { "type": "boolean" },
-                    "key_id": { "type": "string" }
+                    "removed": {
+                      "type": "boolean"
+                    },
+                    "key_id": {
+                      "type": "string"
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -256,15 +353,21 @@
         "summary": "Create a task",
         "description": "Creates a new task on the board. If column_id is omitted, the task is placed in the first column. Supports labels, priority, arbitrary metadata, due dates, and initial assignment. Returns 409 if the target column's WIP limit would be exceeded. Requires Editor role or higher.",
         "operationId": "createTask",
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateTaskRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              }
             }
           }
         },
@@ -273,19 +376,31 @@
             "description": "Task created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "409": {
             "description": "Column WIP limit exceeded",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           }
@@ -295,38 +410,52 @@
         "summary": "List tasks",
         "description": "Lists tasks on a board with optional filters. Results are ordered by column position, then priority (descending), then task position. Requires Viewer role or higher.",
         "operationId": "listTasks",
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
           {
             "name": "column",
             "in": "query",
             "description": "Filter by column ID",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "assigned",
             "in": "query",
             "description": "Filter by assigned agent",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "claimed",
             "in": "query",
             "description": "Filter by claiming agent",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "priority",
             "in": "query",
             "description": "Filter by minimum priority (inclusive)",
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer"
+            }
           },
           {
             "name": "label",
             "in": "query",
             "description": "Filter by label (substring match on JSON array)",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -336,14 +465,22 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/TaskResponse" }
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResponse"
+                  }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -352,39 +489,61 @@
         "summary": "Get task details",
         "description": "Returns full task details. Requires Viewer role or higher.",
         "operationId": "getTask",
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
         ],
         "responses": {
           "200": {
             "description": "Task details",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "patch": {
         "summary": "Update a task",
         "description": "Partially update a task. Only provided fields are changed. Logs an 'updated' event with the changed fields. If column_id is changed, the target column's WIP limit is enforced (409 if exceeded). Requires Editor role or higher.",
         "operationId": "updateTask",
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateTaskRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaskRequest"
+              }
             }
           }
         },
@@ -393,18 +552,28 @@
             "description": "Task updated",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "409": {
             "description": "Column WIP limit exceeded",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           }
@@ -414,10 +583,16 @@
         "summary": "Delete a task",
         "description": "Permanently deletes a task. Requires Editor role or higher.",
         "operationId": "deleteTask",
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
         ],
         "responses": {
           "200": {
@@ -427,16 +602,26 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "deleted": { "type": "boolean" },
-                    "id": { "type": "string" }
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -445,28 +630,44 @@
         "summary": "Claim a task",
         "description": "Mark yourself as actively working on this task. Different from assignment: assignment is responsibility, claiming is 'I'm working on this right now.' Prevents conflicts when multiple agents coordinate. Idempotent if you already hold the claim. Returns 409 if another agent holds the claim. Requires Editor role or higher.",
         "operationId": "claimTask",
-        "tags": ["Coordination"],
+        "tags": [
+          "Coordination"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
         ],
         "responses": {
           "200": {
             "description": "Task claimed",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "409": {
             "description": "Task already claimed by another agent",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           }
@@ -478,23 +679,37 @@
         "summary": "Release a claimed task",
         "description": "Release your claim on a task, making it available for other agents to claim. Requires Editor role or higher.",
         "operationId": "releaseTask",
-        "tags": ["Coordination"],
+        "tags": [
+          "Coordination"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
         ],
         "responses": {
           "200": {
             "description": "Task released",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -503,16 +718,24 @@
         "summary": "Move a task to another column",
         "description": "Move a task to a different column (workflow transition). If the target column is the last column by position, the task's completed_at timestamp is set automatically. Moving out of the last column clears completed_at. Returns 409 if the target column's WIP limit would be exceeded. Requires Editor role or higher.",
         "operationId": "moveTask",
-        "tags": ["Coordination"],
+        "tags": [
+          "Coordination"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" },
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          },
           {
             "name": "targetColumnId",
             "in": "path",
             "required": true,
             "description": "ID of the target column",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -520,19 +743,31 @@
             "description": "Task moved",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "409": {
             "description": "Column WIP limit exceeded",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           }
@@ -544,10 +779,16 @@
         "summary": "Get task events",
         "description": "Returns the full event log for a task, ordered chronologically. Events include: created, updated, claimed, released, moved, comment. Requires Viewer role or higher.",
         "operationId": "getTaskEvents",
-        "tags": ["Events"],
+        "tags": [
+          "Events"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
         ],
         "responses": {
           "200": {
@@ -556,13 +797,19 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/TaskEventResponse" }
+                  "items": {
+                    "$ref": "#/components/schemas/TaskEventResponse"
+                  }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
@@ -571,10 +818,16 @@
         "summary": "Post a comment on a task",
         "description": "Adds a comment event to the task's event log. Agents can use this to communicate about a task. Requires Viewer role or higher (lightweight contribution).",
         "operationId": "commentOnTask",
-        "tags": ["Events"],
+        "tags": [
+          "Events"
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/boardId" },
-          { "$ref": "#/components/parameters/taskId" }
+          {
+            "$ref": "#/components/parameters/boardId"
+          },
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -582,7 +835,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["message"],
+                "required": [
+                  "message"
+                ],
                 "properties": {
                   "message": {
                     "type": "string",
@@ -598,13 +853,21 @@
             "description": "Comment posted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TaskEventResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEventResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
@@ -612,7 +875,9 @@
       "get": {
         "summary": "List API keys (admin only)",
         "operationId": "listKeys",
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "responses": {
           "200": {
             "description": "List of API keys",
@@ -620,25 +885,35 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/KeyResponse" }
+                  "items": {
+                    "$ref": "#/components/schemas/KeyResponse"
+                  }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       },
       "post": {
         "summary": "Create an API key (admin only)",
-        "description": "Creates a new API key. The raw key is returned only once in the response — store it securely. Optionally associate an agent_id for identity tracking.",
+        "description": "Creates a new API key. The raw key is returned only once in the response \u2014 store it securely. Optionally associate an agent_id for identity tracking.",
         "operationId": "createKey",
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateKeyRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateKeyRequest"
+              }
             }
           }
         },
@@ -647,12 +922,18 @@
             "description": "API key created (raw key returned only once)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/KeyResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/KeyResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
@@ -660,13 +941,17 @@
       "delete": {
         "summary": "Revoke an API key (admin only)",
         "operationId": "revokeKey",
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "parameters": [
           {
             "name": "keyId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -677,17 +962,76 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "revoked": { "type": "boolean" },
-                    "id": { "type": "string" }
+                    "revoked": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
+      }
+    },
+    "/boards/{boardId}/events/stream": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Subscribe to board events (SSE)",
+        "description": "Opens a Server-Sent Events stream for real-time board updates. Events are emitted when tasks are created, updated, deleted, claimed, released, moved, or commented on. Requires Viewer role or higher. The stream sends a heartbeat comment every 15 seconds to keep the connection alive.",
+        "operationId": "boardEventStream",
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE event stream opened successfully",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Server-Sent Events stream. Each event has an `event` field (e.g., task.created, task.moved) and a JSON `data` payload."
+                },
+                "example": "event: task.created\ndata: {\"title\":\"Fix auth bug\",\"task_id\":\"abc-123\",\"column_id\":\"col-1\",\"creator\":\"agent-1\"}\n\nevent: task.moved\ndata: {\"task_id\":\"abc-123\",\"from\":\"col-1\",\"to\":\"col-2\",\"actor\":\"agent-1\"}\n\n"
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
       }
     }
   },
@@ -711,14 +1055,20 @@
         "in": "path",
         "required": true,
         "description": "Board UUID",
-        "schema": { "type": "string", "format": "uuid" }
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       },
       "taskId": {
         "name": "taskId",
         "in": "path",
         "required": true,
         "description": "Task UUID",
-        "schema": { "type": "string", "format": "uuid" }
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       }
     },
     "responses": {
@@ -726,7 +1076,9 @@
         "description": "Invalid request",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ApiError" }
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
           }
         }
       },
@@ -734,7 +1086,9 @@
         "description": "Missing or invalid API key",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ApiError" }
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
           }
         }
       },
@@ -742,7 +1096,9 @@
         "description": "Insufficient permissions. Error codes: `NO_ACCESS` (no role on board), `INSUFFICIENT_ROLE` (role too low for this action), `FORBIDDEN` (admin-only endpoint).",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ApiError" }
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
           }
         }
       },
@@ -750,7 +1106,9 @@
         "description": "Resource not found",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ApiError" }
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
           }
         }
       },
@@ -759,20 +1117,28 @@
         "headers": {
           "X-RateLimit-Limit": {
             "description": "Maximum requests allowed in the current window",
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer"
+            }
           },
           "X-RateLimit-Remaining": {
             "description": "Requests remaining (always 0 on 429)",
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer"
+            }
           },
           "X-RateLimit-Reset": {
             "description": "Seconds until the rate limit window resets",
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer"
+            }
           }
         },
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ApiError" }
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
           }
         }
       }
@@ -780,41 +1146,79 @@
     "schemas": {
       "HealthResponse": {
         "type": "object",
-        "required": ["status", "version"],
+        "required": [
+          "status",
+          "version"
+        ],
         "properties": {
-          "status": { "type": "string", "example": "ok" },
-          "version": { "type": "string", "example": "0.2.0" }
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "version": {
+            "type": "string",
+            "example": "0.2.0"
+          }
         }
       },
       "ApiError": {
         "type": "object",
-        "required": ["error", "code", "status"],
+        "required": [
+          "error",
+          "code",
+          "status"
+        ],
         "properties": {
-          "error": { "type": "string", "description": "Human-readable error message" },
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
           "code": {
             "type": "string",
             "description": "Machine-readable error code",
             "enum": [
-              "EMPTY_NAME", "EMPTY_TITLE", "EMPTY_MESSAGE",
-              "INVALID_COLUMN", "INVALID_ROLE", "NO_COLUMNS",
-              "NOT_FOUND", "DB_ERROR", "FORBIDDEN",
-              "NO_ACCESS", "INSUFFICIENT_ROLE",
-              "IS_OWNER", "KEY_NOT_FOUND",
-              "ALREADY_CLAIMED", "WIP_LIMIT_EXCEEDED", "RATE_LIMITED"
+              "EMPTY_NAME",
+              "EMPTY_TITLE",
+              "EMPTY_MESSAGE",
+              "INVALID_COLUMN",
+              "INVALID_ROLE",
+              "NO_COLUMNS",
+              "NOT_FOUND",
+              "DB_ERROR",
+              "FORBIDDEN",
+              "NO_ACCESS",
+              "INSUFFICIENT_ROLE",
+              "IS_OWNER",
+              "KEY_NOT_FOUND",
+              "ALREADY_CLAIMED",
+              "WIP_LIMIT_EXCEEDED",
+              "RATE_LIMITED"
             ]
           },
-          "status": { "type": "integer" }
+          "status": {
+            "type": "integer"
+          }
         }
       },
       "CreateBoardRequest": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string", "description": "Board name" },
-          "description": { "type": "string", "default": "" },
+          "name": {
+            "type": "string",
+            "description": "Board name"
+          },
+          "description": {
+            "type": "string",
+            "default": ""
+          },
           "columns": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Custom column names. Defaults to [Backlog, In Progress, Review, Done] if omitted."
           }
         }
@@ -822,58 +1226,127 @@
       "BoardResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "owner": { "type": "string", "description": "Agent ID or key ID of the board owner" },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Agent ID or key ID of the board owner"
+          },
           "columns": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/ColumnResponse" }
+            "items": {
+              "$ref": "#/components/schemas/ColumnResponse"
+            }
           },
-          "task_count": { "type": "integer" },
-          "archived": { "type": "boolean" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "task_count": {
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "BoardSummary": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "task_count": { "type": "integer" },
-          "archived": { "type": "boolean" },
-          "created_at": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "task_count": {
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "CreateColumnRequest": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "position": { "type": "integer", "description": "Column position (0-indexed). Defaults to end." },
-          "wip_limit": { "type": "integer", "nullable": true, "description": "Work-in-progress limit. Null or omitted means unlimited." }
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "description": "Column position (0-indexed). Defaults to end."
+          },
+          "wip_limit": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Work-in-progress limit. Null or omitted means unlimited."
+          }
         }
       },
       "ColumnResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
-          "position": { "type": "integer" },
-          "wip_limit": { "type": "integer", "nullable": true },
-          "task_count": { "type": "integer" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "wip_limit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "task_count": {
+            "type": "integer"
+          }
         }
       },
       "AddCollaboratorRequest": {
         "type": "object",
-        "required": ["key_id"],
+        "required": [
+          "key_id"
+        ],
         "properties": {
-          "key_id": { "type": "string", "format": "uuid", "description": "API key ID of the collaborator to add" },
+          "key_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "API key ID of the collaborator to add"
+          },
           "role": {
             "type": "string",
-            "enum": ["viewer", "editor", "admin"],
+            "enum": [
+              "viewer",
+              "editor",
+              "admin"
+            ],
             "default": "editor",
             "description": "Access role for this collaborator. Viewer: read + comment. Editor: create/update/delete tasks. Admin: manage columns and collaborators."
           }
@@ -882,30 +1355,72 @@
       "CollaboratorResponse": {
         "type": "object",
         "properties": {
-          "key_id": { "type": "string", "format": "uuid", "description": "API key ID of the collaborator" },
-          "key_name": { "type": "string", "description": "Human-readable name of the API key" },
-          "agent_id": { "type": "string", "nullable": true, "description": "Agent identifier (if set on the key)" },
+          "key_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "API key ID of the collaborator"
+          },
+          "key_name": {
+            "type": "string",
+            "description": "Human-readable name of the API key"
+          },
+          "agent_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Agent identifier (if set on the key)"
+          },
           "role": {
             "type": "string",
-            "enum": ["viewer", "editor", "admin"],
+            "enum": [
+              "viewer",
+              "editor",
+              "admin"
+            ],
             "description": "Access role on this board"
           },
-          "added_by": { "type": "string", "description": "Agent/key that added this collaborator" },
-          "created_at": { "type": "string", "format": "date-time" }
+          "added_by": {
+            "type": "string",
+            "description": "Agent/key that added this collaborator"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "CreateTaskRequest": {
         "type": "object",
-        "required": ["title"],
+        "required": [
+          "title"
+        ],
         "properties": {
-          "title": { "type": "string" },
-          "description": { "type": "string", "default": "" },
-          "column_id": { "type": "string", "format": "uuid", "description": "Target column. Defaults to the first column if omitted." },
-          "priority": { "type": "integer", "default": 0, "description": "Higher values = higher priority" },
-          "assigned_to": { "type": "string", "nullable": true, "description": "Agent responsible for this task" },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "default": ""
+          },
+          "column_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Target column. Defaults to the first column if omitted."
+          },
+          "priority": {
+            "type": "integer",
+            "default": 0,
+            "description": "Higher values = higher priority"
+          },
+          "assigned_to": {
+            "type": "string",
+            "nullable": true,
+            "description": "Agent responsible for this task"
+          },
           "labels": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "default": []
           },
           "metadata": {
@@ -913,93 +1428,252 @@
             "description": "Arbitrary JSON for agent-specific data",
             "default": {}
           },
-          "due_at": { "type": "string", "format": "date-time", "nullable": true }
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
         }
       },
       "UpdateTaskRequest": {
         "type": "object",
-        "description": "Partial update — only provided fields are changed.",
+        "description": "Partial update \u2014 only provided fields are changed.",
         "properties": {
-          "title": { "type": "string" },
-          "description": { "type": "string" },
-          "column_id": { "type": "string", "format": "uuid" },
-          "priority": { "type": "integer" },
-          "assigned_to": { "type": "string" },
-          "labels": { "type": "array", "items": { "type": "string" } },
-          "metadata": { "type": "object" },
-          "due_at": { "type": "string", "format": "date-time" }
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "column_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "TaskResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "board_id": { "type": "string", "format": "uuid" },
-          "column_id": { "type": "string", "format": "uuid" },
-          "column_name": { "type": "string" },
-          "title": { "type": "string" },
-          "description": { "type": "string" },
-          "priority": { "type": "integer" },
-          "position": { "type": "integer" },
-          "created_by": { "type": "string" },
-          "assigned_to": { "type": "string", "nullable": true },
-          "claimed_by": { "type": "string", "nullable": true, "description": "Agent currently working on this task (claim-based coordination)" },
-          "claimed_at": { "type": "string", "format": "date-time", "nullable": true },
-          "labels": { "type": "array", "items": { "type": "string" } },
-          "metadata": { "type": "object" },
-          "due_at": { "type": "string", "format": "date-time", "nullable": true },
-          "completed_at": { "type": "string", "format": "date-time", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "board_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "column_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "column_name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "assigned_to": {
+            "type": "string",
+            "nullable": true
+          },
+          "claimed_by": {
+            "type": "string",
+            "nullable": true,
+            "description": "Agent currently working on this task (claim-based coordination)"
+          },
+          "claimed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "TaskEventResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
           "event_type": {
             "type": "string",
-            "enum": ["created", "updated", "claimed", "released", "moved", "comment"],
+            "enum": [
+              "created",
+              "updated",
+              "claimed",
+              "released",
+              "moved",
+              "comment"
+            ],
             "description": "Type of event"
           },
-          "actor": { "type": "string", "description": "Agent or key that triggered the event" },
-          "data": { "type": "object", "description": "Event-specific payload (varies by event_type)" },
-          "created_at": { "type": "string", "format": "date-time" }
+          "actor": {
+            "type": "string",
+            "description": "Agent or key that triggered the event"
+          },
+          "data": {
+            "type": "object",
+            "description": "Event-specific payload (varies by event_type)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "CreateKeyRequest": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string", "description": "Human-readable key name" },
-          "agent_id": { "type": "string", "nullable": true, "description": "Optional agent identifier (e.g. 'nanook', 'claude-agent-1')" },
-          "rate_limit": { "type": "integer", "default": 100, "description": "Requests per rate limit window" }
+          "name": {
+            "type": "string",
+            "description": "Human-readable key name"
+          },
+          "agent_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional agent identifier (e.g. 'nanook', 'claude-agent-1')"
+          },
+          "rate_limit": {
+            "type": "integer",
+            "default": 100,
+            "description": "Requests per rate limit window"
+          }
         }
       },
       "KeyResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
-          "agent_id": { "type": "string", "nullable": true },
-          "key": { "type": "string", "nullable": true, "description": "Raw API key (only returned on creation)" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "last_used_at": { "type": "string", "format": "date-time", "nullable": true },
-          "requests_count": { "type": "integer" },
-          "rate_limit": { "type": "integer" },
-          "active": { "type": "boolean" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "agent_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "key": {
+            "type": "string",
+            "nullable": true,
+            "description": "Raw API key (only returned on creation)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_used_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "requests_count": {
+            "type": "integer"
+          },
+          "rate_limit": {
+            "type": "integer"
+          },
+          "active": {
+            "type": "boolean"
+          }
         }
       }
     }
   },
   "tags": [
-    { "name": "System", "description": "Health and system endpoints" },
-    { "name": "Boards", "description": "Board management" },
-    { "name": "Columns", "description": "Column management within boards (requires Admin role)" },
-    { "name": "Access Control", "description": "Board collaborator management. Role hierarchy: Viewer < Editor < Admin < Owner." },
-    { "name": "Tasks", "description": "Task CRUD operations" },
-    { "name": "Coordination", "description": "Agent-first coordination: claim, release, move (requires Editor role)" },
-    { "name": "Events", "description": "Task event log and comments" },
-    { "name": "Admin", "description": "API key management (global admin only)" }
+    {
+      "name": "System",
+      "description": "Health and system endpoints"
+    },
+    {
+      "name": "Boards",
+      "description": "Board management"
+    },
+    {
+      "name": "Columns",
+      "description": "Column management within boards (requires Admin role)"
+    },
+    {
+      "name": "Access Control",
+      "description": "Board collaborator management. Role hierarchy: Viewer < Editor < Admin < Owner."
+    },
+    {
+      "name": "Tasks",
+      "description": "Task CRUD operations"
+    },
+    {
+      "name": "Coordination",
+      "description": "Agent-first coordination: claim, release, move (requires Editor role)"
+    },
+    {
+      "name": "Events",
+      "description": "Task event log, comments, and real-time SSE stream"
+    },
+    {
+      "name": "Admin",
+      "description": "API key management (global admin only)"
+    }
   ]
 }

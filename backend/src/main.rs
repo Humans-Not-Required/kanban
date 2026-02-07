@@ -4,12 +4,14 @@ extern crate rocket;
 mod access;
 mod auth;
 mod db;
+mod events;
 mod models;
 mod rate_limit;
 mod routes;
 
 use std::time::Duration;
 
+use events::EventBus;
 use rate_limit::{RateLimitHeaders, RateLimiter};
 use rocket::fairing::AdHoc;
 use rocket_cors::{AllowedOrigins, CorsOptions};
@@ -37,6 +39,7 @@ fn rocket() -> _ {
             rocket.manage(db)
         }))
         .manage(RateLimiter::new(Duration::from_secs(window_secs)))
+        .manage(EventBus::new())
         .mount(
             "/api/v1",
             routes![
@@ -61,6 +64,8 @@ fn rocket() -> _ {
                 // Task events & comments
                 routes::get_task_events,
                 routes::comment_on_task,
+                // SSE event stream
+                routes::board_event_stream,
                 // Board collaborators
                 routes::list_collaborators,
                 routes::add_collaborator,
