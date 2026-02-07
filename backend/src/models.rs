@@ -245,6 +245,42 @@ pub struct BatchOperationResult {
     pub affected: usize,
 }
 
+// ============ Webhooks ============
+
+#[derive(Debug, Deserialize)]
+pub struct CreateWebhookRequest {
+    /// URL to POST events to (must be HTTPS in production)
+    pub url: String,
+    /// Optional filter: list of event types to subscribe to.
+    /// If empty, all events are delivered.
+    /// Valid types: task.created, task.updated, task.deleted, task.claimed,
+    /// task.released, task.moved, task.reordered, task.comment
+    #[serde(default)]
+    pub events: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateWebhookRequest {
+    pub url: Option<String>,
+    pub events: Option<Vec<String>>,
+    pub active: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WebhookResponse {
+    pub id: String,
+    pub board_id: String,
+    pub url: String,
+    /// Only returned on creation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<String>,
+    pub events: Vec<String>,
+    pub active: bool,
+    pub failure_count: i32,
+    pub last_triggered_at: Option<String>,
+    pub created_at: String,
+}
+
 // ============ Common ============
 
 #[derive(Debug, Serialize)]

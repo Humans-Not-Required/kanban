@@ -1,8 +1,9 @@
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 pub type DbPool = Mutex<Connection>;
+pub type WebhookDb = Arc<Mutex<Connection>>;
 
 pub fn hash_key(key: &str) -> String {
     let mut hasher = Sha256::new();
@@ -104,6 +105,21 @@ pub fn init_db() -> Result<DbPool, String> {
             FOREIGN KEY (key_id) REFERENCES api_keys(id)
         );
 
+        -- Webhooks for external notifications
+        CREATE TABLE IF NOT EXISTS webhooks (
+            id TEXT PRIMARY KEY,
+            board_id TEXT NOT NULL,
+            url TEXT NOT NULL,
+            secret TEXT NOT NULL,
+            events TEXT NOT NULL DEFAULT '[]',
+            created_by TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            failure_count INTEGER NOT NULL DEFAULT 0,
+            last_triggered_at TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
+        );
+
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_tasks_board ON tasks(board_id);
         CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id);
@@ -112,6 +128,7 @@ pub fn init_db() -> Result<DbPool, String> {
         CREATE INDEX IF NOT EXISTS idx_events_task ON task_events(task_id);
         CREATE INDEX IF NOT EXISTS idx_columns_board ON columns(board_id);
         CREATE INDEX IF NOT EXISTS idx_collaborators_key ON board_collaborators(key_id);
+        CREATE INDEX IF NOT EXISTS idx_webhooks_board ON webhooks(board_id);
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))?;
@@ -142,4 +159,18 @@ pub fn init_db() -> Result<DbPool, String> {
     }
 
     Ok(Mutex::new(conn))
+}
+
+/// Open a separate database connection for async webhook delivery.
+/// Uses WAL mode for concurrent reads alongside the main connection.
+pub fn init_webhook_db() -> Result<WebhookDb, String> {
+    let db_path = std::env::var("DATABASE_PATH").unwrap_or_else(|_| "kanban.db".to_string());
+
+    let conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open webhook database: {}", e))?;
+
+    conn.execute_batch("PRAGMA journal_mode=WAL;")
+        .map_err(|e| format!("Failed to set WAL mode for webhook db: {}", e))?;
+
+    Ok(Arc::new(Mutex::new(conn)))
 }

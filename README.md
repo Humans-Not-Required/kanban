@@ -159,6 +159,15 @@ Full OpenAPI 3.0 spec available at `GET /api/v1/openapi.json`.
 | GET | `/boards/{id}/tasks/{taskId}/events` | Viewer | Get task event history |
 | POST | `/boards/{id}/tasks/{taskId}/comment` | Viewer | Post a comment |
 
+### Webhooks (Admin Only)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/boards/{id}/webhooks` | Register a webhook |
+| GET | `/boards/{id}/webhooks` | List board webhooks |
+| PATCH | `/boards/{id}/webhooks/{whId}` | Update webhook |
+| DELETE | `/boards/{id}/webhooks/{whId}` | Delete webhook |
+
 ### API Keys (Admin Only)
 
 | Method | Path | Description |
@@ -253,6 +262,69 @@ Columns can have optional work-in-progress limits. When set:
 - Error code: `WIP_LIMIT_EXCEEDED`
 - Agents should handle this by moving tasks out of full columns first
 - Columns with `wip_limit: null` are unlimited
+
+## Webhooks
+
+Register webhooks to receive HTTP POST notifications when board events occur. Ideal for integrating with external systems, triggering CI/CD pipelines, or connecting with other agents.
+
+### Setup
+
+```bash
+# Register a webhook (Admin role required)
+curl -X POST http://localhost:8000/api/v1/boards/{boardId}/webhooks \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/webhook", "events": ["task.created", "task.moved"]}'
+```
+
+The response includes a `secret` — **save it immediately**, it's only shown once.
+
+### Payload
+
+Webhook deliveries are HTTP POST with JSON body:
+
+```json
+{
+  "event": "task.created",
+  "board_id": "board-uuid",
+  "data": { "title": "Fix bug", "task_id": "task-uuid", ... },
+  "timestamp": "2026-02-07T12:00:00Z"
+}
+```
+
+### Verification
+
+Every delivery includes an HMAC-SHA256 signature header:
+
+```
+X-Kanban-Signature: sha256=<hex-digest>
+X-Kanban-Event: task.created
+X-Kanban-Board: <board-id>
+```
+
+Verify by computing `HMAC-SHA256(secret, request_body)` and comparing.
+
+### Event Filtering
+
+- Empty `events` array = receive all events
+- Specify types to filter: `["task.created", "task.moved", "task.deleted"]`
+- Valid types: `task.created`, `task.updated`, `task.deleted`, `task.claimed`, `task.released`, `task.moved`, `task.reordered`, `task.comment`
+
+### Reliability
+
+- Webhooks auto-disable after **10 consecutive failures**
+- Re-enable via PATCH with `{"active": true}` (resets failure count)
+- 10-second timeout per delivery attempt
+- Delivery is asynchronous — doesn't block API responses
+
+### Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/boards/{id}/webhooks` | Create webhook (Admin+) |
+| `GET` | `/boards/{id}/webhooks` | List webhooks (Admin+) |
+| `PATCH` | `/boards/{id}/webhooks/{whId}` | Update webhook (Admin+) |
+| `DELETE` | `/boards/{id}/webhooks/{whId}` | Delete webhook (Admin+) |
 
 ## Usage Examples
 

@@ -885,3 +885,180 @@ fn test_board_archiving() {
     drop(pool);
     let _ = std::fs::remove_file(&db_path);
 }
+
+#[test]
+fn test_webhooks_crud() {
+    let db_path = format!("/tmp/kanban_test_webhooks_{}.db", uuid::Uuid::new_v4());
+    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let pool = kanban::db::init_db().expect("DB should initialize");
+    let conn = pool.lock().unwrap();
+
+    // Verify webhooks table exists
+    let tables: Vec<String> = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    assert!(
+        tables.contains(&"webhooks".to_string()),
+        "webhooks table should exist"
+    );
+
+    // Get admin key
+    let admin_key_id: String = conn
+        .query_row(
+            "SELECT id FROM api_keys WHERE is_admin = 1 LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("Admin key should exist");
+
+    // Create a board
+    let board_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, ?2, '', ?3)",
+        rusqlite::params![board_id, "Webhook Test Board", admin_key_id],
+    )
+    .unwrap();
+
+    // Create a webhook
+    let webhook_id = uuid::Uuid::new_v4().to_string();
+    let events_json = serde_json::to_string(&vec!["task.created", "task.moved"]).unwrap();
+    conn.execute(
+        "INSERT INTO webhooks (id, board_id, url, secret, events, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![
+            webhook_id,
+            board_id,
+            "https://example.com/webhook",
+            "whsec_test123",
+            events_json,
+            admin_key_id
+        ],
+    )
+    .unwrap();
+
+    // Read back the webhook
+    let (url, secret, events_str, active, failure_count): (String, String, String, i32, i32) = conn
+        .query_row(
+            "SELECT url, secret, events, active, failure_count FROM webhooks WHERE id = ?1",
+            rusqlite::params![webhook_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .unwrap();
+
+    assert_eq!(url, "https://example.com/webhook");
+    assert_eq!(secret, "whsec_test123");
+    assert_eq!(active, 1);
+    assert_eq!(failure_count, 0);
+
+    let events: Vec<String> = serde_json::from_str(&events_str).unwrap();
+    assert_eq!(events, vec!["task.created", "task.moved"]);
+
+    // Update webhook URL
+    conn.execute(
+        "UPDATE webhooks SET url = ?1 WHERE id = ?2",
+        rusqlite::params!["https://example.com/webhook/v2", webhook_id],
+    )
+    .unwrap();
+
+    let updated_url: String = conn
+        .query_row(
+            "SELECT url FROM webhooks WHERE id = ?1",
+            rusqlite::params![webhook_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(updated_url, "https://example.com/webhook/v2");
+
+    // Deactivate webhook
+    conn.execute(
+        "UPDATE webhooks SET active = 0 WHERE id = ?1",
+        rusqlite::params![webhook_id],
+    )
+    .unwrap();
+
+    let is_active: i32 = conn
+        .query_row(
+            "SELECT active FROM webhooks WHERE id = ?1",
+            rusqlite::params![webhook_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(is_active, 0);
+
+    // Increment failure count (simulating delivery failure)
+    conn.execute(
+        "UPDATE webhooks SET failure_count = failure_count + 1 WHERE id = ?1",
+        rusqlite::params![webhook_id],
+    )
+    .unwrap();
+
+    let failures: i32 = conn
+        .query_row(
+            "SELECT failure_count FROM webhooks WHERE id = ?1",
+            rusqlite::params![webhook_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(failures, 1);
+
+    // Delete webhook
+    let affected = conn
+        .execute(
+            "DELETE FROM webhooks WHERE id = ?1",
+            rusqlite::params![webhook_id],
+        )
+        .unwrap();
+    assert_eq!(affected, 1);
+
+    // Verify deleted
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM webhooks WHERE id = ?1",
+            rusqlite::params![webhook_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 0);
+
+    // Test CASCADE: create webhook then delete the board
+    let wh_id2 = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO webhooks (id, board_id, url, secret, events, created_by) VALUES (?1, ?2, ?3, ?4, '[]', ?5)",
+        rusqlite::params![wh_id2, board_id, "https://example.com/wh2", "secret2", admin_key_id],
+    )
+    .unwrap();
+
+    conn.execute(
+        "DELETE FROM boards WHERE id = ?1",
+        rusqlite::params![board_id],
+    )
+    .unwrap();
+
+    let orphan_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM webhooks WHERE board_id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        orphan_count, 0,
+        "Webhooks should be cascade-deleted with board"
+    );
+
+    drop(conn);
+    drop(pool);
+    let _ = std::fs::remove_file(&db_path);
+}

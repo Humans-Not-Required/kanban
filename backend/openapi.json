@@ -3,7 +3,7 @@
   "info": {
     "title": "Kanban Board API",
     "description": "AI-Centric Kanban Board \u2014 agent-first task coordination with full API. Features board management with archive/unarchive, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Board Archiving\n\nBoards can be archived via `POST /boards/{boardId}/archive` (Admin+). Archived boards are read-only: all task mutations, column creation, and batch operations return 409 Conflict with error code `BOARD_ARCHIVED`. Read operations (list tasks, search, view events) remain available. Use `POST /boards/{boardId}/unarchive` to restore. By default, `GET /boards` excludes archived boards; pass `?include_archived=true` to include them.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "license": {
       "name": "MIT"
     }
@@ -1362,6 +1362,159 @@
           }
         }
       }
+    },
+    "/boards/{boardId}/webhooks": {
+      "post": {
+        "summary": "Create webhook",
+        "description": "Register a webhook to receive HTTP POST notifications when events occur on this board. The response includes a secret used to verify webhook signatures — it is only shown once.",
+        "operationId": "createWebhook",
+        "tags": ["Webhooks"],
+        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateWebhookRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook created (includes secret)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WebhookResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid URL or event type" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Requires Admin role" }
+        }
+      },
+      "get": {
+        "summary": "List webhooks",
+        "description": "List all webhooks registered for this board. Secrets are never returned after creation.",
+        "operationId": "listWebhooks",
+        "tags": ["Webhooks"],
+        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of webhooks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/WebhookResponse" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Requires Admin role" }
+        }
+      }
+    },
+    "/boards/{boardId}/webhooks/{webhookId}": {
+      "patch": {
+        "summary": "Update webhook",
+        "description": "Update a webhook's URL, event filter, or active status. Re-enabling a webhook resets its failure count.",
+        "operationId": "updateWebhook",
+        "tags": ["Webhooks"],
+        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "webhookId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateWebhookRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WebhookResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid URL or event type" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Requires Admin role" },
+          "404": { "description": "Webhook not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete webhook",
+        "description": "Permanently delete a webhook.",
+        "operationId": "deleteWebhook",
+        "tags": ["Webhooks"],
+        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "webhookId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" },
+                    "id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Requires Admin role" },
+          "404": { "description": "Webhook not found" }
+        }
+      }
     }
   },
   "components": {
@@ -1521,7 +1674,9 @@
               "KEY_NOT_FOUND",
               "ALREADY_CLAIMED",
               "WIP_LIMIT_EXCEEDED",
-              "RATE_LIMITED"
+              "RATE_LIMITED",
+              "EMPTY_URL",
+              "INVALID_EVENT_TYPE"
             ]
           },
           "status": {
@@ -2128,6 +2283,87 @@
             "description": "Current offset"
           }
         }
+      },
+      "CreateWebhookRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to POST events to",
+            "example": "https://example.com/webhooks/kanban"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "task.created",
+                "task.updated",
+                "task.deleted",
+                "task.claimed",
+                "task.released",
+                "task.moved",
+                "task.reordered",
+                "task.comment"
+              ]
+            },
+            "description": "Event types to subscribe to. Empty array = all events.",
+            "default": []
+          }
+        }
+      },
+      "UpdateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "New webhook URL"
+          },
+          "events": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Updated event filter (empty = all events)"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Enable or disable the webhook. Re-enabling resets the failure count."
+          }
+        }
+      },
+      "WebhookResponse": {
+        "type": "object",
+        "required": ["id", "board_id", "url", "events", "active", "failure_count", "created_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "board_id": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "secret": {
+            "type": "string",
+            "description": "Webhook signing secret. Only returned on creation — save it immediately."
+          },
+          "events": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Subscribed event types (empty = all)"
+          },
+          "active": { "type": "boolean" },
+          "failure_count": {
+            "type": "integer",
+            "description": "Consecutive delivery failures. Auto-disables at 10."
+          },
+          "last_triggered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     }
   },
@@ -2163,6 +2399,10 @@
     {
       "name": "Admin",
       "description": "API key management (global admin only)"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhook management for external notifications. Webhooks receive HTTP POST requests when board events occur, signed with HMAC-SHA256. Headers: X-Kanban-Signature (sha256=<hex>), X-Kanban-Event, X-Kanban-Board. Webhooks auto-disable after 10 consecutive failures."
     }
   ]
 }

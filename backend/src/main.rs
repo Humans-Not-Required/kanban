@@ -8,12 +8,12 @@ mod events;
 mod models;
 mod rate_limit;
 mod routes;
+mod webhooks;
 
 use std::time::Duration;
 
 use events::EventBus;
 use rate_limit::{RateLimitHeaders, RateLimiter};
-use rocket::fairing::AdHoc;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
 #[launch]
@@ -31,15 +31,18 @@ fn rocket() -> _ {
         .and_then(|v| v.parse().ok())
         .unwrap_or(60);
 
+    // Initialize main database
+    let db = db::init_db().expect("Failed to initialize database");
+
+    // Initialize a separate DB connection for async webhook delivery
+    let webhook_db = db::init_webhook_db().expect("Failed to initialize webhook database");
+
     rocket::build()
         .attach(cors)
         .attach(RateLimitHeaders)
-        .attach(AdHoc::on_ignite("Database", |rocket| async {
-            let db = db::init_db().expect("Failed to initialize database");
-            rocket.manage(db)
-        }))
+        .manage(db)
         .manage(RateLimiter::new(Duration::from_secs(window_secs)))
-        .manage(EventBus::new())
+        .manage(EventBus::with_webhooks(webhook_db))
         .mount(
             "/api/v1",
             routes![
@@ -76,6 +79,11 @@ fn rocket() -> _ {
                 routes::list_collaborators,
                 routes::add_collaborator,
                 routes::remove_collaborator,
+                // Webhooks
+                routes::create_webhook,
+                routes::list_webhooks,
+                routes::update_webhook,
+                routes::delete_webhook,
                 // API keys
                 routes::list_keys,
                 routes::create_key,
