@@ -1,6 +1,6 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec ✅ + Access Control ✅ + WIP Limits ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.2.0 ✅ + Access Control ✅ + WIP Limits ✅
 
 Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, and WIP limit enforcement. Compiles cleanly (clippy -D warnings), all tests pass.
 
@@ -41,10 +41,13 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
   - Agent-first coordination: claim/release/move
   - Task events: list events + add comment
   - API keys (admin): list/create/revoke
-- **OpenAPI 3.0 Spec** (v0.1.0):
-  - 18 paths with full request/response documentation
-  - 14 schemas
-  - Tags: System, Boards, Columns, Tasks, Coordination, Events, Admin
+- **OpenAPI 3.0 Spec** (v0.2.0):
+  - 21 paths with full request/response documentation
+  - 18 schemas (including AddCollaboratorRequest, CollaboratorResponse)
+  - Tags: System, Boards, Columns, Access Control, Tasks, Coordination, Events, Admin
+  - Access control documented: role hierarchy, 403 error codes (NO_ACCESS, INSUFFICIENT_ROLE), role requirements on every endpoint
+  - WIP limit enforcement documented with 409 Conflict responses
+  - All error codes enumerated in ApiError schema
 - Tests (6 passing):
   - DB init creates schema + admin key
   - WAL mode enabled
@@ -69,12 +72,11 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
   - Owner is implicit (board creator), never stored in collaborators table
   - Global admin keys bypass all board-level checks
   - Viewer can comment (lightweight contribution) but can't modify tasks
-- **OpenAPI at v0.1.0** — matches crate version
+- **OpenAPI at v0.2.0** — separate from crate version, tracks API evolution
 
 ### What's Next (Priority Order)
 
-1. **Update OpenAPI spec** — add collaborator endpoints and access control documentation
-2. **README** — setup instructions, API overview, Docker support
+1. **README** — setup instructions, API overview, Docker support
 4. **Docker** — Dockerfile + docker-compose.yml for easy deployment
 5. **WebSocket / SSE event stream** for real-time updates
 6. **Task ordering** improvements (drag/drop positions + stable sorting)
@@ -87,7 +89,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - CORS wide open (all origins) — tighten for production
 - No rate limiting yet — all requests allowed regardless of rate_limit field in api_keys table
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec doesn't yet document collaborator endpoints or access control error responses
+- OpenAPI spec is at v0.2.0 — 21 paths, 18 schemas, access control fully documented
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully (move tasks out of full columns first)
 - Access checks use `require_role` which checks board existence + role in one call (replaces old `verify_board_exists`)
 
@@ -101,4 +103,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 09:44 UTC — Session: WIP limit enforcement*
+*Last updated: 2026-02-07 09:54 UTC — Session: OpenAPI v0.2.0 with collaborator endpoints and access control docs*
