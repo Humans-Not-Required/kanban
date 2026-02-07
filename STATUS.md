@@ -46,10 +46,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 ### What's Next (Priority Order)
 
 1. ~~**Deploy updated backend + frontend**~~ ✅ Done (2026-02-07 22:32 UTC)
-2. **Comments visible in frontend** — task comments exist in API but need UI
+2. ~~**Comments visible in frontend**~~ ✅ Done (2026-02-07 22:35 UTC) — task detail modal with comments, activity log, add comment form
 3. **Identity on actions** — use `actor_name` in frontend when manage key is present
-4. **IP-based rate limiting for board creation** — prevent spam (rate_limit module already exists, repurpose for IP-based)
-5. **Task editing in frontend** — click task card to open edit modal (title, description, priority, labels, assignment)
+4. **Task editing in frontend** — click task card to open edit modal (title, description, priority, labels, assignment)
+5. **IP-based rate limiting for board creation** — prevent spam (rate_limit module already exists, repurpose for IP-based)
 
 ### ⚠️ Gotchas
 
@@ -78,4 +78,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-07 22:32 UTC — Session: Deployed auth-refactored backend + frontend to staging (192.168.0.79). Fresh DB, all endpoints verified (create, read, write+key, write-no-key=401). External URL kanban.ckbdev.com confirmed working. 17 tests passing.*
+*Last updated: 2026-02-07 22:35 UTC — Session: Deployed auth-refactored code to staging (fresh DB). Added task detail modal with comments section — click any task card to view details, comments, and activity log. Comment form for manage-key holders. Deployed to staging. 17 tests passing.*
