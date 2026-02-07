@@ -672,7 +672,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
         )}
 
         {/* Mobile move action */}
-        {isMobile && canEdit && allColumns && !editing && (
+        {canEdit && allColumns && !editing && (
           <div style={{ marginBottom: '12px' }}>
             {showMove ? (
               <MoveTaskDropdown
