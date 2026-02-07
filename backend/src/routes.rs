@@ -1,4 +1,4 @@
-use rocket::http::Status;
+use rocket::http::{ContentType, Status};
 use rocket::serde::json::Json;
 use rocket::State;
 
@@ -6,7 +6,7 @@ use crate::auth::AuthenticatedKey;
 use crate::db::DbPool;
 use crate::models::*;
 
-// ============ Health ============
+// ============ Health & OpenAPI ============
 
 #[get("/health")]
 pub fn health() -> Json<HealthResponse> {
@@ -14,6 +14,11 @@ pub fn health() -> Json<HealthResponse> {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     })
+}
+
+#[get("/openapi.json")]
+pub fn openapi() -> (ContentType, &'static str) {
+    (ContentType::JSON, include_str!("../openapi.json"))
 }
 
 // ============ Boards ============

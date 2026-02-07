@@ -1,0 +1,796 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Kanban Board API",
+    "description": "AI-Centric Kanban Board — agent-first task coordination with full API. Features board management, task lifecycle, claim/release coordination for concurrent agents, event logging, and comments. All endpoints require API key authentication via Bearer token or X-API-Key header.",
+    "version": "0.1.0",
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000/api/v1",
+      "description": "Local development"
+    }
+  ],
+  "security": [
+    { "BearerAuth": [] },
+    { "ApiKeyAuth": [] }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health",
+        "security": [],
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/boards": {
+      "post": {
+        "summary": "Create a board",
+        "description": "Creates a new board with optional custom columns. If no columns are specified, defaults to: Backlog, In Progress, Review, Done.",
+        "operationId": "createBoard",
+        "tags": ["Boards"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateBoardRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Board created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BoardResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "get": {
+        "summary": "List boards",
+        "description": "Lists boards owned by the authenticated key or where the agent has tasks.",
+        "operationId": "listBoards",
+        "tags": ["Boards"],
+        "responses": {
+          "200": {
+            "description": "List of boards",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/BoardSummary" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/boards/{boardId}": {
+      "get": {
+        "summary": "Get board details",
+        "description": "Returns full board details including columns with task counts.",
+        "operationId": "getBoard",
+        "tags": ["Boards"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Board details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BoardResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/boards/{boardId}/columns": {
+      "post": {
+        "summary": "Add a column to a board",
+        "description": "Creates a new column. Position defaults to the end if not specified. Optionally set a WIP (work-in-progress) limit.",
+        "operationId": "createColumn",
+        "tags": ["Columns"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateColumnRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Column created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ColumnResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/boards/{boardId}/tasks": {
+      "post": {
+        "summary": "Create a task",
+        "description": "Creates a new task on the board. If column_id is omitted, the task is placed in the first column. Supports labels, priority, arbitrary metadata, due dates, and initial assignment.",
+        "operationId": "createTask",
+        "tags": ["Tasks"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTaskRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "get": {
+        "summary": "List tasks",
+        "description": "Lists tasks on a board with optional filters. Results are ordered by column position, then priority (descending), then task position.",
+        "operationId": "listTasks",
+        "tags": ["Tasks"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          {
+            "name": "column",
+            "in": "query",
+            "description": "Filter by column ID",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "assigned",
+            "in": "query",
+            "description": "Filter by assigned agent",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "claimed",
+            "in": "query",
+            "description": "Filter by claiming agent",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "Filter by minimum priority (inclusive)",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "description": "Filter by label (substring match on JSON array)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TaskResponse" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/boards/{boardId}/tasks/{taskId}": {
+      "get": {
+        "summary": "Get task details",
+        "operationId": "getTask",
+        "tags": ["Tasks"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "summary": "Update a task",
+        "description": "Partially update a task. Only provided fields are changed. Logs an 'updated' event with the changed fields.",
+        "operationId": "updateTask",
+        "tags": ["Tasks"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTaskRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a task",
+        "operationId": "deleteTask",
+        "tags": ["Tasks"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" },
+                    "id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/boards/{boardId}/tasks/{taskId}/claim": {
+      "post": {
+        "summary": "Claim a task",
+        "description": "Mark yourself as actively working on this task. Different from assignment: assignment is responsibility, claiming is 'I'm working on this right now.' Prevents conflicts when multiple agents coordinate. Idempotent if you already hold the claim. Returns 409 if another agent holds the claim.",
+        "operationId": "claimTask",
+        "tags": ["Coordination"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task claimed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Task already claimed by another agent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/boards/{boardId}/tasks/{taskId}/release": {
+      "post": {
+        "summary": "Release a claimed task",
+        "description": "Release your claim on a task, making it available for other agents to claim.",
+        "operationId": "releaseTask",
+        "tags": ["Coordination"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task released",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/boards/{boardId}/tasks/{taskId}/move/{targetColumnId}": {
+      "post": {
+        "summary": "Move a task to another column",
+        "description": "Move a task to a different column (workflow transition). If the target column is the last column by position, the task's completed_at timestamp is set automatically. Moving out of the last column clears completed_at.",
+        "operationId": "moveTask",
+        "tags": ["Coordination"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" },
+          {
+            "name": "targetColumnId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the target column",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task moved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaskResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/boards/{boardId}/tasks/{taskId}/events": {
+      "get": {
+        "summary": "Get task events",
+        "description": "Returns the full event log for a task, ordered chronologically. Events include: created, updated, claimed, released, moved, comment.",
+        "operationId": "getTaskEvents",
+        "tags": ["Events"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of task events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TaskEventResponse" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/boards/{boardId}/tasks/{taskId}/comment": {
+      "post": {
+        "summary": "Post a comment on a task",
+        "description": "Adds a comment event to the task's event log. Agents can use this to communicate about a task.",
+        "operationId": "commentOnTask",
+        "tags": ["Events"],
+        "parameters": [
+          { "$ref": "#/components/parameters/boardId" },
+          { "$ref": "#/components/parameters/taskId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["message"],
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "description": "Comment text"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment posted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaskEventResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/keys": {
+      "get": {
+        "summary": "List API keys (admin only)",
+        "operationId": "listKeys",
+        "tags": ["Admin"],
+        "responses": {
+          "200": {
+            "description": "List of API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/KeyResponse" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "summary": "Create an API key (admin only)",
+        "description": "Creates a new API key. The raw key is returned only once in the response — store it securely. Optionally associate an agent_id for identity tracking.",
+        "operationId": "createKey",
+        "tags": ["Admin"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateKeyRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "API key created (raw key returned only once)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/KeyResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/keys/{keyId}": {
+      "delete": {
+        "summary": "Revoke an API key (admin only)",
+        "operationId": "revokeKey",
+        "tags": ["Admin"],
+        "parameters": [
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Key revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": { "type": "boolean" },
+                    "id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Pass API key as Bearer token: `Authorization: Bearer kb_...`"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "Pass API key in X-API-Key header"
+      }
+    },
+    "parameters": {
+      "boardId": {
+        "name": "boardId",
+        "in": "path",
+        "required": true,
+        "description": "Board UUID",
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "taskId": {
+        "name": "taskId",
+        "in": "path",
+        "required": true,
+        "description": "Task UUID",
+        "schema": { "type": "string", "format": "uuid" }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid API key",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Admin access required",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "version"],
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "version": { "type": "string", "example": "0.1.0" }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["error", "code", "status"],
+        "properties": {
+          "error": { "type": "string" },
+          "code": { "type": "string" },
+          "status": { "type": "integer" }
+        }
+      },
+      "CreateBoardRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "Board name" },
+          "description": { "type": "string", "default": "" },
+          "columns": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Custom column names. Defaults to [Backlog, In Progress, Review, Done] if omitted."
+          }
+        }
+      },
+      "BoardResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "owner": { "type": "string", "description": "Agent ID or key ID of the board owner" },
+          "columns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ColumnResponse" }
+          },
+          "task_count": { "type": "integer" },
+          "archived": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "BoardSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "task_count": { "type": "integer" },
+          "archived": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateColumnRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "position": { "type": "integer", "description": "Column position (0-indexed). Defaults to end." },
+          "wip_limit": { "type": "integer", "nullable": true, "description": "Work-in-progress limit for this column" }
+        }
+      },
+      "ColumnResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "position": { "type": "integer" },
+          "wip_limit": { "type": "integer", "nullable": true },
+          "task_count": { "type": "integer" }
+        }
+      },
+      "CreateTaskRequest": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string", "default": "" },
+          "column_id": { "type": "string", "format": "uuid", "description": "Target column. Defaults to the first column if omitted." },
+          "priority": { "type": "integer", "default": 0, "description": "Higher values = higher priority" },
+          "assigned_to": { "type": "string", "nullable": true, "description": "Agent responsible for this task" },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Arbitrary JSON for agent-specific data",
+            "default": {}
+          },
+          "due_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "UpdateTaskRequest": {
+        "type": "object",
+        "description": "Partial update — only provided fields are changed.",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "column_id": { "type": "string", "format": "uuid" },
+          "priority": { "type": "integer" },
+          "assigned_to": { "type": "string" },
+          "labels": { "type": "array", "items": { "type": "string" } },
+          "metadata": { "type": "object" },
+          "due_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TaskResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "board_id": { "type": "string", "format": "uuid" },
+          "column_id": { "type": "string", "format": "uuid" },
+          "column_name": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": { "type": "integer" },
+          "position": { "type": "integer" },
+          "created_by": { "type": "string" },
+          "assigned_to": { "type": "string", "nullable": true },
+          "claimed_by": { "type": "string", "nullable": true, "description": "Agent currently working on this task (claim-based coordination)" },
+          "claimed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "labels": { "type": "array", "items": { "type": "string" } },
+          "metadata": { "type": "object" },
+          "due_at": { "type": "string", "format": "date-time", "nullable": true },
+          "completed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TaskEventResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "event_type": {
+            "type": "string",
+            "enum": ["created", "updated", "claimed", "released", "moved", "comment"],
+            "description": "Type of event"
+          },
+          "actor": { "type": "string", "description": "Agent or key that triggered the event" },
+          "data": { "type": "object", "description": "Event-specific payload (varies by event_type)" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateKeyRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "Human-readable key name" },
+          "agent_id": { "type": "string", "nullable": true, "description": "Optional agent identifier (e.g. 'nanook', 'claude-agent-1')" },
+          "rate_limit": { "type": "integer", "default": 100, "description": "Requests per rate limit window" }
+        }
+      },
+      "KeyResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "agent_id": { "type": "string", "nullable": true },
+          "key": { "type": "string", "nullable": true, "description": "Raw API key (only returned on creation)" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "last_used_at": { "type": "string", "format": "date-time", "nullable": true },
+          "requests_count": { "type": "integer" },
+          "rate_limit": { "type": "integer" },
+          "active": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "tags": [
+    { "name": "System", "description": "Health and system endpoints" },
+    { "name": "Boards", "description": "Board management" },
+    { "name": "Columns", "description": "Column management within boards" },
+    { "name": "Tasks", "description": "Task CRUD operations" },
+    { "name": "Coordination", "description": "Agent-first coordination: claim, release, move" },
+    { "name": "Events", "description": "Task event log and comments" },
+    { "name": "Admin", "description": "API key management (admin only)" }
+  ]
+}

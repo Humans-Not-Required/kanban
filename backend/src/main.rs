@@ -28,6 +28,7 @@ fn rocket() -> _ {
             "/api/v1",
             routes![
                 routes::health,
+                routes::openapi,
                 // Boards
                 routes::create_board,
                 routes::list_boards,
