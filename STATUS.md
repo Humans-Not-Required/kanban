@@ -1,6 +1,6 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.10.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Webhooks ✅ + Task Dependencies ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.10.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Webhooks ✅ + Task Dependencies ✅ + Docker ✅ + README Complete ✅ + Frontend ✅ + Unified Serving ✅
 
 Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, batch operations, board archive/unarchive, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
@@ -117,8 +117,23 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - **Database:** SQLite with WAL mode, auto-creates admin key on first run
 - **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
 - **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Tests:** 18 tests passing (3 access control unit + 3 rate limiter unit + 12 integration)
+- **Frontend:**
+  - React + Vite dashboard served from Rocket via FileServer
+  - Board sidebar with create/archive toggle
+  - Column-based kanban view with HTML5 drag-and-drop for task movement
+  - Create task modal (title, description, priority, column, labels, assignment)
+  - Full-text search bar
+  - WIP limit display (count/limit) per column
+  - Priority color-coding: critical (red), high (orange), medium (yellow), low (green)
+  - Claimed/assigned/due/completed indicators on cards
+  - Label tags on cards
+  - API key stored in localStorage, rate limit display in header
+  - SPA catch-all fallback route (rank 20) for client-side routing
+  - STATIC_DIR env var for configurable frontend path (default: ../frontend/dist)
+  - Dark theme (slate/indigo palette matching qr-service)
+- **Tests:** 16 tests passing (3 rate limiter unit + 13 integration)
 - **Code Quality:** Zero clippy warnings, cargo fmt clean
+- **Deployment:** Single-port unified serving (API + frontend on same origin)
 
 ### Tech Stack
 
@@ -142,9 +157,11 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 2. ~~**Board archiving**~~ ✅ Done
 3. ~~**Webhooks**~~ ✅ Done — CRUD + HMAC signatures + auto-disable after failures
 4. ~~**Task Dependencies**~~ ✅ Done — blocker/blocked relationships + circular dependency detection + cascade delete
-5. **Frontend** — React dashboard for human users
+5. ~~**Frontend**~~ ✅ Done — React dashboard with drag-and-drop kanban board + unified serving
+6. **Update Dockerfile** — Add frontend build stage (3-stage: Node frontend → Rust backend → runtime)
+7. **Update README** — Document frontend, unified serving, STATIC_DIR env var
 
-**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, task dependencies with cycle detection, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
+**Consider deployable?** ✅ **YES — fully deployable.** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, task dependencies with cycle detection, event logging, comments, OpenAPI spec, Docker support, React frontend with drag-and-drop. Single port, unified serving. Tests pass. Remaining items are enhancements.
 
 ### ⚠️ Gotchas
 
@@ -175,4 +192,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 13:30 UTC — Session: Task dependencies shipped (blocker/blocked + circular detection + cascade delete)*
+*Last updated: 2026-02-07 13:58 UTC — Session: React frontend + unified serving (drag-and-drop kanban board with search, create, archive)*
