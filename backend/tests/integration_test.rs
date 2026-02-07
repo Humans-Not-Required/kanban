@@ -769,3 +769,119 @@ fn test_batch_operations() {
     drop(pool);
     let _ = std::fs::remove_file(&db_path);
 }
+
+#[test]
+fn test_board_archiving() {
+    let db_path = format!("/tmp/kanban_test_archive_{}.db", uuid::Uuid::new_v4());
+    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let pool = kanban::db::init_db().expect("DB should initialize");
+    let conn = pool.lock().unwrap();
+
+    // Create an admin key
+    let admin_key_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO api_keys (id, name, key_hash, is_admin, agent_id) VALUES (?1, 'TestAdmin', 'hash_admin', 1, 'admin')",
+        rusqlite::params![admin_key_id],
+    ).unwrap();
+
+    // Create a board
+    let board_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, 'Test Board', 'For archive testing', ?2)",
+        rusqlite::params![board_id, admin_key_id],
+    ).unwrap();
+
+    // Create a column
+    let col_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position) VALUES (?1, ?2, 'Backlog', 0)",
+        rusqlite::params![col_id, board_id],
+    )
+    .unwrap();
+
+    // Create a task on the board
+    let task_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, created_by) VALUES (?1, ?2, ?3, 'Test Task', 'admin')",
+        rusqlite::params![task_id, board_id, col_id],
+    ).unwrap();
+
+    // Board should NOT be archived initially
+    let archived: bool = conn
+        .query_row(
+            "SELECT archived = 1 FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(!archived, "Board should not be archived initially");
+
+    // Archive the board
+    conn.execute(
+        "UPDATE boards SET archived = 1, updated_at = datetime('now') WHERE id = ?1",
+        rusqlite::params![board_id],
+    )
+    .unwrap();
+
+    let archived: bool = conn
+        .query_row(
+            "SELECT archived = 1 FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(archived, "Board should be archived after archive operation");
+
+    // Verify list_boards filtering: non-archived query should exclude this board
+    let non_archived_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM boards WHERE archived = 0",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let all_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM boards", [], |row| row.get(0))
+        .unwrap();
+    assert!(
+        all_count > non_archived_count,
+        "Archived board should be filtered when archived = 0 filter is applied"
+    );
+
+    // Unarchive the board
+    conn.execute(
+        "UPDATE boards SET archived = 0, updated_at = datetime('now') WHERE id = ?1",
+        rusqlite::params![board_id],
+    )
+    .unwrap();
+
+    let archived: bool = conn
+        .query_row(
+            "SELECT archived = 1 FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(
+        !archived,
+        "Board should not be archived after unarchive operation"
+    );
+
+    // Verify the task still exists (archiving doesn't delete data)
+    let task_exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM tasks WHERE id = ?1",
+            rusqlite::params![task_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(
+        task_exists,
+        "Tasks should not be deleted when board is archived/unarchived"
+    );
+
+    drop(conn);
+    drop(pool);
+    let _ = std::fs::remove_file(&db_path);
+}

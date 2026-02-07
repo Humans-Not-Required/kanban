@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Kanban Board API",
-    "description": "AI-Centric Kanban Board \u2014 agent-first task coordination with full API. Features board management, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
-    "version": "0.7.0",
+    "description": "AI-Centric Kanban Board \u2014 agent-first task coordination with full API. Features board management with archive/unarchive, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Board Archiving\n\nBoards can be archived via `POST /boards/{boardId}/archive` (Admin+). Archived boards are read-only: all task mutations, column creation, and batch operations return 409 Conflict with error code `BOARD_ARCHIVED`. Read operations (list tasks, search, view events) remain available. Use `POST /boards/{boardId}/unarchive` to restore. By default, `GET /boards` excludes archived boards; pass `?include_archived=true` to include them.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
+    "version": "0.8.0",
     "license": {
       "name": "MIT"
     }
@@ -84,10 +84,21 @@
       },
       "get": {
         "summary": "List boards",
-        "description": "Lists boards the authenticated key has access to: boards they own, collaborate on, or have tasks in. Admin keys see all boards.",
+        "description": "Lists boards the authenticated key has access to: boards they own, collaborate on, or have tasks in. Admin keys see all boards. By default, archived boards are excluded; pass `include_archived=true` to include them.",
         "operationId": "listBoards",
         "tags": [
           "Boards"
+        ],
+        "parameters": [
+          {
+            "name": "include_archived",
+            "in": "query",
+            "description": "Include archived boards in the listing. Default: false.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -141,6 +152,98 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/boards/{boardId}/archive": {
+      "post": {
+        "summary": "Archive a board",
+        "description": "Archives a board, preventing all task mutations (create, update, delete, claim, release, move, reorder, batch) and column creation. Read-only operations (list tasks, view events, search) remain available. Requires Admin role on the board.",
+        "operationId": "archiveBoard",
+        "tags": [
+          "Boards"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/boardId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Board archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Board is already archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/boards/{boardId}/unarchive": {
+      "post": {
+        "summary": "Unarchive a board",
+        "description": "Unarchives a board, restoring normal operations. All tasks and data are preserved through the archive/unarchive cycle. Requires Admin role on the board.",
+        "operationId": "unarchiveBoard",
+        "tags": [
+          "Boards"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/boardId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Board unarchived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Board is not archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }

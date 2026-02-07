@@ -136,34 +136,48 @@ pub fn create_board(
     }))
 }
 
-#[get("/boards")]
+#[get("/boards?<include_archived>")]
 pub fn list_boards(
+    include_archived: Option<bool>,
     key: AuthenticatedKey,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<BoardSummary>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
+    let show_archived = include_archived.unwrap_or(false);
 
     // Admin keys see all boards; regular keys see boards they own, collaborate on, or have tasks in
+    let archive_filter = if show_archived {
+        ""
+    } else {
+        " AND b.archived = 0"
+    };
+
     let (sql, param1, param2) = if key.is_admin {
         (
-            "SELECT b.id, b.name, b.description, b.archived, b.created_at,
-                (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
-             FROM boards b
-             ORDER BY b.created_at DESC"
-                .to_string(),
+            format!(
+                "SELECT b.id, b.name, b.description, b.archived, b.created_at,
+                    (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
+                 FROM boards b
+                 WHERE 1=1{}
+                 ORDER BY b.created_at DESC",
+                archive_filter
+            ),
             String::new(),
             String::new(),
         )
     } else {
         let agent = key.agent_id.as_deref().unwrap_or(&key.id);
         (
-            "SELECT b.id, b.name, b.description, b.archived, b.created_at,
-                (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
-             FROM boards b
-             WHERE b.owner_key_id = ?1
-                OR b.id IN (SELECT board_id FROM board_collaborators WHERE key_id = ?1)
-                OR b.id IN (SELECT DISTINCT board_id FROM tasks WHERE created_by = ?1 OR assigned_to = ?2 OR claimed_by = ?2)
-             ORDER BY b.created_at DESC".to_string(),
+            format!(
+                "SELECT b.id, b.name, b.description, b.archived, b.created_at,
+                    (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
+                 FROM boards b
+                 WHERE (b.owner_key_id = ?1
+                    OR b.id IN (SELECT board_id FROM board_collaborators WHERE key_id = ?1)
+                    OR b.id IN (SELECT DISTINCT board_id FROM tasks WHERE created_by = ?1 OR assigned_to = ?2 OR claimed_by = ?2)){}
+                 ORDER BY b.created_at DESC",
+                archive_filter
+            ),
             key.id.clone(),
             agent.to_string(),
         )
@@ -197,6 +211,86 @@ pub fn list_boards(
     Ok(Json(boards))
 }
 
+// ============ Board Archive / Unarchive ============
+
+/// Archive a board — prevents new task creation and modifications.
+/// Requires Admin role on the board.
+#[post("/boards/<board_id>/archive")]
+pub fn archive_board(
+    board_id: &str,
+    key: AuthenticatedKey,
+    db: &State<DbPool>,
+) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+
+    let already_archived: bool = conn
+        .query_row(
+            "SELECT archived = 1 FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if already_archived {
+        return Err((
+            Status::Conflict,
+            Json(ApiError {
+                error: "Board is already archived".to_string(),
+                code: "ALREADY_ARCHIVED".to_string(),
+                status: 409,
+            }),
+        ));
+    }
+
+    conn.execute(
+        "UPDATE boards SET archived = 1, updated_at = datetime('now') WHERE id = ?1",
+        rusqlite::params![board_id],
+    )
+    .map_err(|e| db_error(&e.to_string()))?;
+
+    load_board_response(&conn, board_id)
+}
+
+/// Unarchive a board — restores normal operations.
+/// Requires Admin role on the board.
+#[post("/boards/<board_id>/unarchive")]
+pub fn unarchive_board(
+    board_id: &str,
+    key: AuthenticatedKey,
+    db: &State<DbPool>,
+) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+
+    let is_archived: bool = conn
+        .query_row(
+            "SELECT archived = 1 FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if !is_archived {
+        return Err((
+            Status::Conflict,
+            Json(ApiError {
+                error: "Board is not archived".to_string(),
+                code: "NOT_ARCHIVED".to_string(),
+                status: 409,
+            }),
+        ));
+    }
+
+    conn.execute(
+        "UPDATE boards SET archived = 0, updated_at = datetime('now') WHERE id = ?1",
+        rusqlite::params![board_id],
+    )
+    .map_err(|e| db_error(&e.to_string()))?;
+
+    load_board_response(&conn, board_id)
+}
+
 #[get("/boards/<board_id>")]
 pub fn get_board(
     board_id: &str,
@@ -222,6 +316,7 @@ pub fn create_column(
 
     // Require admin role to modify board structure
     access::require_role(&conn, board_id, &key, BoardRole::Admin)?;
+    require_not_archived(&conn, board_id)?;
 
     let position = req.position.unwrap_or_else(|| {
         conn.query_row(
@@ -263,6 +358,7 @@ pub fn create_task(
 
     // Require editor role to create tasks
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn, board_id)?;
 
     if req.title.trim().is_empty() {
         return Err((
@@ -573,6 +669,7 @@ pub fn update_task(
 
     // Require editor role to update tasks
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn, board_id)?;
     let _existing = load_task_response(&conn, task_id)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
     let mut changes = serde_json::Map::new();
@@ -680,6 +777,7 @@ pub fn delete_task(
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
     let conn_check = db.lock().unwrap();
     access::require_role(&conn_check, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn_check, board_id)?;
     drop(conn_check);
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
     let conn = db.lock().unwrap();
@@ -717,6 +815,7 @@ pub fn claim_task(
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn, board_id)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
 
     // Check if already claimed by someone else
@@ -771,6 +870,7 @@ pub fn release_task(
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn, board_id)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
 
     conn.execute(
@@ -806,6 +906,7 @@ pub fn move_task(
 
     // Require editor role to move tasks
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn, board_id)?;
 
     // Verify target column belongs to the board
     let col_exists: bool = conn
@@ -894,6 +995,7 @@ pub fn reorder_task(
     let req = req.into_inner();
     let conn = db.lock().unwrap();
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn, board_id)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
 
     // Get the task's current column
@@ -1024,6 +1126,7 @@ pub fn batch_tasks(
     let req = req.into_inner();
     let conn = db.lock().unwrap();
     access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    require_not_archived(&conn, board_id)?;
     let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
 
     if req.operations.is_empty() {
@@ -1874,6 +1977,30 @@ fn forbidden() -> (Status, Json<ApiError>) {
             status: 403,
         }),
     )
+}
+
+/// Check if a board is archived. Returns error if it is.
+fn require_not_archived(conn: &Connection, board_id: &str) -> Result<(), (Status, Json<ApiError>)> {
+    let archived: bool = conn
+        .query_row(
+            "SELECT archived = 1 FROM boards WHERE id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if archived {
+        return Err((
+            Status::Conflict,
+            Json(ApiError {
+                error: "Board is archived. Unarchive it before making changes.".to_string(),
+                code: "BOARD_ARCHIVED".to_string(),
+                status: 409,
+            }),
+        ));
+    }
+
+    Ok(())
 }
 
 /// Check if adding a task to a column would exceed its WIP limit.

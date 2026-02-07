@@ -49,6 +49,8 @@ fn rocket() -> _ {
                 routes::create_board,
                 routes::list_boards,
                 routes::get_board,
+                routes::archive_board,
+                routes::unarchive_board,
                 // Columns
                 routes::create_column,
                 // Tasks
