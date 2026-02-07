@@ -1062,3 +1062,171 @@ fn test_webhooks_crud() {
     drop(pool);
     let _ = std::fs::remove_file(&db_path);
 }
+
+#[test]
+fn test_task_dependencies() {
+    let db_path = format!("/tmp/kanban_test_deps_{}.db", uuid::Uuid::new_v4());
+    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let pool = kanban::db::init_db().expect("DB should initialize");
+    let conn = pool.lock().unwrap();
+
+    // Verify task_dependencies table exists
+    let tables: Vec<String> = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    assert!(
+        tables.contains(&"task_dependencies".to_string()),
+        "task_dependencies table should exist"
+    );
+
+    // Setup: admin key, board, column, tasks
+    let admin_key_id: String = conn
+        .query_row("SELECT id FROM api_keys WHERE is_admin = 1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+
+    let board_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, 'Deps Test', '', ?2)",
+        rusqlite::params![board_id, admin_key_id],
+    )
+    .unwrap();
+
+    let col_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position) VALUES (?1, ?2, 'Backlog', 0)",
+        rusqlite::params![col_id, board_id],
+    )
+    .unwrap();
+
+    let task_a = uuid::Uuid::new_v4().to_string();
+    let task_b = uuid::Uuid::new_v4().to_string();
+    let task_c = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, 'Task A', 0, 'admin')",
+        rusqlite::params![task_a, board_id, col_id],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, 'Task B', 1, 'admin')",
+        rusqlite::params![task_b, board_id, col_id],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, 'Task C', 2, 'admin')",
+        rusqlite::params![task_c, board_id, col_id],
+    ).unwrap();
+
+    // Create dependency: A blocks B
+    let dep_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO task_dependencies (id, board_id, blocker_task_id, blocked_task_id, created_by, note) VALUES (?1, ?2, ?3, ?4, 'admin', 'A must finish first')",
+        rusqlite::params![dep_id, board_id, task_a, task_b],
+    ).unwrap();
+
+    // Verify dependency exists
+    let dep_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM task_dependencies WHERE board_id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(dep_count, 1);
+
+    // Verify note
+    let note: String = conn
+        .query_row(
+            "SELECT note FROM task_dependencies WHERE id = ?1",
+            rusqlite::params![dep_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(note, "A must finish first");
+
+    // Test UNIQUE constraint: can't add duplicate
+    let dup_result = conn.execute(
+        "INSERT INTO task_dependencies (id, board_id, blocker_task_id, blocked_task_id, created_by) VALUES (?1, ?2, ?3, ?4, 'admin')",
+        rusqlite::params![uuid::Uuid::new_v4().to_string(), board_id, task_a, task_b],
+    );
+    assert!(dup_result.is_err(), "Duplicate dependency should fail");
+
+    // Create another dependency: B blocks C (chain: A → B → C)
+    let dep2_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO task_dependencies (id, board_id, blocker_task_id, blocked_task_id, created_by) VALUES (?1, ?2, ?3, ?4, 'admin')",
+        rusqlite::params![dep2_id, board_id, task_b, task_c],
+    ).unwrap();
+
+    // Query all deps for task B (should appear as both blocker and blocked)
+    let b_deps: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM task_dependencies WHERE blocker_task_id = ?1 OR blocked_task_id = ?1",
+            rusqlite::params![task_b],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(b_deps, 2, "Task B should be involved in 2 dependencies");
+
+    // Query tasks that block B (should be A)
+    let blockers: Vec<String> = conn
+        .prepare("SELECT blocker_task_id FROM task_dependencies WHERE blocked_task_id = ?1")
+        .unwrap()
+        .query_map(rusqlite::params![task_b], |row| row.get(0))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    assert_eq!(blockers, vec![task_a.clone()]);
+
+    // Query tasks blocked by B (should be C)
+    let blocked: Vec<String> = conn
+        .prepare("SELECT blocked_task_id FROM task_dependencies WHERE blocker_task_id = ?1")
+        .unwrap()
+        .query_map(rusqlite::params![task_b], |row| row.get(0))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    assert_eq!(blocked, vec![task_c.clone()]);
+
+    // Delete dependency A→B
+    let affected = conn
+        .execute(
+            "DELETE FROM task_dependencies WHERE id = ?1",
+            rusqlite::params![dep_id],
+        )
+        .unwrap();
+    assert_eq!(affected, 1);
+
+    // Verify only B→C dep remains
+    let remaining: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM task_dependencies WHERE board_id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(remaining, 1);
+
+    // Test CASCADE: delete task B should remove dependencies involving it
+    conn.execute("DELETE FROM tasks WHERE id = ?1", rusqlite::params![task_b])
+        .unwrap();
+    let after_cascade: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM task_dependencies WHERE board_id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        after_cascade, 0,
+        "Dependencies should cascade-delete with task"
+    );
+
+    drop(conn);
+    drop(pool);
+    let _ = std::fs::remove_file(&db_path);
+}

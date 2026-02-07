@@ -281,6 +281,35 @@ pub struct WebhookResponse {
     pub created_at: String,
 }
 
+// ============ Task Dependencies ============
+
+#[derive(Debug, Deserialize)]
+pub struct CreateDependencyRequest {
+    /// The task that blocks (must be completed first)
+    pub blocker_task_id: String,
+    /// The task that is blocked (cannot proceed until blocker is done)
+    pub blocked_task_id: String,
+    /// Optional note explaining the dependency
+    #[serde(default)]
+    pub note: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DependencyResponse {
+    pub id: String,
+    pub board_id: String,
+    pub blocker_task_id: String,
+    pub blocker_title: String,
+    pub blocker_column: String,
+    pub blocker_completed: bool,
+    pub blocked_task_id: String,
+    pub blocked_title: String,
+    pub blocked_column: String,
+    pub note: String,
+    pub created_by: String,
+    pub created_at: String,
+}
+
 // ============ Common ============
 
 #[derive(Debug, Serialize)]

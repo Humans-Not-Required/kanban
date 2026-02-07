@@ -120,6 +120,21 @@ pub fn init_db() -> Result<DbPool, String> {
             FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
         );
 
+        -- Task dependencies (blocks/blocked-by relationships)
+        CREATE TABLE IF NOT EXISTS task_dependencies (
+            id TEXT PRIMARY KEY,
+            board_id TEXT NOT NULL,
+            blocker_task_id TEXT NOT NULL,
+            blocked_task_id TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
+            FOREIGN KEY (blocker_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (blocked_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            UNIQUE(blocker_task_id, blocked_task_id)
+        );
+
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_tasks_board ON tasks(board_id);
         CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id);
@@ -129,6 +144,9 @@ pub fn init_db() -> Result<DbPool, String> {
         CREATE INDEX IF NOT EXISTS idx_columns_board ON columns(board_id);
         CREATE INDEX IF NOT EXISTS idx_collaborators_key ON board_collaborators(key_id);
         CREATE INDEX IF NOT EXISTS idx_webhooks_board ON webhooks(board_id);
+        CREATE INDEX IF NOT EXISTS idx_deps_blocker ON task_dependencies(blocker_task_id);
+        CREATE INDEX IF NOT EXISTS idx_deps_blocked ON task_dependencies(blocked_task_id);
+        CREATE INDEX IF NOT EXISTS idx_deps_board ON task_dependencies(board_id);
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))?;

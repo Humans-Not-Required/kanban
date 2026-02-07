@@ -79,6 +79,10 @@ fn rocket() -> _ {
                 routes::list_collaborators,
                 routes::add_collaborator,
                 routes::remove_collaborator,
+                // Task dependencies
+                routes::create_dependency,
+                routes::list_dependencies,
+                routes::delete_dependency,
                 // Webhooks
                 routes::create_webhook,
                 routes::list_webhooks,

@@ -3,7 +3,7 @@
   "info": {
     "title": "Kanban Board API",
     "description": "AI-Centric Kanban Board \u2014 agent-first task coordination with full API. Features board management with archive/unarchive, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Board Archiving\n\nBoards can be archived via `POST /boards/{boardId}/archive` (Admin+). Archived boards are read-only: all task mutations, column creation, and batch operations return 409 Conflict with error code `BOARD_ARCHIVED`. Read operations (list tasks, search, view events) remain available. Use `POST /boards/{boardId}/unarchive` to restore. By default, `GET /boards` excludes archived boards; pass `?include_archived=true` to include them.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "license": {
       "name": "MIT"
     }
@@ -1202,22 +1202,28 @@
     "/boards/{boardId}/tasks/batch": {
       "post": {
         "summary": "Batch task operations",
-        "description": "Execute multiple operations (move, update, delete) on tasks in a single request. Max 50 operations per request. Each operation is independent — failures in one don't roll back others. Requires Editor role on the board.",
+        "description": "Execute multiple operations (move, update, delete) on tasks in a single request. Max 50 operations per request. Each operation is independent \u2014 failures in one don't roll back others. Requires Editor role on the board.",
         "operationId": "batchTasks",
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "parameters": [
           {
             "name": "boardId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/BatchRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/BatchRequest"
+              }
             }
           }
         },
@@ -1226,7 +1232,9 @@
             "description": "Batch results with per-operation status",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/BatchResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
               }
             }
           },
@@ -1234,14 +1242,27 @@
             "description": "Empty batch or too many operations (max 50)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           },
-          "403": { "description": "Insufficient role (need Editor+)" },
-          "401": { "description": "Missing or invalid API key" }
+          "403": {
+            "description": "Insufficient role (need Editor+)"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          }
         },
-        "security": [{ "ApiKeyAuth": [] }, { "BearerAuth": [] }]
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/boards/{boardId}/tasks/search": {
@@ -1366,23 +1387,36 @@
     "/boards/{boardId}/webhooks": {
       "post": {
         "summary": "Create webhook",
-        "description": "Register a webhook to receive HTTP POST notifications when events occur on this board. The response includes a secret used to verify webhook signatures — it is only shown once.",
+        "description": "Register a webhook to receive HTTP POST notifications when events occur on this board. The response includes a secret used to verify webhook signatures \u2014 it is only shown once.",
         "operationId": "createWebhook",
-        "tags": ["Webhooks"],
-        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "boardId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateWebhookRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
             }
           }
         },
@@ -1391,27 +1425,46 @@
             "description": "Webhook created (includes secret)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/WebhookResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookResponse"
+                }
               }
             }
           },
-          "400": { "description": "Invalid URL or event type" },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Requires Admin role" }
+          "400": {
+            "description": "Invalid URL or event type"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Requires Admin role"
+          }
         }
       },
       "get": {
         "summary": "List webhooks",
         "description": "List all webhooks registered for this board. Secrets are never returned after creation.",
         "operationId": "listWebhooks",
-        "tags": ["Webhooks"],
-        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "boardId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1421,13 +1474,19 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/WebhookResponse" }
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookResponse"
+                  }
                 }
               }
             }
           },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Requires Admin role" }
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Requires Admin role"
+          }
         }
       }
     },
@@ -1436,27 +1495,42 @@
         "summary": "Update webhook",
         "description": "Update a webhook's URL, event filter, or active status. Re-enabling a webhook resets its failure count.",
         "operationId": "updateWebhook",
-        "tags": ["Webhooks"],
-        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "boardId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "webhookId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateWebhookRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookRequest"
+              }
             }
           }
         },
@@ -1465,34 +1539,57 @@
             "description": "Webhook updated",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/WebhookResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookResponse"
+                }
               }
             }
           },
-          "400": { "description": "Invalid URL or event type" },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Requires Admin role" },
-          "404": { "description": "Webhook not found" }
+          "400": {
+            "description": "Invalid URL or event type"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Requires Admin role"
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
         }
       },
       "delete": {
         "summary": "Delete webhook",
         "description": "Permanently delete a webhook.",
         "operationId": "deleteWebhook",
-        "tags": ["Webhooks"],
-        "security": [{"BearerAuth": []}, {"ApiKeyAuth": []}],
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "boardId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "webhookId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1503,16 +1600,169 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "deleted": { "type": "boolean" },
-                    "id": { "type": "string" }
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Requires Admin role" },
-          "404": { "description": "Webhook not found" }
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Requires Admin role"
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      }
+    },
+    "/boards/{boardId}/dependencies": {
+      "get": {
+        "summary": "List dependencies",
+        "description": "List all dependencies for a board, optionally filtered by task. Requires Viewer role.",
+        "tags": [
+          "Dependencies"
+        ],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task",
+            "in": "query",
+            "description": "Filter by task ID (shows deps where task is blocker or blocked)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of dependencies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DependencyResponse"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Board not found"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create dependency",
+        "description": "Add a dependency between two tasks. 'blocker blocks blocked' \u2014 the blocked task cannot proceed until the blocker task is complete. Detects circular dependencies (direct and transitive). Requires Editor role.",
+        "tags": [
+          "Dependencies"
+        ],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDependencyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dependency created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DependencyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (self-dependency, task not found)"
+          },
+          "409": {
+            "description": "Conflict (duplicate, circular dependency, board archived)"
+          }
+        }
+      }
+    },
+    "/boards/{boardId}/dependencies/{dependencyId}": {
+      "delete": {
+        "summary": "Delete dependency",
+        "description": "Remove a dependency between two tasks. Requires Editor role.",
+        "tags": [
+          "Dependencies"
+        ],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dependencyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dependency deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dependency not found"
+          }
         }
       }
     }
@@ -2149,31 +2399,43 @@
       },
       "BatchRequest": {
         "type": "object",
-        "required": ["operations"],
+        "required": [
+          "operations"
+        ],
         "properties": {
           "operations": {
             "type": "array",
             "maxItems": 50,
-            "items": { "$ref": "#/components/schemas/BatchOperation" },
+            "items": {
+              "$ref": "#/components/schemas/BatchOperation"
+            },
             "description": "List of operations to perform (max 50)"
           }
         }
       },
       "BatchOperation": {
         "type": "object",
-        "required": ["action"],
+        "required": [
+          "action"
+        ],
         "discriminator": {
           "propertyName": "action"
         },
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["move", "update", "delete"],
+            "enum": [
+              "move",
+              "update",
+              "delete"
+            ],
             "description": "Operation type"
           },
           "task_ids": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Task IDs to operate on"
           },
           "column_id": {
@@ -2190,7 +2452,9 @@
           },
           "labels": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "New labels (for 'update' action)"
           },
           "due_at": {
@@ -2201,7 +2465,12 @@
       },
       "BatchResponse": {
         "type": "object",
-        "required": ["total", "succeeded", "failed", "results"],
+        "required": [
+          "total",
+          "succeeded",
+          "failed",
+          "results"
+        ],
         "properties": {
           "total": {
             "type": "integer",
@@ -2217,14 +2486,21 @@
           },
           "results": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/BatchOperationResult" },
+            "items": {
+              "$ref": "#/components/schemas/BatchOperationResult"
+            },
             "description": "Per-operation results"
           }
         }
       },
       "BatchOperationResult": {
         "type": "object",
-        "required": ["action", "task_ids", "success", "affected"],
+        "required": [
+          "action",
+          "task_ids",
+          "success",
+          "affected"
+        ],
         "properties": {
           "action": {
             "type": "string",
@@ -2232,7 +2508,9 @@
           },
           "task_ids": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Task IDs in this operation"
           },
           "success": {
@@ -2286,7 +2564,9 @@
       },
       "CreateWebhookRequest": {
         "type": "object",
-        "required": ["url"],
+        "required": [
+          "url"
+        ],
         "properties": {
           "url": {
             "type": "string",
@@ -2324,7 +2604,9 @@
           },
           "events": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Updated event filter (empty = all events)"
           },
           "active": {
@@ -2335,21 +2617,40 @@
       },
       "WebhookResponse": {
         "type": "object",
-        "required": ["id", "board_id", "url", "events", "active", "failure_count", "created_at"],
+        "required": [
+          "id",
+          "board_id",
+          "url",
+          "events",
+          "active",
+          "failure_count",
+          "created_at"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "board_id": { "type": "string" },
-          "url": { "type": "string", "format": "uri" },
+          "id": {
+            "type": "string"
+          },
+          "board_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
           "secret": {
             "type": "string",
-            "description": "Webhook signing secret. Only returned on creation — save it immediately."
+            "description": "Webhook signing secret. Only returned on creation \u2014 save it immediately."
           },
           "events": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Subscribed event types (empty = all)"
           },
-          "active": { "type": "boolean" },
+          "active": {
+            "type": "boolean"
+          },
           "failure_count": {
             "type": "integer",
             "description": "Consecutive delivery failures. Auto-disables at 10."
@@ -2362,6 +2663,93 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "DependencyResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "board_id",
+          "blocker_task_id",
+          "blocker_title",
+          "blocker_column",
+          "blocker_completed",
+          "blocked_task_id",
+          "blocked_title",
+          "blocked_column",
+          "note",
+          "created_by",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "board_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blocker_task_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The task that must complete first"
+          },
+          "blocker_title": {
+            "type": "string"
+          },
+          "blocker_column": {
+            "type": "string"
+          },
+          "blocker_completed": {
+            "type": "boolean",
+            "description": "Whether the blocker task is done"
+          },
+          "blocked_task_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The task that is blocked"
+          },
+          "blocked_title": {
+            "type": "string"
+          },
+          "blocked_column": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateDependencyRequest": {
+        "type": "object",
+        "required": [
+          "blocker_task_id",
+          "blocked_task_id"
+        ],
+        "properties": {
+          "blocker_task_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The task that blocks (must be completed first)"
+          },
+          "blocked_task_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The task that is blocked (cannot proceed until blocker is done)"
+          },
+          "note": {
+            "type": "string",
+            "default": "",
+            "description": "Optional note explaining the dependency"
           }
         }
       }
