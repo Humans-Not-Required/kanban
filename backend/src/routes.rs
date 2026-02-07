@@ -324,14 +324,24 @@ pub fn create_task(
     let labels_json = serde_json::to_string(&req.labels).unwrap_or_else(|_| "[]".to_string());
     let metadata_json = serde_json::to_string(&req.metadata).unwrap_or_else(|_| "{}".to_string());
 
-    // Get next position in column
-    let position: i32 = conn
-        .query_row(
+    // Determine position: explicit or append to end
+    let position: i32 = if let Some(pos) = req.position {
+        let pos = pos.max(0);
+        // Shift existing tasks to make room
+        conn.execute(
+            "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= ?2",
+            rusqlite::params![column_id, pos],
+        )
+        .map_err(|e| db_error(&e.to_string()))?;
+        pos
+    } else {
+        conn.query_row(
             "SELECT COALESCE(MAX(position), -1) + 1 FROM tasks WHERE column_id = ?1",
             rusqlite::params![column_id],
             |row| row.get(0),
         )
-        .unwrap_or(0);
+        .unwrap_or(0)
+    };
 
     conn.execute(
         "INSERT INTO tasks (id, board_id, column_id, title, description, priority, position, created_by, assigned_to, labels, metadata, due_at)
@@ -747,6 +757,140 @@ pub fn move_task(
 
     bus.emit(crate::events::BoardEvent {
         event: "task.moved".to_string(),
+        board_id: board_id.to_string(),
+        data: event_data,
+    });
+
+    load_task_response(&conn, task_id)
+}
+
+// ============ Task Reorder ============
+
+/// Reorder a task within its column (or move + reorder in one call).
+/// Sets the task to the given position and shifts other tasks to make room.
+#[post(
+    "/boards/<board_id>/tasks/<task_id>/reorder",
+    format = "json",
+    data = "<req>"
+)]
+pub fn reorder_task(
+    board_id: &str,
+    task_id: &str,
+    req: Json<ReorderTaskRequest>,
+    key: AuthenticatedKey,
+    db: &State<DbPool>,
+    bus: &State<EventBus>,
+) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
+    let req = req.into_inner();
+    let conn = db.lock().unwrap();
+    access::require_role(&conn, board_id, &key, BoardRole::Editor)?;
+    let actor = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
+
+    // Get the task's current column
+    let current_column: String = conn
+        .query_row(
+            "SELECT column_id FROM tasks WHERE id = ?1 AND board_id = ?2",
+            rusqlite::params![task_id, board_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| not_found("Task"))?;
+
+    let target_column = req.column_id.as_deref().unwrap_or(&current_column);
+    let moving_columns = target_column != current_column;
+
+    // If moving to a different column, verify it belongs to the board and check WIP
+    if moving_columns {
+        let col_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM columns WHERE id = ?1 AND board_id = ?2",
+                rusqlite::params![target_column, board_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if !col_exists {
+            return Err((
+                Status::BadRequest,
+                Json(ApiError {
+                    error: "Target column not found in this board".to_string(),
+                    code: "INVALID_COLUMN".to_string(),
+                    status: 400,
+                }),
+            ));
+        }
+
+        check_wip_limit(&conn, target_column, Some(task_id))?;
+    }
+
+    let new_pos = req.position.max(0);
+
+    // If staying in the same column, close the gap where the task was
+    if !moving_columns {
+        conn.execute(
+            "UPDATE tasks SET position = position - 1 WHERE column_id = ?1 AND position > (SELECT position FROM tasks WHERE id = ?2) AND id != ?2",
+            rusqlite::params![target_column, task_id],
+        )
+        .map_err(|e| db_error(&e.to_string()))?;
+    }
+
+    // Shift tasks at and after the target position down to make room
+    conn.execute(
+        "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= ?2 AND id != ?3",
+        rusqlite::params![target_column, new_pos, task_id],
+    )
+    .map_err(|e| db_error(&e.to_string()))?;
+
+    // Place the task at the target position (and column if moving)
+    if moving_columns {
+        // Check if moving to a "done" column
+        let is_done_column: bool = conn
+            .query_row(
+                "SELECT position = (SELECT MAX(position) FROM columns WHERE board_id = ?1) FROM columns WHERE id = ?2",
+                rusqlite::params![board_id, target_column],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        let completed = if is_done_column {
+            "datetime('now')"
+        } else {
+            "NULL"
+        };
+
+        conn.execute(
+            &format!(
+                "UPDATE tasks SET column_id = ?1, position = ?2, completed_at = {}, updated_at = datetime('now') WHERE id = ?3",
+                completed
+            ),
+            rusqlite::params![target_column, new_pos, task_id],
+        )
+        .map_err(|e| db_error(&e.to_string()))?;
+
+        // Close the gap in the old column
+        conn.execute(
+            "UPDATE tasks SET position = position - 1 WHERE column_id = ?1 AND position > 0 AND id NOT IN (SELECT id FROM tasks WHERE column_id = ?1 AND position = 0) ORDER BY position",
+            rusqlite::params![current_column],
+        )
+        .ok(); // Best-effort gap cleanup
+    } else {
+        conn.execute(
+            "UPDATE tasks SET position = ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![new_pos, task_id],
+        )
+        .map_err(|e| db_error(&e.to_string()))?;
+    }
+
+    let event_data = serde_json::json!({
+        "task_id": task_id,
+        "position": new_pos,
+        "column_id": target_column,
+        "from_column": current_column,
+        "actor": actor,
+    });
+    log_event(&conn, task_id, "reordered", &actor, &event_data);
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.reordered".to_string(),
         board_id: board_id.to_string(),
         data: event_data,
     });

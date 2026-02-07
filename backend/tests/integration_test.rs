@@ -385,3 +385,128 @@ fn test_db_wal_mode() {
     let _ = std::fs::remove_file(format!("{}-wal", db_path));
     let _ = std::fs::remove_file(format!("{}-shm", db_path));
 }
+
+#[test]
+fn test_task_ordering_positions() {
+    let db_path = format!("/tmp/kanban_test_order_{}.db", uuid::Uuid::new_v4());
+    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let pool = kanban::db::init_db().expect("DB should initialize");
+    let conn = pool.lock().unwrap();
+
+    let admin_key_id: String = conn
+        .query_row("SELECT id FROM api_keys WHERE is_admin = 1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+
+    // Create board + column
+    let board_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, 'Order Test', '', ?2)",
+        rusqlite::params![board_id, admin_key_id],
+    )
+    .unwrap();
+
+    let col_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position) VALUES (?1, ?2, 'Todo', 0)",
+        rusqlite::params![col_id, board_id],
+    )
+    .unwrap();
+
+    // Create 4 tasks with sequential positions
+    let mut task_ids = Vec::new();
+    for i in 0..4 {
+        let tid = uuid::Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, ?4, ?5, 'test')",
+            rusqlite::params![tid, board_id, col_id, format!("Task {}", i), i],
+        )
+        .unwrap();
+        task_ids.push(tid);
+    }
+
+    // Verify initial ordering: Task 0=pos 0, Task 1=pos 1, Task 2=pos 2, Task 3=pos 3
+    for (i, tid) in task_ids.iter().enumerate() {
+        let pos: i32 = conn
+            .query_row(
+                "SELECT position FROM tasks WHERE id = ?1",
+                rusqlite::params![tid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(pos, i as i32, "Task {} should be at position {}", i, i);
+    }
+
+    // Simulate reorder: move Task 3 (pos 3) to position 1
+    // Step 1: Close gap at old position (shift tasks after pos 3 down — none in this case)
+    conn.execute(
+        "UPDATE tasks SET position = position - 1 WHERE column_id = ?1 AND position > 3 AND id != ?2",
+        rusqlite::params![col_id, task_ids[3]],
+    )
+    .unwrap();
+
+    // Step 2: Shift tasks at/after position 1 up to make room
+    conn.execute(
+        "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= 1 AND id != ?2",
+        rusqlite::params![col_id, task_ids[3]],
+    )
+    .unwrap();
+
+    // Step 3: Place Task 3 at position 1
+    conn.execute(
+        "UPDATE tasks SET position = 1 WHERE id = ?1",
+        rusqlite::params![task_ids[3]],
+    )
+    .unwrap();
+
+    // Verify new ordering: Task 0=0, Task 3=1, Task 1=2, Task 2=3
+    let positions: Vec<(String, i32)> = conn
+        .prepare("SELECT title, position FROM tasks WHERE column_id = ?1 ORDER BY position")
+        .unwrap()
+        .query_map(rusqlite::params![col_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)?))
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+
+    assert_eq!(positions.len(), 4);
+    assert_eq!(positions[0].0, "Task 0");
+    assert_eq!(positions[0].1, 0);
+    assert_eq!(positions[1].0, "Task 3");
+    assert_eq!(positions[1].1, 1);
+    assert_eq!(positions[2].0, "Task 1");
+    assert_eq!(positions[2].1, 2);
+    assert_eq!(positions[3].0, "Task 2");
+    assert_eq!(positions[3].1, 3);
+
+    // Test insert at specific position: insert at position 0 (top)
+    let new_task_id = uuid::Uuid::new_v4().to_string();
+    // Shift existing tasks
+    conn.execute(
+        "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= 0",
+        rusqlite::params![col_id],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, 'Top Task', 0, 'test')",
+        rusqlite::params![new_task_id, board_id, col_id],
+    )
+    .unwrap();
+
+    // Verify "Top Task" is at position 0
+    let top_title: String = conn
+        .query_row(
+            "SELECT title FROM tasks WHERE column_id = ?1 ORDER BY position ASC LIMIT 1",
+            rusqlite::params![col_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(top_title, "Top Task");
+
+    drop(conn);
+    drop(pool);
+    let _ = std::fs::remove_file(&db_path);
+}

@@ -142,8 +142,11 @@ Full OpenAPI 3.0 spec available at `GET /api/v1/openapi.json`.
 | POST | `/boards/{id}/tasks/{taskId}/claim` | Editor | Claim a task (you're working on it) |
 | POST | `/boards/{id}/tasks/{taskId}/release` | Editor | Release your claim |
 | POST | `/boards/{id}/tasks/{taskId}/move/{columnId}` | Editor | Move task to another column |
+| POST | `/boards/{id}/tasks/{taskId}/reorder` | Editor | Reorder task (set position, optionally move+reorder) |
 
 **Claim vs. Assign:** Assignment (`assigned_to`) means responsibility. Claiming (`claimed_by`) means "I'm actively working on this right now." Claims prevent conflicts when multiple agents coordinate on the same board.
+
+**Task Ordering:** Tasks within a column are sorted by position (ascending). Use the reorder endpoint to set a task's position — other tasks shift automatically. You can also pass `column_id` to move and reorder in a single call. When creating tasks, pass `position` to insert at a specific spot instead of appending to the end.
 
 ### Events & Comments
 

@@ -57,10 +57,11 @@ fn rocket() -> _ {
                 routes::get_task,
                 routes::update_task,
                 routes::delete_task,
-                // Agent-first: claim/release/move
+                // Agent-first: claim/release/move/reorder
                 routes::claim_task,
                 routes::release_task,
                 routes::move_task,
+                routes::reorder_task,
                 // Task events & comments
                 routes::get_task_events,
                 routes::comment_on_task,

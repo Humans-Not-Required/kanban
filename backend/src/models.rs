@@ -64,6 +64,8 @@ pub struct CreateTaskRequest {
     pub column_id: Option<String>,
     #[serde(default)]
     pub priority: i32,
+    /// Explicit position within column. If omitted, appends to end.
+    pub position: Option<i32>,
     pub assigned_to: Option<String>,
     #[serde(default)]
     pub labels: Vec<String>,
@@ -83,6 +85,14 @@ pub struct UpdateTaskRequest {
     pub labels: Option<Vec<String>>,
     pub metadata: Option<serde_json::Value>,
     pub due_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderTaskRequest {
+    /// New position (0-indexed). Tasks at and after this position shift down.
+    pub position: i32,
+    /// Optional: move to a different column at the same time.
+    pub column_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
