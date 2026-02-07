@@ -164,7 +164,7 @@ function copyToClipboard(text) {
 
 // ---- Components ----
 
-function TaskCard({ task, boardId, canEdit, onRefresh, archived }) {
+function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask }) {
   const [dragging, setDragging] = useState(false);
   const draggable = canEdit && !archived;
 
@@ -173,10 +173,12 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived }) {
       style={{
         ...styles.card(dragging, task.priority),
         ...(draggable ? styles.cardDraggable : {}),
+        cursor: dragging ? 'grabbing' : 'pointer',
       }}
       draggable={draggable}
       onDragStart={(e) => { setDragging(true); e.dataTransfer.setData('taskId', task.id); }}
       onDragEnd={() => setDragging(false)}
+      onClick={() => { if (!dragging) onClickTask(task); }}
     >
       <div style={styles.cardTitle}>{task.title}</div>
       <div style={styles.cardMeta}>
@@ -195,7 +197,7 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived }) {
   );
 }
 
-function Column({ column, tasks, boardId, canEdit, onRefresh, archived }) {
+function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickTask }) {
   const [dragOver, setDragOver] = useState(false);
   const colTasks = tasks.filter(t => t.column_id === column.id)
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
@@ -245,6 +247,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, archived }) {
             canEdit={canEdit}
             onRefresh={onRefresh}
             archived={archived}
+            onClickTask={onClickTask}
           />
         ))}
       </div>
@@ -310,6 +313,177 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
+  const [events, setEvents] = useState([]);
+  const [comment, setComment] = useState('');
+  const [actorName, setActorName] = useState('');
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [posting, setPosting] = useState(false);
+
+  const loadEvents = useCallback(async () => {
+    try {
+      const { data } = await api.getTaskEvents(boardId, task.id);
+      setEvents(data || []);
+    } catch (err) {
+      console.error('Failed to load events:', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, [boardId, task.id]);
+
+  useEffect(() => { loadEvents(); }, [loadEvents]);
+
+  const submitComment = async (e) => {
+    e.preventDefault();
+    if (!comment.trim()) return;
+    setPosting(true);
+    try {
+      await api.commentOnTask(boardId, task.id, comment.trim(), actorName.trim() || undefined);
+      setComment('');
+      loadEvents();
+    } catch (err) {
+      alert(err.error || 'Failed to post comment');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const comments = events.filter(e => e.event_type === 'comment');
+  const activity = events.filter(e => e.event_type !== 'comment');
+
+  const formatTime = (ts) => {
+    try {
+      const d = new Date(ts);
+      return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return ts; }
+  };
+
+  const eventLabel = (evt) => {
+    switch (evt.event_type) {
+      case 'created': return '🆕 Created';
+      case 'moved': return `➡️ Moved to ${evt.data?.to_column || 'column'}`;
+      case 'claimed': return `🔒 Claimed`;
+      case 'released': return `🔓 Released`;
+      case 'updated': return '✏️ Updated';
+      case 'assigned': return `👤 Assigned to ${evt.data?.assigned_to || 'someone'}`;
+      default: return evt.event_type;
+    }
+  };
+
+  return (
+    <div style={styles.modal} onClick={onClose}>
+      <div style={{ ...styles.modalContent, width: '560px' }} onClick={(e) => e.stopPropagation()}>
+        {/* Task header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ color: '#f1f5f9', marginBottom: '6px' }}>{task.title}</h3>
+            <div style={styles.cardMeta}>
+              <span style={{ color: priorityColor(task.priority) }}>{task.priority}</span>
+              {task.assigned_to && <span>→ {task.assigned_to}</span>}
+              {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
+              {task.column_name && <span>📋 {task.column_name}</span>}
+            </div>
+          </div>
+          <button
+            style={{ ...styles.btnSmall, padding: '4px 10px', fontSize: '1rem', lineHeight: 1 }}
+            onClick={onClose}
+          >×</button>
+        </div>
+
+        {/* Description */}
+        {task.description && (
+          <div style={{ marginBottom: '16px', padding: '10px 12px', background: '#0f172a', borderRadius: '6px', border: '1px solid #334155' }}>
+            <div style={{ fontSize: '0.73rem', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Description</div>
+            <div style={{ color: '#cbd5e1', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{task.description}</div>
+          </div>
+        )}
+
+        {/* Labels */}
+        {task.labels && task.labels.length > 0 && (
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            {task.labels.map((l, i) => <span key={i} style={styles.label()}>{l}</span>)}
+          </div>
+        )}
+
+        {/* Comments section */}
+        <div style={{ borderTop: '1px solid #334155', paddingTop: '14px' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '10px' }}>
+            💬 Comments ({comments.length})
+          </div>
+
+          {loadingEvents ? (
+            <div style={{ color: '#475569', fontSize: '0.8rem', padding: '10px 0' }}>Loading...</div>
+          ) : comments.length === 0 ? (
+            <div style={{ color: '#475569', fontSize: '0.8rem', padding: '10px 0' }}>No comments yet.</div>
+          ) : (
+            <div style={{ maxHeight: '240px', overflowY: 'auto', marginBottom: '12px' }}>
+              {comments.map(evt => (
+                <div key={evt.id} style={{ marginBottom: '10px', padding: '8px 10px', background: '#0f172a', borderRadius: '6px', border: '1px solid #334155' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#a5b4fc' }}>{evt.actor || 'anonymous'}</span>
+                    <span style={{ fontSize: '0.7rem', color: '#475569' }}>{formatTime(evt.created_at)}</span>
+                  </div>
+                  <div style={{ fontSize: '0.83rem', color: '#cbd5e1', whiteSpace: 'pre-wrap' }}>
+                    {evt.data?.message || ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add comment form (requires manage key) */}
+          {canEdit && (
+            <form onSubmit={submitComment} style={{ marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  style={{ ...styles.input, flex: 1, marginBottom: 0 }}
+                  placeholder="Your name (optional)"
+                  value={actorName}
+                  onChange={e => setActorName(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <textarea
+                  style={{ ...styles.textarea, flex: 1, marginBottom: 0, minHeight: '50px' }}
+                  placeholder="Add a comment..."
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button
+                  type="submit"
+                  style={styles.btn('primary')}
+                  disabled={posting || !comment.trim()}
+                >
+                  {posting ? 'Posting...' : 'Comment'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* Activity log (collapsed) */}
+        {activity.length > 0 && (
+          <details style={{ marginTop: '12px', borderTop: '1px solid #334155', paddingTop: '10px' }}>
+            <summary style={{ fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
+              📜 Activity ({activity.length} events)
+            </summary>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', marginTop: '8px' }}>
+              {activity.map(evt => (
+                <div key={evt.id} style={{ fontSize: '0.75rem', color: '#64748b', padding: '3px 0', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{eventLabel(evt)} {evt.actor ? `by ${evt.actor}` : ''}</span>
+                  <span style={{ fontSize: '0.68rem', color: '#475569' }}>{formatTime(evt.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     </div>
   );
@@ -463,6 +637,7 @@ function BoardView({ board, canEdit, onRefresh }) {
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -533,6 +708,7 @@ function BoardView({ board, canEdit, onRefresh }) {
             canEdit={canEdit}
             onRefresh={loadTasks}
             archived={archived}
+            onClickTask={setSelectedTask}
           />
         ))}
         {columns.length === 0 && (
@@ -546,6 +722,16 @@ function BoardView({ board, canEdit, onRefresh }) {
           columns={columns}
           onClose={() => setShowCreate(false)}
           onCreated={loadTasks}
+        />
+      )}
+
+      {selectedTask && (
+        <TaskDetailModal
+          boardId={board.id}
+          task={selectedTask}
+          canEdit={canEdit}
+          onClose={() => setSelectedTask(null)}
+          onRefresh={loadTasks}
         />
       )}
     </div>

@@ -132,6 +132,18 @@ const releaseTask = (boardId, taskId) =>
 const searchTasks = (boardId, query, filters = '') =>
   request(`/boards/${boardId}/tasks/search?q=${encodeURIComponent(query)}${filters ? '&' + filters : ''}`, { boardId });
 
+// ---- Task Events & Comments ----
+
+const getTaskEvents = (boardId, taskId) =>
+  request(`/boards/${boardId}/tasks/${taskId}/events`, { boardId });
+
+const commentOnTask = (boardId, taskId, message, actorName) =>
+  request(`/boards/${boardId}/tasks/${taskId}/comment`, {
+    method: 'POST',
+    body: { message, actor_name: actorName || undefined },
+    boardId,
+  });
+
 // ---- Health ----
 
 const health = () => request('/health');
@@ -143,5 +155,6 @@ export {
   addColumn,
   listTasks, getTask, createTask, updateTask, deleteTask, moveTask, claimTask, releaseTask,
   searchTasks,
+  getTaskEvents, commentOnTask,
   health,
 };

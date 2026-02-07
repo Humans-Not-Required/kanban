@@ -45,7 +45,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Priority Order)
 
-1. **Deploy updated backend + frontend** — rebuild on staging server (192.168.0.79) with new DB schema (breaking change — fresh DB required). Docker rebuild or native rebuild + restart.
+1. ~~**Deploy updated backend + frontend**~~ ✅ Done (2026-02-07 22:32 UTC)
 2. **Comments visible in frontend** — task comments exist in API but need UI
 3. **Identity on actions** — use `actor_name` in frontend when manage key is present
 4. **IP-based rate limiting for board creation** — prevent spam (rate_limit module already exists, repurpose for IP-based)
@@ -78,4 +78,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-07 22:15 UTC — Session: Frontend auth integration complete. Per-board keys from URL, edit/view modes, board creation shows manage URL. 17 tests passing, frontend builds clean.*
+*Last updated: 2026-02-07 22:32 UTC — Session: Deployed auth-refactored backend + frontend to staging (192.168.0.79). Fresh DB, all endpoints verified (create, read, write+key, write-no-key=401). External URL kanban.ckbdev.com confirmed working. 17 tests passing.*
