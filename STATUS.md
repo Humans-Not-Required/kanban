@@ -158,10 +158,12 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 3. ~~**Webhooks**~~ ✅ Done — CRUD + HMAC signatures + auto-disable after failures
 4. ~~**Task Dependencies**~~ ✅ Done — blocker/blocked relationships + circular dependency detection + cascade delete
 5. ~~**Frontend**~~ ✅ Done — React dashboard with drag-and-drop kanban board + unified serving
-6. **Update Dockerfile** — Add frontend build stage (3-stage: Node frontend → Rust backend → runtime)
-7. **Update README** — Document frontend, unified serving, STATIC_DIR env var
+6. ~~**Update Dockerfile**~~ ✅ Done — 3-stage build (Node → Rust → runtime), STATIC_DIR configured
+7. ~~**Update README**~~ ✅ Done — Frontend docs, STATIC_DIR, unified serving, architecture updates
 
-**Consider deployable?** ✅ **YES — fully deployable.** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, task dependencies with cycle detection, event logging, comments, OpenAPI spec, Docker support, React frontend with drag-and-drop. Single port, unified serving. Tests pass. Remaining items are enhancements.
+**Consider deployable?** ✅ **YES — fully deployable.** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, task dependencies with cycle detection, event logging, comments, OpenAPI spec, Docker support, React frontend with drag-and-drop. Single port, unified serving. 3-stage Docker build. Comprehensive README. Tests pass.
+
+**⚡ KANBAN IS DONE. Next project: app-directory.**
 
 ### ⚠️ Gotchas
 
@@ -192,4 +194,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 13:58 UTC — Session: React frontend + unified serving (drag-and-drop kanban board with search, create, archive)*
+*Last updated: 2026-02-07 14:05 UTC — Session: 3-stage Dockerfile + README update + clippy lint fix. Kanban is complete.*
