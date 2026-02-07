@@ -1,8 +1,8 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec ✅ + Access Control ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec ✅ + Access Control ✅ + WIP Limits ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation and board-level access control. Compiles cleanly (clippy -D warnings), all tests pass.
+Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, and WIP limit enforcement. Compiles cleanly (clippy -D warnings), all tests pass.
 
 ### What's Done
 
@@ -18,6 +18,12 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation and board-level
     - `GET /boards/{id}/collaborators` — list collaborators (requires Viewer)
     - `POST /boards/{id}/collaborators` — add/update collaborator (requires Admin)
     - `DELETE /boards/{id}/collaborators/{key_id}` — remove collaborator (requires Admin)
+  - **WIP Limit Enforcement** (NEW):
+    - `check_wip_limit()` helper validates column capacity before adding tasks
+    - Enforced on: `create_task`, `move_task`, `update_task` (when column_id changes)
+    - Returns 409 Conflict with `WIP_LIMIT_EXCEEDED` error code and column name
+    - Excludes the task being moved from count (prevents false positives on moves)
+    - Columns with `wip_limit = NULL` are unlimited (no enforcement)
   - Role enforcement on all routes:
     - **Viewer:** read boards, list tasks, get task, view events, post comments
     - **Editor:** create/update/delete tasks, claim/release/move tasks
@@ -39,12 +45,13 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation and board-level
   - 18 paths with full request/response documentation
   - 14 schemas
   - Tags: System, Boards, Columns, Tasks, Coordination, Events, Admin
-- Tests:
+- Tests (6 passing):
   - DB init creates schema + admin key
   - WAL mode enabled
   - Deterministic key hashing
   - board_collaborators table exists with correct schema
   - Access control role logic (owner/admin/collaborator/outsider)
+  - WIP limit enforcement (column schema, limit storage, task counts)
 
 ### Tech Stack
 
@@ -66,9 +73,8 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation and board-level
 
 ### What's Next (Priority Order)
 
-1. **WIP limits enforcement** — column WIP limits exist in schema but aren't enforced on task creation/move
-2. **Update OpenAPI spec** — add collaborator endpoints and access control documentation
-3. **README** — setup instructions, API overview, Docker support
+1. **Update OpenAPI spec** — add collaborator endpoints and access control documentation
+2. **README** — setup instructions, API overview, Docker support
 4. **Docker** — Dockerfile + docker-compose.yml for easy deployment
 5. **WebSocket / SSE event stream** for real-time updates
 6. **Task ordering** improvements (drag/drop positions + stable sorting)
@@ -82,6 +88,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation and board-level
 - No rate limiting yet — all requests allowed regardless of rate_limit field in api_keys table
 - Admin key printed to stdout on first run — save it!
 - OpenAPI spec doesn't yet document collaborator endpoints or access control error responses
+- WIP limit enforcement uses 409 Conflict — agents should handle this gracefully (move tasks out of full columns first)
 - Access checks use `require_role` which checks board existence + role in one call (replaces old `verify_board_exists`)
 
 ### Architecture Notes
@@ -94,4 +101,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation and board-level
 
 ---
 
-*Last updated: 2026-02-07 09:30 UTC — Session: Board-level access control*
+*Last updated: 2026-02-07 09:44 UTC — Session: WIP limit enforcement*
