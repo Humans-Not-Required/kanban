@@ -185,6 +185,66 @@ pub struct SearchResponse {
     pub offset: i64,
 }
 
+// ============ Batch Operations ============
+
+#[derive(Debug, Deserialize)]
+pub struct BatchRequest {
+    /// List of operations to perform. Max 50 per request.
+    pub operations: Vec<BatchOperation>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "action")]
+pub enum BatchOperation {
+    /// Move tasks to a different column
+    #[serde(rename = "move")]
+    Move {
+        task_ids: Vec<String>,
+        column_id: String,
+    },
+    /// Update fields on multiple tasks
+    #[serde(rename = "update")]
+    Update {
+        task_ids: Vec<String>,
+        #[serde(flatten)]
+        fields: BatchUpdateFields,
+    },
+    /// Delete multiple tasks
+    #[serde(rename = "delete")]
+    Delete { task_ids: Vec<String> },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchUpdateFields {
+    pub priority: Option<i32>,
+    pub assigned_to: Option<String>,
+    pub labels: Option<Vec<String>>,
+    pub due_at: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchResponse {
+    /// Total operations submitted
+    pub total: usize,
+    /// Successfully completed
+    pub succeeded: usize,
+    /// Failed operations
+    pub failed: usize,
+    /// Per-operation results
+    pub results: Vec<BatchOperationResult>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchOperationResult {
+    pub action: String,
+    pub task_ids: Vec<String>,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Number of tasks affected in this operation
+    pub affected: usize,
+}
+
 // ============ Common ============
 
 #[derive(Debug, Serialize)]

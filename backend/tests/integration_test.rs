@@ -621,3 +621,151 @@ fn test_task_ordering_positions() {
     drop(pool);
     let _ = std::fs::remove_file(&db_path);
 }
+
+#[test]
+fn test_batch_operations() {
+    let db_path = format!("/tmp/kanban_test_batch_{}.db", uuid::Uuid::new_v4());
+    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let pool = kanban::db::init_db().expect("DB should initialize");
+    let conn = pool.lock().unwrap();
+
+    // Get the auto-created admin key
+    let admin_key_id: String = conn
+        .query_row("SELECT id FROM api_keys WHERE is_admin = 1", [], |row| {
+            row.get(0)
+        })
+        .expect("Admin key should exist");
+
+    // Create a board with two columns
+    let board_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, 'Batch Board', '', ?2)",
+        rusqlite::params![board_id, admin_key_id],
+    )
+    .unwrap();
+
+    let col_backlog = uuid::Uuid::new_v4().to_string();
+    let col_done = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position) VALUES (?1, ?2, 'Backlog', 0)",
+        rusqlite::params![col_backlog, board_id],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position) VALUES (?1, ?2, 'Done', 1)",
+        rusqlite::params![col_done, board_id],
+    )
+    .unwrap();
+
+    // Create 5 tasks in backlog
+    let mut task_ids = Vec::new();
+    for i in 0..5 {
+        let task_id = uuid::Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO tasks (id, board_id, column_id, title, priority, position, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'test')",
+            rusqlite::params![task_id, board_id, col_backlog, format!("Batch Task {}", i), i, i],
+        )
+        .unwrap();
+        task_ids.push(task_id);
+    }
+
+    // Test batch move: move first 3 tasks to Done
+    let move_ids = &task_ids[0..3];
+    for tid in move_ids {
+        conn.execute(
+            "UPDATE tasks SET column_id = ?1, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?2 AND board_id = ?3",
+            rusqlite::params![col_done, tid, board_id],
+        )
+        .unwrap();
+    }
+
+    // Verify 3 tasks in Done, 2 in Backlog
+    let done_count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE board_id = ?1 AND column_id = ?2",
+            rusqlite::params![board_id, col_done],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(done_count, 3, "Should have 3 tasks in Done");
+
+    let backlog_count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE board_id = ?1 AND column_id = ?2",
+            rusqlite::params![board_id, col_backlog],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(backlog_count, 2, "Should have 2 tasks in Backlog");
+
+    // Verify completed_at is set for moved tasks
+    let completed: Option<String> = conn
+        .query_row(
+            "SELECT completed_at FROM tasks WHERE id = ?1",
+            rusqlite::params![task_ids[0]],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(
+        completed.is_some(),
+        "Moved task should have completed_at set"
+    );
+
+    // Test batch update: update priority on remaining backlog tasks
+    for tid in &task_ids[3..5] {
+        conn.execute(
+            "UPDATE tasks SET priority = 99, updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params![tid],
+        )
+        .unwrap();
+    }
+
+    let updated_priority: i32 = conn
+        .query_row(
+            "SELECT priority FROM tasks WHERE id = ?1",
+            rusqlite::params![task_ids[3]],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(updated_priority, 99, "Priority should be updated to 99");
+
+    // Test batch delete: delete the Done tasks
+    for tid in &task_ids[0..3] {
+        conn.execute(
+            "DELETE FROM tasks WHERE id = ?1 AND board_id = ?2",
+            rusqlite::params![tid, board_id],
+        )
+        .unwrap();
+    }
+
+    let total_remaining: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE board_id = ?1",
+            rusqlite::params![board_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        total_remaining, 2,
+        "Should have 2 tasks remaining after batch delete"
+    );
+
+    // Verify the remaining tasks are the backlog ones with updated priority
+    let remaining_priorities: Vec<i32> = conn
+        .prepare("SELECT priority FROM tasks WHERE board_id = ?1 ORDER BY title")
+        .unwrap()
+        .query_map(rusqlite::params![board_id], |row| row.get(0))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    assert_eq!(
+        remaining_priorities,
+        vec![99, 99],
+        "Both remaining tasks should have priority 99"
+    );
+
+    drop(conn);
+    drop(pool);
+    let _ = std::fs::remove_file(&db_path);
+}

@@ -58,6 +58,8 @@ fn rocket() -> _ {
                 routes::get_task,
                 routes::update_task,
                 routes::delete_task,
+                // Batch operations
+                routes::batch_tasks,
                 // Agent-first: claim/release/move/reorder
                 routes::claim_task,
                 routes::release_task,

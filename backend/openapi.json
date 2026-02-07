@@ -3,7 +3,7 @@
   "info": {
     "title": "Kanban Board API",
     "description": "AI-Centric Kanban Board \u2014 agent-first task coordination with full API. Features board management, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "license": {
       "name": "MIT"
     }
@@ -1096,6 +1096,51 @@
         ]
       }
     },
+    "/boards/{boardId}/tasks/batch": {
+      "post": {
+        "summary": "Batch task operations",
+        "description": "Execute multiple operations (move, update, delete) on tasks in a single request. Max 50 operations per request. Each operation is independent — failures in one don't roll back others. Requires Editor role on the board.",
+        "operationId": "batchTasks",
+        "tags": ["Tasks"],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch results with per-operation status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BatchResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty batch or too many operations (max 50)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "403": { "description": "Insufficient role (need Editor+)" },
+          "401": { "description": "Missing or invalid API key" }
+        },
+        "security": [{ "ApiKeyAuth": [] }, { "BearerAuth": [] }]
+      }
+    },
     "/boards/{boardId}/tasks/search": {
       "get": {
         "summary": "Search tasks",
@@ -1841,6 +1886,108 @@
           },
           "active": {
             "type": "boolean"
+          }
+        }
+      },
+      "BatchRequest": {
+        "type": "object",
+        "required": ["operations"],
+        "properties": {
+          "operations": {
+            "type": "array",
+            "maxItems": 50,
+            "items": { "$ref": "#/components/schemas/BatchOperation" },
+            "description": "List of operations to perform (max 50)"
+          }
+        }
+      },
+      "BatchOperation": {
+        "type": "object",
+        "required": ["action"],
+        "discriminator": {
+          "propertyName": "action"
+        },
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["move", "update", "delete"],
+            "description": "Operation type"
+          },
+          "task_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Task IDs to operate on"
+          },
+          "column_id": {
+            "type": "string",
+            "description": "Target column ID (required for 'move' action)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "New priority (for 'update' action)"
+          },
+          "assigned_to": {
+            "type": "string",
+            "description": "New assignee (for 'update' action)"
+          },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "New labels (for 'update' action)"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "New due date (for 'update' action)"
+          }
+        }
+      },
+      "BatchResponse": {
+        "type": "object",
+        "required": ["total", "succeeded", "failed", "results"],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "description": "Total operations submitted"
+          },
+          "succeeded": {
+            "type": "integer",
+            "description": "Number of successful operations"
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Number of failed operations"
+          },
+          "results": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BatchOperationResult" },
+            "description": "Per-operation results"
+          }
+        }
+      },
+      "BatchOperationResult": {
+        "type": "object",
+        "required": ["action", "task_ids", "success", "affected"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "The operation type"
+          },
+          "task_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Task IDs in this operation"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message (only present on failure)"
+          },
+          "affected": {
+            "type": "integer",
+            "description": "Number of tasks actually affected"
           }
         }
       },
