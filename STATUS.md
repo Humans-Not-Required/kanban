@@ -47,9 +47,11 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 1. ~~**Deploy updated backend + frontend**~~ ✅ Done (2026-02-07 22:32 UTC)
 2. ~~**Comments visible in frontend**~~ ✅ Done (2026-02-07 22:35 UTC) — task detail modal with comments, activity log, add comment form
-3. **Identity on actions** — use `actor_name` in frontend when manage key is present
-4. **Task editing in frontend** — click task card to open edit modal (title, description, priority, labels, assignment)
+3. ~~**Identity on actions**~~ ✅ Done (2026-02-07 23:04 UTC) — persistent display name in header, sent with all write ops (create/update/comment/claim)
+4. ~~**Task editing in frontend**~~ ✅ Done (2026-02-07 23:04 UTC) — edit button in task detail modal, inline form for title/desc/priority/labels/assignment, delete with confirmation
 5. **IP-based rate limiting for board creation** — prevent spam (rate_limit module already exists, repurpose for IP-based)
+6. **Desktop move-to-column in detail modal** — currently only on mobile; add for desktop too
+7. **Real-time updates via SSE** — connect to `/boards/{id}/events/stream` for live task changes
 
 ### ⚠️ Gotchas
 
@@ -78,4 +80,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-07 22:35 UTC — Session: Deployed auth-refactored code to staging (fresh DB). Added task detail modal with comments section — click any task card to view details, comments, and activity log. Comment form for manage-key holders. Deployed to staging. 17 tests passing.*
+*Last updated: 2026-02-07 23:04 UTC — Session: Added persistent display name identity (stored in localStorage, shown in header for edit-mode users). actor_name sent with all write operations (createTask, updateTask, commentOnTask, claimTask). Task detail modal now has edit mode — pencil button opens inline form for title, description, priority, labels, assignment. Delete task with confirmation. Created-by shown in task meta. Deployed to staging. 17 tests passing.*
