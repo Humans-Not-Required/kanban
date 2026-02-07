@@ -1,8 +1,8 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.5.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.6.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Docker ✅ + README Complete ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
+Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
 ### What's Done
 
@@ -50,7 +50,14 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
     - `X-RateLimit-Reset` — seconds until window resets
   - Implemented via auth guard (single enforcement point) + Rocket fairing (headers)
   - Zero database overhead — all tracking is in-memory
-- **Task Reorder/Positioning (NEW):**
+- **Task Search (NEW):**
+  - `GET /boards/{id}/tasks/search?q=<query>` — full-text search across title, description, labels
+  - Relevance ranking: title matches first, then by priority DESC, then by updated_at DESC
+  - Pagination via `limit` (1-100, default 50) and `offset`, with total count in response
+  - Combinable filters: `column`, `assigned`, `priority`, `label`
+  - Returns `SearchResponse` with query, tasks, total, limit, offset
+  - Integration test with title/description/label matching coverage
+- **Task Reorder/Positioning:**
   - `POST /boards/{id}/tasks/{taskId}/reorder` — set task position within column
   - Optional `column_id` for move+reorder in one call
   - Shift-based positioning: tasks at/after target position move down automatically
@@ -71,7 +78,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - **Database:** SQLite with WAL mode, auto-creates admin key on first run
 - **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
 - **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Tests:** 14 tests passing (3 access control unit + 3 rate limiter unit + 8 integration)
+- **Tests:** 15 tests passing (3 access control unit + 3 rate limiter unit + 9 integration)
 - **Code Quality:** Zero clippy warnings, cargo fmt clean
 
 ### Tech Stack
@@ -92,18 +99,18 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ### What's Next (Priority Order)
 
-1. **Search** (full-text for title/description/labels)
-2. **Batch operations** (bulk move, bulk update, bulk delete)
-3. **Board archiving** (archive/unarchive boards via API)
+1. **Batch operations** (bulk move, bulk update, bulk delete)
+2. **Board archiving** (archive/unarchive boards via API)
+3. **Webhooks** (notify external URLs on task events)
 
-**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
+**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
 
 ### ⚠️ Gotchas
 
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.5.0 — 17 paths (some combined), SSE + reorder endpoints documented
+- OpenAPI spec is at v0.6.0 — 18 paths, search endpoint + SearchResponse schema documented
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
 - Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
@@ -122,4 +129,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 11:03 UTC — Session: Task reorder endpoint with position control*
+*Last updated: 2026-02-07 11:35 UTC — Session: Task search endpoint with relevance ranking*
