@@ -1,27 +1,60 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
 
+// ---- Responsive hook ----
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 // ---- Styles ----
 const styles = {
   app: { minHeight: '100vh', display: 'flex', flexDirection: 'column' },
-  header: {
+  header: (mobile) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '12px 20px', background: '#1e293b', borderBottom: '1px solid #334155',
-  },
+    padding: mobile ? '10px 12px' : '12px 20px', background: '#1e293b',
+    borderBottom: '1px solid #334155',
+  }),
   logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.85rem' },
+  headerRight: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' },
+  menuBtn: {
+    background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
+    padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '1.1rem',
+    lineHeight: 1,
+  },
   modeBadge: (canEdit) => ({
-    fontSize: '0.75rem', fontWeight: 600,
-    padding: '3px 10px', borderRadius: '12px',
+    fontSize: '0.7rem', fontWeight: 600,
+    padding: '3px 8px', borderRadius: '12px',
     background: canEdit ? '#22c55e22' : '#64748b22',
     color: canEdit ? '#22c55e' : '#94a3b8',
     border: `1px solid ${canEdit ? '#22c55e44' : '#64748b44'}`,
+    whiteSpace: 'nowrap',
   }),
-  main: { flex: 1, display: 'flex', overflow: 'hidden' },
-  sidebar: {
-    width: '240px', minWidth: '240px', background: '#1e293b',
+  main: (mobile) => ({
+    flex: 1, display: 'flex',
+    flexDirection: mobile ? 'column' : 'row',
+    overflow: 'hidden', position: 'relative',
+  }),
+  sidebar: (mobile, open) => ({
+    ...(mobile ? {
+      position: 'fixed', top: 0, left: 0, bottom: 0,
+      width: '280px', maxWidth: '85vw', zIndex: 200,
+      transform: open ? 'translateX(0)' : 'translateX(-100%)',
+      transition: 'transform 0.2s ease',
+    } : {
+      width: '240px', minWidth: '240px',
+    }),
+    background: '#1e293b',
     borderRight: '1px solid #334155', display: 'flex', flexDirection: 'column',
     overflow: 'auto',
+  }),
+  sidebarOverlay: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199,
   },
   sidebarHeader: {
     padding: '12px 16px', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8',
@@ -29,7 +62,7 @@ const styles = {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   },
   boardItem: (active) => ({
-    padding: '8px 16px', cursor: 'pointer', fontSize: '0.9rem',
+    padding: '10px 16px', cursor: 'pointer', fontSize: '0.9rem',
     background: active ? '#334155' : 'transparent',
     color: active ? '#f1f5f9' : '#94a3b8',
     borderLeft: active ? '3px solid #6366f1' : '3px solid transparent',
@@ -40,20 +73,34 @@ const styles = {
     padding: '1px 5px', borderRadius: '3px',
   },
   boardContent: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-  boardHeader: {
-    padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    borderBottom: '1px solid #1e293b',
-  },
-  boardTitle: { fontSize: '1.3rem', fontWeight: 700, color: '#f1f5f9' },
-  columnsContainer: {
-    flex: 1, display: 'flex', gap: '16px', padding: '16px 20px',
-    overflowX: 'auto', alignItems: 'flex-start',
-  },
-  column: (isDragOver) => ({
-    minWidth: '280px', maxWidth: '320px', flex: '0 0 280px',
+  boardHeader: (mobile) => ({
+    padding: mobile ? '12px' : '16px 20px',
+    display: 'flex', alignItems: mobile ? 'flex-start' : 'center',
+    justifyContent: 'space-between', borderBottom: '1px solid #1e293b',
+    flexDirection: mobile ? 'column' : 'row', gap: mobile ? '8px' : '0',
+  }),
+  boardTitle: (mobile) => ({
+    fontSize: mobile ? '1.1rem' : '1.3rem', fontWeight: 700, color: '#f1f5f9',
+  }),
+  columnsContainer: (mobile) => ({
+    flex: 1, display: 'flex',
+    flexDirection: mobile ? 'column' : 'row',
+    gap: mobile ? '12px' : '16px',
+    padding: mobile ? '12px' : '16px 20px',
+    overflowX: mobile ? 'hidden' : 'auto',
+    overflowY: mobile ? 'auto' : 'hidden',
+    alignItems: mobile ? 'stretch' : 'flex-start',
+  }),
+  column: (isDragOver, mobile) => ({
+    ...(mobile ? {
+      flex: 'none', width: '100%',
+    } : {
+      minWidth: '280px', maxWidth: '320px', flex: '0 0 280px',
+    }),
     background: isDragOver ? '#1e293b' : '#1a2332', borderRadius: '8px',
     border: isDragOver ? '2px dashed #6366f1' : '1px solid #334155',
-    display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 200px)',
+    display: 'flex', flexDirection: 'column',
+    maxHeight: mobile ? 'none' : 'calc(100vh - 200px)',
   }),
   columnHeader: {
     padding: '12px 14px', fontWeight: 600, fontSize: '0.9rem',
@@ -64,13 +111,17 @@ const styles = {
     fontSize: '0.75rem', color: '#64748b', background: '#0f172a',
     padding: '2px 8px', borderRadius: '10px',
   },
-  taskList: { flex: 1, overflow: 'auto', padding: '8px' },
+  taskList: (mobile) => ({
+    flex: mobile ? 'none' : 1,
+    overflow: mobile ? 'visible' : 'auto',
+    padding: '8px',
+  }),
   card: (isDragging, priority) => ({
     background: isDragging ? '#334155' : '#0f172a',
     border: `1px solid ${priorityColor(priority)}33`,
     borderLeft: `3px solid ${priorityColor(priority)}`,
     borderRadius: '6px', padding: '10px 12px', marginBottom: '8px',
-    cursor: isDragging ? 'grabbing' : 'default',
+    cursor: isDragging ? 'grabbing' : 'pointer',
     opacity: isDragging ? 0.5 : 1,
     transition: 'all 0.15s ease',
   }),
@@ -81,10 +132,13 @@ const styles = {
     background: color || '#6366f133', color: color ? '#fff' : '#a5b4fc',
     padding: '1px 6px', borderRadius: '3px', fontSize: '0.68rem',
   }),
-  btn: (variant = 'primary') => ({
+  btn: (variant = 'primary', mobile) => ({
     background: variant === 'primary' ? '#6366f1' : variant === 'danger' ? '#ef4444' : '#334155',
-    color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px',
-    cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500,
+    color: '#fff', border: 'none',
+    padding: mobile ? '8px 14px' : '6px 12px',
+    borderRadius: '4px', cursor: 'pointer',
+    fontSize: mobile ? '0.85rem' : '0.8rem', fontWeight: 500,
+    whiteSpace: 'nowrap',
   }),
   btnSmall: {
     background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
@@ -93,35 +147,49 @@ const styles = {
   modal: {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+    padding: '12px',
   },
-  modalContent: {
+  modalContent: (mobile) => ({
     background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
-    padding: '24px', width: '480px', maxWidth: '90vw', maxHeight: '85vh', overflow: 'auto',
-  },
+    padding: mobile ? '16px' : '24px',
+    width: mobile ? '100%' : '480px', maxWidth: '100%',
+    maxHeight: '90vh', overflow: 'auto',
+  }),
+  modalContentWide: (mobile) => ({
+    background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
+    padding: mobile ? '16px' : '24px',
+    width: mobile ? '100%' : '560px', maxWidth: '100%',
+    maxHeight: '90vh', overflow: 'auto',
+  }),
   input: {
     width: '100%', background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
-    padding: '8px 10px', borderRadius: '4px', fontSize: '0.9rem', marginBottom: '10px',
+    padding: '10px', borderRadius: '4px', fontSize: '16px', marginBottom: '10px',
+    boxSizing: 'border-box',
   },
   textarea: {
     width: '100%', background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
-    padding: '8px 10px', borderRadius: '4px', fontSize: '0.85rem', minHeight: '80px',
+    padding: '10px', borderRadius: '4px', fontSize: '16px', minHeight: '80px',
     resize: 'vertical', marginBottom: '10px', fontFamily: 'inherit',
+    boxSizing: 'border-box',
   },
   select: {
     background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
-    padding: '6px 8px', borderRadius: '4px', fontSize: '0.85rem', marginBottom: '10px',
+    padding: '8px', borderRadius: '4px', fontSize: '16px', marginBottom: '10px',
+    flex: 1,
   },
   empty: {
     textAlign: 'center', color: '#475569', padding: '40px 20px', fontSize: '0.9rem',
   },
-  searchBar: {
-    display: 'flex', gap: '8px', padding: '0 20px', paddingBottom: '0',
-  },
+  searchBar: (mobile) => ({
+    display: 'flex', gap: '8px',
+    padding: mobile ? '0 12px' : '0 20px',
+    paddingBottom: '0',
+  }),
   urlBox: {
     background: '#0f172a', border: '1px solid #334155', borderRadius: '4px',
-    padding: '10px 14px', fontSize: '0.82rem', color: '#94a3b8',
+    padding: '10px 12px', fontSize: '0.78rem', color: '#94a3b8',
     fontFamily: 'monospace', wordBreak: 'break-all', marginBottom: '10px',
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
   },
   urlLabel: {
     fontSize: '0.73rem', fontWeight: 600, color: '#64748b',
@@ -133,7 +201,8 @@ const styles = {
   },
   directBoardInput: {
     background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
-    padding: '6px 10px', borderRadius: '4px', fontSize: '0.8rem', width: '240px',
+    padding: '8px 10px', borderRadius: '4px', fontSize: '16px', flex: 1,
+    minWidth: 0, boxSizing: 'border-box',
   },
 };
 
@@ -151,7 +220,6 @@ function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(
     () => {},
     () => {
-      // Fallback for older browsers
       const ta = document.createElement('textarea');
       ta.value = text;
       document.body.appendChild(ta);
@@ -164,9 +232,9 @@ function copyToClipboard(text) {
 
 // ---- Components ----
 
-function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask }) {
+function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, isMobile }) {
   const [dragging, setDragging] = useState(false);
-  const draggable = canEdit && !archived;
+  const draggable = canEdit && !archived && !isMobile;
 
   return (
     <div
@@ -176,8 +244,8 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask }) 
         cursor: dragging ? 'grabbing' : 'pointer',
       }}
       draggable={draggable}
-      onDragStart={(e) => { setDragging(true); e.dataTransfer.setData('taskId', task.id); }}
-      onDragEnd={() => setDragging(false)}
+      onDragStart={draggable ? (e) => { setDragging(true); e.dataTransfer.setData('taskId', task.id); } : undefined}
+      onDragEnd={draggable ? () => setDragging(false) : undefined}
       onClick={() => { if (!dragging) onClickTask(task); }}
     >
       <div style={styles.cardTitle}>{task.title}</div>
@@ -197,8 +265,33 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask }) 
   );
 }
 
-function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickTask }) {
+function MoveTaskDropdown({ boardId, task, columns, onMoved, onCancel }) {
+  const otherColumns = columns.filter(c => c.id !== task.column_id);
+  const handleMove = async (columnId) => {
+    try {
+      await api.moveTask(boardId, task.id, columnId);
+      onMoved();
+    } catch (err) {
+      if (err.code === 'WIP_LIMIT_EXCEEDED') {
+        alert(`WIP limit reached for that column`);
+      }
+    }
+  };
+  return (
+    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+      {otherColumns.map(c => (
+        <button key={c.id} style={{ ...styles.btnSmall, padding: '6px 10px' }} onClick={() => handleMove(c.id)}>
+          → {c.name}
+        </button>
+      ))}
+      <button style={{ ...styles.btnSmall, padding: '6px 10px', color: '#ef4444' }} onClick={onCancel}>Cancel</button>
+    </div>
+  );
+}
+
+function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickTask, isMobile, allColumns }) {
   const [dragOver, setDragOver] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const colTasks = tasks.filter(t => t.column_id === column.id)
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
 
@@ -224,38 +317,44 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickT
 
   return (
     <div
-      style={styles.column(dragOver && canEdit)}
-      onDragOver={canEdit ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
-      onDragLeave={canEdit ? () => setDragOver(false) : undefined}
-      onDrop={canEdit ? handleDrop : undefined}
+      style={styles.column(dragOver && canEdit, isMobile)}
+      onDragOver={!isMobile && canEdit ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
+      onDragLeave={!isMobile && canEdit ? () => setDragOver(false) : undefined}
+      onDrop={!isMobile && canEdit ? handleDrop : undefined}
     >
-      <div style={styles.columnHeader}>
-        <span>{column.name}</span>
+      <div
+        style={{ ...styles.columnHeader, cursor: isMobile ? 'pointer' : 'default' }}
+        onClick={isMobile ? () => setCollapsed(c => !c) : undefined}
+      >
+        <span>{isMobile && (collapsed ? '▸ ' : '▾ ')}{column.name}</span>
         <span style={styles.taskCount}>{wipInfo}</span>
       </div>
-      <div style={styles.taskList}>
-        {colTasks.length === 0 && (
-          <div style={{ ...styles.empty, padding: '20px 10px', fontSize: '0.8rem' }}>
-            {canEdit ? 'Drop tasks here' : 'No tasks'}
-          </div>
-        )}
-        {colTasks.map(t => (
-          <TaskCard
-            key={t.id}
-            task={t}
-            boardId={boardId}
-            canEdit={canEdit}
-            onRefresh={onRefresh}
-            archived={archived}
-            onClickTask={onClickTask}
-          />
-        ))}
-      </div>
+      {!(isMobile && collapsed) && (
+        <div style={styles.taskList(isMobile)}>
+          {colTasks.length === 0 && (
+            <div style={{ ...styles.empty, padding: '16px 10px', fontSize: '0.8rem' }}>
+              {canEdit && !isMobile ? 'Drop tasks here' : 'No tasks'}
+            </div>
+          )}
+          {colTasks.map(t => (
+            <TaskCard
+              key={t.id}
+              task={t}
+              boardId={boardId}
+              canEdit={canEdit}
+              onRefresh={onRefresh}
+              archived={archived}
+              onClickTask={onClickTask}
+              isMobile={isMobile}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function CreateTaskModal({ boardId, columns, onClose, onCreated }) {
+function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [priority, setPriority] = useState('medium');
@@ -288,7 +387,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated }) {
 
   return (
     <div style={styles.modal} onClick={onClose}>
-      <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginBottom: '16px', color: '#f1f5f9' }}>New Task</h3>
         <form onSubmit={submit}>
           <input style={styles.input} placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
@@ -307,8 +406,8 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated }) {
           <input style={styles.input} placeholder="Labels (comma-separated)" value={labels} onChange={e => setLabels(e.target.value)} />
           <input style={styles.input} placeholder="Assigned to (optional)" value={assignedTo} onChange={e => setAssignedTo(e.target.value)} />
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-            <button type="button" style={styles.btn('secondary')} onClick={onClose}>Cancel</button>
-            <button type="submit" style={styles.btn('primary')} disabled={loading || !title.trim()}>
+            <button type="button" style={styles.btn('secondary', isMobile)} onClick={onClose}>Cancel</button>
+            <button type="submit" style={styles.btn('primary', isMobile)} disabled={loading || !title.trim()}>
               {loading ? 'Creating...' : 'Create Task'}
             </button>
           </div>
@@ -318,12 +417,13 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated }) {
   );
 }
 
-function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
+function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns }) {
   const [events, setEvents] = useState([]);
   const [comment, setComment] = useState('');
   const [actorName, setActorName] = useState('');
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [showMove, setShowMove] = useState(false);
 
   const loadEvents = useCallback(async () => {
     try {
@@ -377,11 +477,11 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
 
   return (
     <div style={styles.modal} onClick={onClose}>
-      <div style={{ ...styles.modalContent, width: '560px' }} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.modalContentWide(isMobile)} onClick={(e) => e.stopPropagation()}>
         {/* Task header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ color: '#f1f5f9', marginBottom: '6px' }}>{task.title}</h3>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 style={{ color: '#f1f5f9', marginBottom: '6px', fontSize: isMobile ? '1rem' : '1.17rem' }}>{task.title}</h3>
             <div style={styles.cardMeta}>
               <span style={{ color: priorityColor(task.priority) }}>{task.priority}</span>
               {task.assigned_to && <span>→ {task.assigned_to}</span>}
@@ -390,10 +490,29 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
             </div>
           </div>
           <button
-            style={{ ...styles.btnSmall, padding: '4px 10px', fontSize: '1rem', lineHeight: 1 }}
+            style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '1rem', lineHeight: 1, marginLeft: '8px', flexShrink: 0 }}
             onClick={onClose}
           >×</button>
         </div>
+
+        {/* Mobile move action */}
+        {isMobile && canEdit && allColumns && (
+          <div style={{ marginBottom: '12px' }}>
+            {showMove ? (
+              <MoveTaskDropdown
+                boardId={boardId}
+                task={task}
+                columns={allColumns}
+                onMoved={() => { setShowMove(false); onRefresh(); onClose(); }}
+                onCancel={() => setShowMove(false)}
+              />
+            ) : (
+              <button style={{ ...styles.btnSmall, padding: '6px 10px', width: '100%' }} onClick={() => setShowMove(true)}>
+                ➡️ Move to column...
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Description */}
         {task.description && (
@@ -421,7 +540,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
           ) : comments.length === 0 ? (
             <div style={{ color: '#475569', fontSize: '0.8rem', padding: '10px 0' }}>No comments yet.</div>
           ) : (
-            <div style={{ maxHeight: '240px', overflowY: 'auto', marginBottom: '12px' }}>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '12px' }}>
               {comments.map(evt => (
                 <div key={evt.id} style={{ marginBottom: '10px', padding: '8px 10px', background: '#0f172a', borderRadius: '6px', border: '1px solid #334155' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -436,29 +555,25 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
             </div>
           )}
 
-          {/* Add comment form (requires manage key) */}
+          {/* Add comment form */}
           {canEdit && (
             <form onSubmit={submitComment} style={{ marginTop: '8px' }}>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <input
-                  style={{ ...styles.input, flex: 1, marginBottom: 0 }}
-                  placeholder="Your name (optional)"
-                  value={actorName}
-                  onChange={e => setActorName(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <textarea
-                  style={{ ...styles.textarea, flex: 1, marginBottom: 0, minHeight: '50px' }}
-                  placeholder="Add a comment..."
-                  value={comment}
-                  onChange={e => setComment(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <input
+                style={styles.input}
+                placeholder="Your name (optional)"
+                value={actorName}
+                onChange={e => setActorName(e.target.value)}
+              />
+              <textarea
+                style={{ ...styles.textarea, minHeight: '50px' }}
+                placeholder="Add a comment..."
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   type="submit"
-                  style={styles.btn('primary')}
+                  style={styles.btn('primary', isMobile)}
                   disabled={posting || !comment.trim()}
                 >
                   {posting ? 'Posting...' : 'Comment'}
@@ -468,7 +583,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
           )}
         </div>
 
-        {/* Activity log (collapsed) */}
+        {/* Activity log */}
         {activity.length > 0 && (
           <details style={{ marginTop: '12px', borderTop: '1px solid #334155', paddingTop: '10px' }}>
             <summary style={{ fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
@@ -489,7 +604,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh }) {
   );
 }
 
-function CreateBoardModal({ onClose, onCreated }) {
+function CreateBoardModal({ onClose, onCreated, isMobile }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [columns, setColumns] = useState('To Do, In Progress, Done');
@@ -533,7 +648,6 @@ function CreateBoardModal({ onClose, onCreated }) {
     onClose();
   };
 
-  // After creation — show the manage URL
   if (result) {
     const origin = window.location.origin;
     const viewUrl = `${origin}/board/${result.board_id}`;
@@ -541,58 +655,49 @@ function CreateBoardModal({ onClose, onCreated }) {
 
     return (
       <div style={styles.modal} onClick={handleDone}>
-        <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
           <div style={styles.successBox}>
-            <h3 style={{ color: '#22c55e', marginBottom: '8px' }}>✅ Board Created!</h3>
+            <h3 style={{ color: '#22c55e', marginBottom: '8px', fontSize: isMobile ? '1rem' : '1.17rem' }}>✅ Board Created!</h3>
             <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
               Save your management link — it's the only way to edit this board.
             </p>
           </div>
 
           <div style={{ marginBottom: '14px' }}>
-            <div style={styles.urlLabel}>🔗 View Link (read-only, share freely)</div>
+            <div style={styles.urlLabel}>🔗 View Link (read-only)</div>
             <div style={styles.urlBox}>
-              <span style={{ flex: 1 }}>{viewUrl}</span>
-              <button
-                style={styles.btnSmall}
-                onClick={() => handleCopy(viewUrl, 'view')}
-              >
-                {copied === 'view' ? '✓ Copied' : 'Copy'}
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>{viewUrl}</span>
+              <button style={{ ...styles.btnSmall, flexShrink: 0 }} onClick={() => handleCopy(viewUrl, 'view')}>
+                {copied === 'view' ? '✓' : 'Copy'}
               </button>
             </div>
           </div>
 
           <div style={{ marginBottom: '14px' }}>
-            <div style={styles.urlLabel}>🔑 Manage Link (full access — keep private!)</div>
+            <div style={styles.urlLabel}>🔑 Manage Link (keep private!)</div>
             <div style={{ ...styles.urlBox, borderColor: '#6366f155' }}>
-              <span style={{ flex: 1, color: '#a5b4fc' }}>{manageUrl}</span>
-              <button
-                style={{ ...styles.btnSmall, borderColor: '#6366f1', color: '#a5b4fc' }}
-                onClick={() => handleCopy(manageUrl, 'manage')}
-              >
-                {copied === 'manage' ? '✓ Copied' : 'Copy'}
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', color: '#a5b4fc' }}>{manageUrl}</span>
+              <button style={{ ...styles.btnSmall, borderColor: '#6366f1', color: '#a5b4fc', flexShrink: 0 }} onClick={() => handleCopy(manageUrl, 'manage')}>
+                {copied === 'manage' ? '✓' : 'Copy'}
               </button>
             </div>
           </div>
 
           <div style={{ marginBottom: '14px' }}>
-            <div style={styles.urlLabel}>🤖 API Base (for programmatic access)</div>
+            <div style={styles.urlLabel}>🤖 API Base</div>
             <div style={styles.urlBox}>
-              <span style={{ flex: 1 }}>{origin}{result.api_base}</span>
-              <button
-                style={styles.btnSmall}
-                onClick={() => handleCopy(`${origin}${result.api_base}`, 'api')}
-              >
-                {copied === 'api' ? '✓ Copied' : 'Copy'}
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>{origin}{result.api_base}</span>
+              <button style={{ ...styles.btnSmall, flexShrink: 0 }} onClick={() => handleCopy(`${origin}${result.api_base}`, 'api')}>
+                {copied === 'api' ? '✓' : 'Copy'}
               </button>
             </div>
             <p style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '4px' }}>
-              Use <code style={{ color: '#94a3b8' }}>Authorization: Bearer {'{manage_key}'}</code> for write operations.
+              Use <code style={{ color: '#94a3b8' }}>Authorization: Bearer {'{manage_key}'}</code> for write ops.
             </p>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button style={styles.btn('primary')} onClick={handleDone}>
+            <button style={styles.btn('primary', isMobile)} onClick={handleDone}>
               Open Board →
             </button>
           </div>
@@ -603,7 +708,7 @@ function CreateBoardModal({ onClose, onCreated }) {
 
   return (
     <div style={styles.modal} onClick={onClose}>
-      <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginBottom: '16px', color: '#f1f5f9' }}>New Board</h3>
         <form onSubmit={submit}>
           <input style={styles.input} placeholder="Board Name" value={name} onChange={e => setName(e.target.value)} autoFocus />
@@ -613,16 +718,12 @@ function CreateBoardModal({ onClose, onCreated }) {
             Last column is automatically marked as "done" column.
           </p>
           <label style={{ fontSize: '0.85rem', color: '#94a3b8', cursor: 'pointer', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={e => setIsPublic(e.target.checked)}
-            />
-            Make board public (visible in board listing)
+            <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} />
+            Make board public
           </label>
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
-            <button type="button" style={styles.btn('secondary')} onClick={onClose}>Cancel</button>
-            <button type="submit" style={styles.btn('primary')} disabled={loading || !name.trim()}>
+            <button type="button" style={styles.btn('secondary', isMobile)} onClick={onClose}>Cancel</button>
+            <button type="submit" style={styles.btn('primary', isMobile)} disabled={loading || !name.trim()}>
               {loading ? 'Creating...' : 'Create Board'}
             </button>
           </div>
@@ -632,7 +733,7 @@ function CreateBoardModal({ onClose, onCreated }) {
   );
 }
 
-function BoardView({ board, canEdit, onRefresh }) {
+function BoardView({ board, canEdit, onRefresh, isMobile }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
@@ -666,25 +767,25 @@ function BoardView({ board, canEdit, onRefresh }) {
 
   return (
     <div style={styles.boardContent}>
-      <div style={styles.boardHeader}>
-        <div>
-          <span style={styles.boardTitle}>{board.name}</span>
+      <div style={styles.boardHeader(isMobile)}>
+        <div style={{ minWidth: 0 }}>
+          <span style={styles.boardTitle(isMobile)}>{board.name}</span>
           {archived && <span style={{ ...styles.archivedBadge, marginLeft: '10px' }}>ARCHIVED</span>}
           {board.description && (
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{board.description}</p>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
           <span style={styles.modeBadge(canEdit)}>
-            {canEdit ? '✏️ Edit Mode' : '👁️ View Only'}
+            {canEdit ? '✏️ Edit' : '👁️ View'}
           </span>
           {canEdit && !archived && (
-            <button style={styles.btn('primary')} onClick={() => setShowCreate(true)}>+ New Task</button>
+            <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
           )}
         </div>
       </div>
 
-      <div style={styles.searchBar}>
+      <div style={styles.searchBar(isMobile)}>
         <input
           style={{ ...styles.input, marginBottom: 0, flex: 1 }}
           placeholder="Search tasks..."
@@ -698,7 +799,7 @@ function BoardView({ board, canEdit, onRefresh }) {
         )}
       </div>
 
-      <div style={styles.columnsContainer}>
+      <div style={styles.columnsContainer(isMobile)}>
         {columns.sort((a, b) => a.position - b.position).map(col => (
           <Column
             key={col.id}
@@ -709,6 +810,8 @@ function BoardView({ board, canEdit, onRefresh }) {
             onRefresh={loadTasks}
             archived={archived}
             onClickTask={setSelectedTask}
+            isMobile={isMobile}
+            allColumns={columns}
           />
         ))}
         {columns.length === 0 && (
@@ -722,6 +825,7 @@ function BoardView({ board, canEdit, onRefresh }) {
           columns={columns}
           onClose={() => setShowCreate(false)}
           onCreated={loadTasks}
+          isMobile={isMobile}
         />
       )}
 
@@ -732,13 +836,13 @@ function BoardView({ board, canEdit, onRefresh }) {
           canEdit={canEdit}
           onClose={() => setSelectedTask(null)}
           onRefresh={loadTasks}
+          isMobile={isMobile}
+          allColumns={columns}
         />
       )}
     </div>
   );
 }
-
-// ---- Open Board by ID (direct access) ----
 
 function DirectBoardInput({ onOpen }) {
   const [boardId, setBoardId] = useState('');
@@ -747,7 +851,6 @@ function DirectBoardInput({ onOpen }) {
     e.preventDefault();
     const id = boardId.trim();
     if (!id) return;
-    // Handle full URL or just board ID
     const match = id.match(/\/board\/([a-f0-9-]+)/i);
     onOpen(match ? match[1] : id);
     setBoardId('');
@@ -767,28 +870,26 @@ function DirectBoardInput({ onOpen }) {
 }
 
 function App() {
+  const isMobile = useIsMobile();
   const [boards, setBoards] = useState([]);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [boardDetail, setBoardDetail] = useState(null);
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // On mount: check URL for ?key= and /board/{id} patterns
   useEffect(() => {
     const { boardId, key } = api.extractKeyFromUrl();
     if (boardId && key) {
-      // Store the key for this board and clean URL
       api.setBoardKey(boardId, key);
       api.cleanKeyFromUrl();
       setSelectedBoardId(boardId);
     } else if (boardId) {
-      // Direct board link without key (read-only)
       setSelectedBoardId(boardId);
     }
   }, []);
 
-  // Load public boards list
   const loadBoards = useCallback(async () => {
     try {
       const { data } = await api.listBoards(showArchived);
@@ -800,7 +901,6 @@ function App() {
 
   useEffect(() => { loadBoards(); }, [loadBoards]);
 
-  // Load selected board detail
   useEffect(() => {
     if (!selectedBoardId) { setBoardDetail(null); setLoadError(null); return; }
     setLoadError(null);
@@ -825,13 +925,24 @@ function App() {
 
   const handleOpenDirect = (boardId) => {
     setSelectedBoardId(boardId);
+    setSidebarOpen(false);
+  };
+
+  const handleSelectBoard = (boardId) => {
+    setSelectedBoardId(boardId);
+    if (isMobile) setSidebarOpen(false);
   };
 
   return (
     <div style={styles.app}>
-      <div style={styles.header}>
-        <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
-          📋 Kanban
+      <div style={styles.header(isMobile)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {isMobile && (
+            <button style={styles.menuBtn} onClick={() => setSidebarOpen(o => !o)}>☰</button>
+          )}
+          <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
+            📋 Kanban
+          </div>
         </div>
         <div style={styles.headerRight}>
           {selectedBoardId && (
@@ -842,17 +953,22 @@ function App() {
         </div>
       </div>
 
-      <div style={styles.main}>
-        <div style={styles.sidebar}>
+      <div style={styles.main(isMobile)}>
+        {/* Sidebar overlay for mobile */}
+        {isMobile && sidebarOpen && (
+          <div style={styles.sidebarOverlay} onClick={() => setSidebarOpen(false)} />
+        )}
+
+        <div style={styles.sidebar(isMobile, sidebarOpen)}>
           <div style={styles.sidebarHeader}>
             <span>Public Boards</span>
-            <button style={styles.btnSmall} onClick={() => setShowCreateBoard(true)}>+ New</button>
+            <button style={styles.btnSmall} onClick={() => { setShowCreateBoard(true); setSidebarOpen(false); }}>+ New</button>
           </div>
           {boards.map(b => (
             <div
               key={b.id}
               style={styles.boardItem(selectedBoardId === b.id)}
-              onClick={() => setSelectedBoardId(b.id)}
+              onClick={() => handleSelectBoard(b.id)}
             >
               <span>{b.name}</span>
               {b.archived_at && <span style={styles.archivedBadge}>📦</span>}
@@ -884,7 +1000,7 @@ function App() {
         </div>
 
         {boardDetail ? (
-          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => setSelectedBoardId(s => s)} />
+          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => setSelectedBoardId(s => s)} isMobile={isMobile} />
         ) : loadError ? (
           <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>
@@ -893,17 +1009,22 @@ function App() {
             </div>
           </div>
         ) : (
-          <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
+          <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center', padding: '20px' }}>
             <div>
               <p style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📋 Kanban</p>
               <p style={{ color: '#94a3b8', marginBottom: '4px' }}>Humans Not Required</p>
               <p style={{ fontSize: '0.85rem', maxWidth: '400px', lineHeight: '1.5' }}>
-                Select a public board, open one by ID, or create a new one.
+                {isMobile ? 'Tap ☰ to browse boards, or create a new one.' : 'Select a public board, open one by ID, or create a new one.'}
                 <br />
                 <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                  No signup required — create a board and get a management link.
+                  No signup required.
                 </span>
               </p>
+              {isMobile && (
+                <button style={{ ...styles.btn('primary', true), marginTop: '12px' }} onClick={() => setShowCreateBoard(true)}>
+                  + New Board
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -913,6 +1034,7 @@ function App() {
         <CreateBoardModal
           onClose={() => setShowCreateBoard(false)}
           onCreated={handleBoardCreated}
+          isMobile={isMobile}
         />
       )}
     </div>
