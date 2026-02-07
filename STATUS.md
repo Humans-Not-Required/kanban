@@ -161,9 +161,22 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 6. ~~**Update Dockerfile**~~ ✅ Done — 3-stage build (Node → Rust → runtime), STATIC_DIR configured
 7. ~~**Update README**~~ ✅ Done — Frontend docs, STATIC_DIR, unified serving, architecture updates
 
-**Consider deployable?** ✅ **YES — fully deployable.** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, task dependencies with cycle detection, event logging, comments, OpenAPI spec, Docker support, React frontend with drag-and-drop. Single port, unified serving. 3-stage Docker build. Comprehensive README. Tests pass.
+**Deployed:** ✅ Running at kanban.ckbdev.com (Cloudflare Tunnel → 192.168.0.79:3002 → nginx → localhost:8001). Systemd user service `kanban`.
 
-**⚡ KANBAN IS DONE. Next project: app-directory.**
+**⚡ NEXT MILESTONE: Auth Refactor** — see DESIGN.md "API Changes Needed" section. This is the #1 priority. The current global API key auth blocks real usage. We need per-board tokens so users can create and share boards without a global key.
+
+### What's Next (Current Priority)
+
+1. **AUTH REFACTOR (CRITICAL)** — Replace global `AuthenticatedKey` with per-board token auth:
+   - Board creation requires NO auth → returns a `manage_key`
+   - Read endpoints (view board, list tasks) require NO auth — just the board UUID
+   - Write endpoints require the board's `manage_key` (Bearer header or `?key=` query param)
+   - Remove global API key management routes (`/keys` CRUD)
+   - Frontend: detect `key` in URL → enable/disable edit mode
+   - See DESIGN.md for full spec
+2. **Comments visible in frontend** — task comments exist in API but need UI
+3. **Identity on actions** — add optional `actor_name` param to write endpoints so we can see who did what
+4. **Webhook → Signal notification** — notify when board changes happen
 
 ### ⚠️ Gotchas
 
