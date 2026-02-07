@@ -276,6 +276,9 @@ pub fn create_task(
             })?,
     };
 
+    // Check WIP limit before creating task in this column
+    check_wip_limit(&conn, &column_id, None)?;
+
     let task_id = uuid::Uuid::new_v4().to_string();
     let creator = key.agent_id.clone().unwrap_or_else(|| key.id.clone());
     let labels_json = serde_json::to_string(&req.labels).unwrap_or_else(|_| "[]".to_string());
@@ -431,6 +434,8 @@ pub fn update_task(
     }
 
     if let Some(ref col_id) = req.column_id {
+        // Check WIP limit on target column (exclude this task)
+        check_wip_limit(&conn, col_id, Some(task_id))?;
         conn.execute(
             "UPDATE tasks SET column_id = ?1, updated_at = datetime('now') WHERE id = ?2",
             rusqlite::params![col_id, task_id],
@@ -643,6 +648,9 @@ pub fn move_task(
             }),
         ));
     }
+
+    // Check WIP limit on target column (exclude this task since it's being moved)
+    check_wip_limit(&conn, target_column_id, Some(task_id))?;
 
     // Get current column for the event log
     let from_col: String = conn
@@ -1216,4 +1224,64 @@ fn forbidden() -> (Status, Json<ApiError>) {
             status: 403,
         }),
     )
+}
+
+/// Check if adding a task to a column would exceed its WIP limit.
+/// `exclude_task_id` allows excluding a specific task (for moves — the task being moved
+/// is already counted in its current column, not the target).
+fn check_wip_limit(
+    conn: &Connection,
+    column_id: &str,
+    exclude_task_id: Option<&str>,
+) -> Result<(), (Status, Json<ApiError>)> {
+    let wip_limit: Option<i32> = conn
+        .query_row(
+            "SELECT wip_limit FROM columns WHERE id = ?1",
+            rusqlite::params![column_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| not_found("Column"))?;
+
+    if let Some(limit) = wip_limit {
+        let current_count: i32 = match exclude_task_id {
+            Some(tid) => conn
+                .query_row(
+                    "SELECT COUNT(*) FROM tasks WHERE column_id = ?1 AND id != ?2",
+                    rusqlite::params![column_id, tid],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0),
+            None => conn
+                .query_row(
+                    "SELECT COUNT(*) FROM tasks WHERE column_id = ?1",
+                    rusqlite::params![column_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0),
+        };
+
+        if current_count >= limit {
+            let col_name: String = conn
+                .query_row(
+                    "SELECT name FROM columns WHERE id = ?1",
+                    rusqlite::params![column_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|_| "unknown".to_string());
+
+            return Err((
+                Status::Conflict,
+                Json(ApiError {
+                    error: format!(
+                        "Column '{}' has reached its WIP limit of {} tasks",
+                        col_name, limit
+                    ),
+                    code: "WIP_LIMIT_EXCEEDED".to_string(),
+                    status: 409,
+                }),
+            ));
+        }
+    }
+
+    Ok(())
 }

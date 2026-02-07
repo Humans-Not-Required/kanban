@@ -212,6 +212,129 @@ fn test_key_hashing() {
 }
 
 #[test]
+fn test_wip_limit_enforcement() {
+    let db_path = format!("/tmp/kanban_test_wip_{}.db", uuid::Uuid::new_v4());
+    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let pool = kanban::db::init_db().expect("DB should initialize");
+    let conn = pool.lock().unwrap();
+
+    // Get admin key ID
+    let admin_key_id: String = conn
+        .query_row("SELECT id FROM api_keys WHERE is_admin = 1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+
+    // Create a board
+    let board_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO boards (id, name, description, owner_key_id) VALUES (?1, 'WIP Test Board', '', ?2)",
+        rusqlite::params![board_id, admin_key_id],
+    )
+    .unwrap();
+
+    // Create a column WITH a WIP limit of 2
+    let limited_col_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position, wip_limit) VALUES (?1, ?2, 'Limited', 0, 2)",
+        rusqlite::params![limited_col_id, board_id],
+    )
+    .unwrap();
+
+    // Create a column WITHOUT a WIP limit
+    let unlimited_col_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO columns (id, board_id, name, position) VALUES (?1, ?2, 'Unlimited', 1)",
+        rusqlite::params![unlimited_col_id, board_id],
+    )
+    .unwrap();
+
+    // Add 2 tasks to the limited column (at the limit)
+    let task1_id = uuid::Uuid::new_v4().to_string();
+    let task2_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, 'Task 1', 0, 'test')",
+        rusqlite::params![task1_id, board_id, limited_col_id],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, 'Task 2', 1, 'test')",
+        rusqlite::params![task2_id, board_id, limited_col_id],
+    )
+    .unwrap();
+
+    // Verify count
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE column_id = ?1",
+            rusqlite::params![limited_col_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 2);
+
+    // Verify WIP limit is stored correctly
+    let wip_limit: Option<i32> = conn
+        .query_row(
+            "SELECT wip_limit FROM columns WHERE id = ?1",
+            rusqlite::params![limited_col_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(wip_limit, Some(2));
+
+    // Verify unlimited column has no WIP limit
+    let no_limit: Option<i32> = conn
+        .query_row(
+            "SELECT wip_limit FROM columns WHERE id = ?1",
+            rusqlite::params![unlimited_col_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(no_limit, None);
+
+    // Add a task to the unlimited column — should work regardless of count
+    let task3_id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO tasks (id, board_id, column_id, title, position, created_by) VALUES (?1, ?2, ?3, 'Task 3', 0, 'test')",
+        rusqlite::params![task3_id, board_id, unlimited_col_id],
+    )
+    .unwrap();
+
+    // Verify task3 exists in unlimited column
+    let t3_col: String = conn
+        .query_row(
+            "SELECT column_id FROM tasks WHERE id = ?1",
+            rusqlite::params![task3_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(t3_col, unlimited_col_id);
+
+    // Move task1 from limited to unlimited — should succeed and free a spot
+    conn.execute(
+        "UPDATE tasks SET column_id = ?1 WHERE id = ?2",
+        rusqlite::params![unlimited_col_id, task1_id],
+    )
+    .unwrap();
+
+    // Now limited column has 1 task — should be able to add another
+    let limited_count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE column_id = ?1",
+            rusqlite::params![limited_col_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(limited_count, 1); // Only task2 remains
+
+    drop(conn);
+    drop(pool);
+    let _ = std::fs::remove_file(&db_path);
+}
+
+#[test]
 fn test_db_wal_mode() {
     let db_path = format!("/tmp/kanban_test_wal_{}.db", uuid::Uuid::new_v4());
     std::env::set_var("DATABASE_PATH", &db_path);

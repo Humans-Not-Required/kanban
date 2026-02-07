@@ -143,7 +143,7 @@
     "/boards/{boardId}/tasks": {
       "post": {
         "summary": "Create a task",
-        "description": "Creates a new task on the board. If column_id is omitted, the task is placed in the first column. Supports labels, priority, arbitrary metadata, due dates, and initial assignment.",
+        "description": "Creates a new task on the board. If column_id is omitted, the task is placed in the first column. Supports labels, priority, arbitrary metadata, due dates, and initial assignment. Returns 409 if the target column's WIP limit would be exceeded.",
         "operationId": "createTask",
         "tags": ["Tasks"],
         "parameters": [
@@ -168,7 +168,8 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "description": "Column WIP limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
         }
       },
       "get": {
@@ -250,7 +251,7 @@
       },
       "patch": {
         "summary": "Update a task",
-        "description": "Partially update a task. Only provided fields are changed. Logs an 'updated' event with the changed fields.",
+        "description": "Partially update a task. Only provided fields are changed. Logs an 'updated' event with the changed fields. If column_id is changed, the target column's WIP limit is enforced (409 if exceeded).",
         "operationId": "updateTask",
         "tags": ["Tasks"],
         "parameters": [
@@ -275,7 +276,8 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "description": "Column WIP limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
         }
       },
       "delete": {
@@ -365,7 +367,7 @@
     "/boards/{boardId}/tasks/{taskId}/move/{targetColumnId}": {
       "post": {
         "summary": "Move a task to another column",
-        "description": "Move a task to a different column (workflow transition). If the target column is the last column by position, the task's completed_at timestamp is set automatically. Moving out of the last column clears completed_at.",
+        "description": "Move a task to a different column (workflow transition). If the target column is the last column by position, the task's completed_at timestamp is set automatically. Moving out of the last column clears completed_at. Returns 409 if the target column's WIP limit would be exceeded.",
         "operationId": "moveTask",
         "tags": ["Coordination"],
         "parameters": [
@@ -390,7 +392,8 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "description": "Column WIP limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
         }
       }
     },
