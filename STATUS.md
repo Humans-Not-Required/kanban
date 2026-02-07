@@ -23,6 +23,14 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
   - Write routes verify manage_key hash against board
   - Removed: global API keys (/keys CRUD), collaborator system, per-key rate limiting
   - Added: `is_public` flag, `actor_name` fields, `?agent=` on claim
+- **Frontend auth integration** — per-board key detection and edit/view modes
+  - Detects `?key=` in URL, stores in localStorage per board, cleans URL
+  - Edit/View mode badge in header and board view
+  - Board creation shows manage URL + view URL + API base with copy buttons
+  - Read-only mode hides edit controls (new task button, drag-drop)
+  - No global API key required — app loads directly
+  - Sidebar shows public boards + direct board ID/URL input
+  - `is_public` toggle in board creation modal
 - **Core API** — all routes working with new auth model
 - **Frontend** — React + Vite dashboard with drag-and-drop
 - **Docker** — 3-stage multi-stage build
@@ -37,11 +45,11 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Priority Order)
 
-1. **Frontend auth integration** — detect `?key=` in URL, store in localStorage, enable/disable edit mode based on whether manage key is present. Currently frontend expects global API key.
-2. **Deploy updated backend** — rebuild on staging server with new DB schema (breaking change — fresh DB required)
-3. **Comments visible in frontend** — task comments exist in API but need UI
-4. **Identity on actions** — use `actor_name` in frontend when manage key is present
-5. **IP-based rate limiting for board creation** — prevent spam (rate_limit module already exists, repurpose for IP-based)
+1. **Deploy updated backend + frontend** — rebuild on staging server (192.168.0.79) with new DB schema (breaking change — fresh DB required). Docker rebuild or native rebuild + restart.
+2. **Comments visible in frontend** — task comments exist in API but need UI
+3. **Identity on actions** — use `actor_name` in frontend when manage key is present
+4. **IP-based rate limiting for board creation** — prevent spam (rate_limit module already exists, repurpose for IP-based)
+5. **Task editing in frontend** — click task card to open edit modal (title, description, priority, labels, assignment)
 
 ### ⚠️ Gotchas
 
@@ -70,4 +78,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-07 21:30 UTC — Session: Auth refactor complete. Per-board tokens, zero-signup, link-based access. 17 tests passing, zero clippy warnings.*
+*Last updated: 2026-02-07 22:15 UTC — Session: Frontend auth integration complete. Per-board keys from URL, edit/view modes, board creation shows manage URL. 17 tests passing, frontend builds clean.*
