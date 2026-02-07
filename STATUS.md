@@ -1,8 +1,8 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.7.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.8.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Docker ✅ + README Complete ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, batch operations, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
+Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, batch operations, board archive/unarchive, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
 ### What's Done
 
@@ -50,7 +50,18 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
     - `X-RateLimit-Reset` — seconds until window resets
   - Implemented via auth guard (single enforcement point) + Rocket fairing (headers)
   - Zero database overhead — all tracking is in-memory
-- **Batch Operations (NEW):**
+- **Board Archiving (NEW):**
+  - `POST /boards/{id}/archive` — Archive a board (Admin+)
+    - Returns 409 if already archived
+    - Blocks all mutations: task create/update/delete, claim/release, move/reorder, batch, column creation
+    - Read-only operations remain available (list tasks, search, view events, get board)
+  - `POST /boards/{id}/unarchive` — Unarchive a board (Admin+)
+    - Returns 409 if not archived
+    - Restores normal operations; all data preserved through cycle
+  - `GET /boards?include_archived=true` — Include archived boards in listing (default: false)
+  - `require_not_archived()` helper enforces mutation block at route level
+  - Integration test covering full archive/unarchive lifecycle
+- **Batch Operations:**
   - `POST /boards/{id}/tasks/batch` — Execute multiple operations in one request
     - `move` — Move tasks to a different column (handles done-column completion)
     - `update` — Update fields (priority, assigned_to, labels, due_at) on multiple tasks
@@ -88,7 +99,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - **Database:** SQLite with WAL mode, auto-creates admin key on first run
 - **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
 - **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Tests:** 16 tests passing (3 access control unit + 3 rate limiter unit + 10 integration)
+- **Tests:** 17 tests passing (3 access control unit + 3 rate limiter unit + 11 integration)
 - **Code Quality:** Zero clippy warnings, cargo fmt clean
 
 ### Tech Stack
@@ -110,7 +121,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 ### What's Next (Priority Order)
 
 1. ~~**Batch operations**~~ ✅ Done
-2. **Board archiving** (archive/unarchive boards via API)
+2. ~~**Board archiving**~~ ✅ Done
 3. **Webhooks** (notify external URLs on task events)
 
 **Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
@@ -120,7 +131,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.7.0 — 19 paths, batch + search endpoints + BatchRequest/Response/Operation/Result schemas documented
+- OpenAPI spec is at v0.8.0 — 21 paths, archive/unarchive + batch + search endpoints documented
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
 - Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
@@ -133,10 +144,11 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - Rate limit headers via Rocket fairing reading request-local state from auth guard
 - `events.rs` — EventBus with `Mutex<HashMap<String, broadcast::Sender>>` (lazy per-board channels)
 - SSE stream uses `rocket::response::stream::EventStream` with `tokio::select!` for graceful shutdown
+- `require_not_archived()` helper called in every mutation route — single enforcement pattern
 - Single-threaded SQLite via `Mutex<Connection>`
 - CORS wide open (all origins)
 - Redirect route for short URLs at root (`/`), API routes at `/api/v1`
 
 ---
 
-*Last updated: 2026-02-07 11:47 UTC — Session: Batch task operations (move/update/delete)*
+*Last updated: 2026-02-07 11:55 UTC — Session: Board archiving (archive/unarchive + mutation protection)*
