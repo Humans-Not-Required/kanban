@@ -1,8 +1,8 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.4.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.5.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Docker ✅ + README Complete ✅
 
-Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
+Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
 ### What's Done
 
@@ -50,7 +50,16 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
     - `X-RateLimit-Reset` — seconds until window resets
   - Implemented via auth guard (single enforcement point) + Rocket fairing (headers)
   - Zero database overhead — all tracking is in-memory
-- **SSE Real-Time Events (NEW):**
+- **Task Reorder/Positioning (NEW):**
+  - `POST /boards/{id}/tasks/{taskId}/reorder` — set task position within column
+  - Optional `column_id` for move+reorder in one call
+  - Shift-based positioning: tasks at/after target position move down automatically
+  - Same-column reorder closes gap at old position first
+  - Cross-column reorder checks WIP limits and sets completed_at for done columns
+  - `CreateTaskRequest` accepts optional `position` field for insert-at
+  - SSE event type: `task.reordered`
+  - Integration test: task ordering with reorder and insert-at-position
+- **SSE Real-Time Events:**
   - `GET /boards/{id}/events/stream` — Server-Sent Events stream (Viewer+)
   - EventBus using `tokio::sync::broadcast` channels per board (lazy creation)
   - 7 event types: task.created, task.updated, task.deleted, task.claimed, task.released, task.moved, task.comment
@@ -62,7 +71,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - **Database:** SQLite with WAL mode, auto-creates admin key on first run
 - **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
 - **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Tests:** 13 tests passing (3 access control unit + 3 rate limiter unit + 7 integration)
+- **Tests:** 14 tests passing (3 access control unit + 3 rate limiter unit + 8 integration)
 - **Code Quality:** Zero clippy warnings, cargo fmt clean
 
 ### Tech Stack
@@ -83,9 +92,9 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ### What's Next (Priority Order)
 
-1. **Task ordering** improvements (drag/drop positions + stable sorting)
-2. **Search** (full-text for title/description/labels)
-3. **Batch operations** (bulk move, bulk update, bulk delete)
+1. **Search** (full-text for title/description/labels)
+2. **Batch operations** (bulk move, bulk update, bulk delete)
+3. **Board archiving** (archive/unarchive boards via API)
 
 **Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
 
@@ -94,7 +103,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.4.0 — 16 paths (some combined), SSE endpoint documented
+- OpenAPI spec is at v0.5.0 — 17 paths (some combined), SSE + reorder endpoints documented
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
 - Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
@@ -113,4 +122,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 10:28 UTC — Session: SSE real-time events + README update*
+*Last updated: 2026-02-07 11:03 UTC — Session: Task reorder endpoint with position control*
