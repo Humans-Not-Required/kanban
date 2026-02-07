@@ -1,6 +1,6 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.3.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + Docker ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.3.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + Docker ✅ + README Complete ✅
 
 Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
@@ -75,10 +75,9 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ### What's Next (Priority Order)
 
-1. **README update** — Document rate limiting, update feature list, add API examples
-2. **WebSocket / SSE event stream** for real-time updates
-3. **Task ordering** improvements (drag/drop positions + stable sorting)
-4. **Search** (full-text for title/description/labels)
+1. **WebSocket / SSE event stream** for real-time updates
+2. **Task ordering** improvements (drag/drop positions + stable sorting)
+3. **Search** (full-text for title/description/labels)
 
 **Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
 
@@ -104,4 +103,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 10:10 UTC — Session: Rate limiting (ported from qr-service)*
+*Last updated: 2026-02-07 10:23 UTC — Session: README update (rate limiting docs, config table, test flags)*
