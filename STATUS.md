@@ -1,6 +1,6 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.8.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.9.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Task Reorder ✅ + Task Search ✅ + Batch Operations ✅ + Board Archiving ✅ + Webhooks ✅ + Docker ✅ + README Complete ✅
 
 Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, task reorder/positioning, full-text search, batch operations, board archive/unarchive, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
@@ -122,7 +122,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 1. ~~**Batch operations**~~ ✅ Done
 2. ~~**Board archiving**~~ ✅ Done
-3. **Webhooks** (notify external URLs on task events)
+3. ~~**Webhooks**~~ ✅ Done — CRUD + HMAC signatures + auto-disable after failures
 
 **Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, full-text search, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
 
@@ -131,7 +131,7 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.8.0 — 21 paths, archive/unarchive + batch + search endpoints documented
+- OpenAPI spec is at v0.9.0 — 23 paths incl. webhooks + 24 schemas
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
 - Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
@@ -151,4 +151,4 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ---
 
-*Last updated: 2026-02-07 11:55 UTC — Session: Board archiving (archive/unarchive + mutation protection)*
+*Last updated: 2026-02-07 12:09 UTC — Session: Webhooks shipped (CRUD + HMAC signing + auto-disable)*
