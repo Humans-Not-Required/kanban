@@ -232,6 +232,59 @@ function copyToClipboard(text) {
 
 // ---- Components ----
 
+function IdentityBadge({ isMobile }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(() => api.getDisplayName());
+  const [inputVal, setInputVal] = useState(name);
+
+  const save = () => {
+    const trimmed = inputVal.trim();
+    api.setDisplayName(trimmed);
+    setName(trimmed);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <input
+          style={{
+            background: '#0f172a', border: '1px solid #6366f1', color: '#e2e8f0',
+            padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem',
+            width: isMobile ? '100px' : '120px',
+          }}
+          placeholder="Your name"
+          value={inputVal}
+          onChange={e => setInputVal(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+          autoFocus
+        />
+        <button
+          style={{ ...styles.btnSmall, padding: '3px 6px', fontSize: '0.75rem' }}
+          onClick={save}
+        >✓</button>
+      </div>
+    );
+  }
+
+  return (
+    <span
+      style={{
+        fontSize: '0.78rem', color: name ? '#a5b4fc' : '#64748b',
+        cursor: 'pointer', padding: '3px 8px',
+        background: '#0f172a33', borderRadius: '4px',
+        border: '1px solid #334155',
+        whiteSpace: 'nowrap', maxWidth: isMobile ? '90px' : '140px',
+        overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block',
+      }}
+      onClick={() => { setInputVal(name); setEditing(true); }}
+      title={name ? `Signed in as "${name}" — click to change` : 'Set your display name'}
+    >
+      {name ? `👤 ${name}` : '👤 Set name'}
+    </span>
+  );
+}
+
 function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, isMobile }) {
   const [dragging, setDragging] = useState(false);
   const draggable = canEdit && !archived && !isMobile;
@@ -420,10 +473,18 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
 function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns }) {
   const [events, setEvents] = useState([]);
   const [comment, setComment] = useState('');
-  const [actorName, setActorName] = useState('');
+  const [actorName, setActorName] = useState(() => api.getDisplayName());
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [posting, setPosting] = useState(false);
   const [showMove, setShowMove] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDesc, setEditDesc] = useState(task.description || '');
+  const [editPriority, setEditPriority] = useState(task.priority);
+  const [editLabels, setEditLabels] = useState((task.labels || []).join(', '));
+  const [editAssigned, setEditAssigned] = useState(task.assigned_to || '');
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadEvents = useCallback(async () => {
     try {
@@ -443,13 +504,54 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
     if (!comment.trim()) return;
     setPosting(true);
     try {
-      await api.commentOnTask(boardId, task.id, comment.trim(), actorName.trim() || undefined);
+      const nameToUse = actorName.trim() || undefined;
+      // Persist the name for future use
+      if (nameToUse) api.setDisplayName(nameToUse);
+      await api.commentOnTask(boardId, task.id, comment.trim(), nameToUse);
       setComment('');
       loadEvents();
     } catch (err) {
       alert(err.error || 'Failed to post comment');
     } finally {
       setPosting(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      const updates = {};
+      if (editTitle.trim() !== task.title) updates.title = editTitle.trim();
+      if (editDesc.trim() !== (task.description || '')) updates.description = editDesc.trim();
+      if (editPriority !== task.priority) updates.priority = editPriority;
+      const newLabels = editLabels.trim() ? editLabels.split(',').map(l => l.trim()).filter(Boolean) : [];
+      const oldLabels = task.labels || [];
+      if (JSON.stringify(newLabels) !== JSON.stringify(oldLabels)) updates.labels = newLabels;
+      if ((editAssigned.trim() || null) !== (task.assigned_to || null)) updates.assigned_to = editAssigned.trim() || null;
+
+      if (Object.keys(updates).length > 0) {
+        await api.updateTask(boardId, task.id, updates);
+        onRefresh();
+      }
+      setEditing(false);
+    } catch (err) {
+      alert(err.error || 'Failed to update task');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this task? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await api.deleteTask(boardId, task.id);
+      onRefresh();
+      onClose();
+    } catch (err) {
+      alert(err.error || 'Failed to delete task');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -481,22 +583,96 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
         {/* Task header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h3 style={{ color: '#f1f5f9', marginBottom: '6px', fontSize: isMobile ? '1rem' : '1.17rem' }}>{task.title}</h3>
-            <div style={styles.cardMeta}>
-              <span style={{ color: priorityColor(task.priority) }}>{task.priority}</span>
-              {task.assigned_to && <span>→ {task.assigned_to}</span>}
-              {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
-              {task.column_name && <span>📋 {task.column_name}</span>}
-            </div>
+            {editing ? (
+              <input
+                style={{ ...styles.input, fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px' }}
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                autoFocus
+              />
+            ) : (
+              <h3 style={{ color: '#f1f5f9', marginBottom: '6px', fontSize: isMobile ? '1rem' : '1.17rem' }}>{task.title}</h3>
+            )}
+            {!editing && (
+              <div style={styles.cardMeta}>
+                <span style={{ color: priorityColor(task.priority) }}>
+                  {task.priority === 0 ? 'low' : task.priority === 1 ? 'medium' : task.priority === 2 ? 'high' : task.priority >= 3 ? 'critical' : `p${task.priority}`}
+                </span>
+                {task.assigned_to && <span>→ {task.assigned_to}</span>}
+                {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
+                {task.column_name && <span>📋 {task.column_name}</span>}
+                {task.created_by && task.created_by !== 'anonymous' && <span>by {task.created_by}</span>}
+              </div>
+            )}
           </div>
-          <button
-            style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '1rem', lineHeight: 1, marginLeft: '8px', flexShrink: 0 }}
-            onClick={onClose}
-          >×</button>
+          <div style={{ display: 'flex', gap: '4px', marginLeft: '8px', flexShrink: 0 }}>
+            {canEdit && !editing && (
+              <button
+                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                onClick={() => setEditing(true)}
+                title="Edit task"
+              >✏️</button>
+            )}
+            <button
+              style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '1rem', lineHeight: 1 }}
+              onClick={onClose}
+            >×</button>
+          </div>
         </div>
 
+        {/* Edit form */}
+        {editing && (
+          <div style={{ marginBottom: '16px', padding: '12px', background: '#0f172a', borderRadius: '6px', border: '1px solid #6366f133' }}>
+            <textarea
+              style={{ ...styles.textarea, minHeight: '60px' }}
+              placeholder="Description (optional)"
+              value={editDesc}
+              onChange={e => setEditDesc(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              <select style={styles.select} value={editPriority} onChange={e => setEditPriority(Number(e.target.value))}>
+                <option value={3}>Critical</option>
+                <option value={2}>High</option>
+                <option value={1}>Medium</option>
+                <option value={0}>Low</option>
+              </select>
+            </div>
+            <input
+              style={styles.input}
+              placeholder="Labels (comma-separated)"
+              value={editLabels}
+              onChange={e => setEditLabels(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              placeholder="Assigned to (optional)"
+              value={editAssigned}
+              onChange={e => setEditAssigned(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+              <button
+                style={styles.btn('danger', isMobile)}
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : '🗑️ Delete'}
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button style={styles.btn('secondary', isMobile)} onClick={() => setEditing(false)}>Cancel</button>
+                <button
+                  style={styles.btn('primary', isMobile)}
+                  onClick={saveEdit}
+                  disabled={saving || !editTitle.trim()}
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile move action */}
-        {isMobile && canEdit && allColumns && (
+        {isMobile && canEdit && allColumns && !editing && (
           <div style={{ marginBottom: '12px' }}>
             {showMove ? (
               <MoveTaskDropdown
@@ -514,16 +690,16 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
           </div>
         )}
 
-        {/* Description */}
-        {task.description && (
+        {/* Description (view mode) */}
+        {!editing && task.description && (
           <div style={{ marginBottom: '16px', padding: '10px 12px', background: '#0f172a', borderRadius: '6px', border: '1px solid #334155' }}>
             <div style={{ fontSize: '0.73rem', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Description</div>
             <div style={{ color: '#cbd5e1', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{task.description}</div>
           </div>
         )}
 
-        {/* Labels */}
-        {task.labels && task.labels.length > 0 && (
+        {/* Labels (view mode) */}
+        {!editing && task.labels && task.labels.length > 0 && (
           <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', flexWrap: 'wrap' }}>
             {task.labels.map((l, i) => <span key={i} style={styles.label()}>{l}</span>)}
           </div>
@@ -945,6 +1121,9 @@ function App() {
           </div>
         </div>
         <div style={styles.headerRight}>
+          {selectedBoardId && canEdit && (
+            <IdentityBadge isMobile={isMobile} />
+          )}
           {selectedBoardId && (
             <span style={styles.modeBadge(canEdit)}>
               {canEdit ? '✏️ Edit' : '👁️ View'}

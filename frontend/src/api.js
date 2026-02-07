@@ -21,6 +21,20 @@ function hasBoardKey(boardId) {
   return !!getBoardKey(boardId);
 }
 
+// ---- Identity (display name) storage ----
+
+function getDisplayName() {
+  return localStorage.getItem('kanban_display_name') || '';
+}
+
+function setDisplayName(name) {
+  if (name) {
+    localStorage.setItem('kanban_display_name', name.trim());
+  } else {
+    localStorage.removeItem('kanban_display_name');
+  }
+}
+
 // ---- URL param helpers ----
 
 /** Extract ?key= from current URL and return { boardId, key } if present */
@@ -109,11 +123,17 @@ const listTasks = (boardId, params = '') =>
 const getTask = (boardId, taskId) =>
   request(`/boards/${boardId}/tasks/${taskId}`, { boardId });
 
-const createTask = (boardId, body) =>
-  request(`/boards/${boardId}/tasks`, { method: 'POST', body, boardId });
+const createTask = (boardId, body) => {
+  const name = getDisplayName();
+  if (name && !body.actor_name) body.actor_name = name;
+  return request(`/boards/${boardId}/tasks`, { method: 'POST', body, boardId });
+};
 
-const updateTask = (boardId, taskId, body) =>
-  request(`/boards/${boardId}/tasks/${taskId}`, { method: 'PATCH', body, boardId });
+const updateTask = (boardId, taskId, body) => {
+  const name = getDisplayName();
+  if (name && !body.actor_name) body.actor_name = name;
+  return request(`/boards/${boardId}/tasks/${taskId}`, { method: 'PATCH', body, boardId });
+};
 
 const deleteTask = (boardId, taskId) =>
   request(`/boards/${boardId}/tasks/${taskId}`, { method: 'DELETE', boardId });
@@ -121,8 +141,11 @@ const deleteTask = (boardId, taskId) =>
 const moveTask = (boardId, taskId, columnId) =>
   request(`/boards/${boardId}/tasks/${taskId}/move/${columnId}`, { method: 'POST', boardId });
 
-const claimTask = (boardId, taskId) =>
-  request(`/boards/${boardId}/tasks/${taskId}/claim`, { method: 'POST', boardId });
+const claimTask = (boardId, taskId) => {
+  const name = getDisplayName();
+  const agentParam = name ? `?agent=${encodeURIComponent(name)}` : '';
+  return request(`/boards/${boardId}/tasks/${taskId}/claim${agentParam}`, { method: 'POST', boardId });
+};
 
 const releaseTask = (boardId, taskId) =>
   request(`/boards/${boardId}/tasks/${taskId}/release`, { method: 'POST', boardId });
@@ -137,12 +160,14 @@ const searchTasks = (boardId, query, filters = '') =>
 const getTaskEvents = (boardId, taskId) =>
   request(`/boards/${boardId}/tasks/${taskId}/events`, { boardId });
 
-const commentOnTask = (boardId, taskId, message, actorName) =>
-  request(`/boards/${boardId}/tasks/${taskId}/comment`, {
+const commentOnTask = (boardId, taskId, message, actorName) => {
+  const name = actorName || getDisplayName() || undefined;
+  return request(`/boards/${boardId}/tasks/${taskId}/comment`, {
     method: 'POST',
-    body: { message, actor_name: actorName || undefined },
+    body: { message, actor_name: name },
     boardId,
   });
+};
 
 // ---- Health ----
 
@@ -150,6 +175,7 @@ const health = () => request('/health');
 
 export {
   getBoardKey, setBoardKey, removeBoardKey, hasBoardKey,
+  getDisplayName, setDisplayName,
   extractKeyFromUrl, cleanKeyFromUrl,
   listBoards, getBoard, createBoard, archiveBoard, unarchiveBoard,
   addColumn,
