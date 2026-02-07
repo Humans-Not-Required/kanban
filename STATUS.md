@@ -1,6 +1,6 @@
 # Kanban - Status
 
-## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.3.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + Docker ✅ + README Complete ✅
+## Current State: Backend API Skeleton ✅ + OpenAPI Spec v0.4.0 ✅ + Access Control ✅ + WIP Limits ✅ + Rate Limiting ✅ + SSE Events ✅ + Docker ✅ + README Complete ✅
 
 Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level access control, WIP limit enforcement, per-key rate limiting with response headers, and Docker deployment. Compiles cleanly (clippy -D warnings), all tests pass (run with `--test-threads=1`).
 
@@ -50,11 +50,19 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
     - `X-RateLimit-Reset` — seconds until window resets
   - Implemented via auth guard (single enforcement point) + Rocket fairing (headers)
   - Zero database overhead — all tracking is in-memory
+- **SSE Real-Time Events (NEW):**
+  - `GET /boards/{id}/events/stream` — Server-Sent Events stream (Viewer+)
+  - EventBus using `tokio::sync::broadcast` channels per board (lazy creation)
+  - 7 event types: task.created, task.updated, task.deleted, task.claimed, task.released, task.moved, task.comment
+  - 15-second heartbeat to keep connections alive
+  - Graceful lagged-client handling (warning event if >256 events buffered)
+  - Channel capacity: 256 events per board
+  - No persistence — events are fire-and-forget to connected subscribers
 - **Auth:** API key authentication via `Authorization: Bearer` or `X-API-Key` header
 - **Database:** SQLite with WAL mode, auto-creates admin key on first run
 - **Docker:** Dockerfile (multi-stage build) + docker-compose.yml
 - **Config:** Environment variables via `.env` / `dotenvy` (DATABASE_PATH, ROCKET_ADDRESS, ROCKET_PORT, RATE_LIMIT_WINDOW_SECS)
-- **Tests:** 13 tests passing (3 lib unit + 3 rate limiter unit + 7 integration)
+- **Tests:** 13 tests passing (3 access control unit + 3 rate limiter unit + 7 integration)
 - **Code Quality:** Zero clippy warnings, cargo fmt clean
 
 ### Tech Stack
@@ -75,18 +83,18 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 
 ### What's Next (Priority Order)
 
-1. **WebSocket / SSE event stream** for real-time updates
-2. **Task ordering** improvements (drag/drop positions + stable sorting)
-3. **Search** (full-text for title/description/labels)
+1. **Task ordering** improvements (drag/drop positions + stable sorting)
+2. **Search** (full-text for title/description/labels)
+3. **Batch operations** (bulk move, bulk update, bulk delete)
 
-**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
+**Consider deployable?** Core API is feature-complete: boards, columns, tasks, claim/release/move coordination, access control, WIP limits, rate limiting with headers, SSE real-time events, event logging, comments, OpenAPI spec, Docker support. Tests pass. This is deployable — remaining items are enhancements.
 
 ### ⚠️ Gotchas
 
 - `cargo` not on PATH by default — use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) — tighten for production
 - Admin key printed to stdout on first run — save it!
-- OpenAPI spec is at v0.3.0 — 21 paths, 19 schemas, rate limiting fully documented
+- OpenAPI spec is at v0.4.0 — 16 paths (some combined), SSE endpoint documented
 - WIP limit enforcement uses 409 Conflict — agents should handle this gracefully
 - Rate limiter state is in-memory — resets on server restart
 - **Tests must run with `--test-threads=1`** — tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
@@ -97,10 +105,12 @@ Rust/Rocket + SQLite backend with full OpenAPI 3.0 documentation, board-level ac
 - `require_role()` is the single access enforcement point
 - `rate_limit.rs` uses `Mutex<HashMap>` with fixed-window algorithm — O(1) per check
 - Rate limit headers via Rocket fairing reading request-local state from auth guard
+- `events.rs` — EventBus with `Mutex<HashMap<String, broadcast::Sender>>` (lazy per-board channels)
+- SSE stream uses `rocket::response::stream::EventStream` with `tokio::select!` for graceful shutdown
 - Single-threaded SQLite via `Mutex<Connection>`
 - CORS wide open (all origins)
 - Redirect route for short URLs at root (`/`), API routes at `/api/v1`
 
 ---
 
-*Last updated: 2026-02-07 10:23 UTC — Session: README update (rate limiting docs, config table, test flags)*
+*Last updated: 2026-02-07 10:28 UTC — Session: SSE real-time events + README update*
