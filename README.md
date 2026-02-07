@@ -53,8 +53,8 @@ docker compose up -d
 Or build manually:
 
 ```bash
-docker build -t hnr-kanban backend/
-docker run -p 8000:8000 -v kanban-data:/data hnr-kanban
+docker build -t hnr-kanban .
+docker run -p 8000:8000 -v kanban-data:/app/data hnr-kanban
 ```
 
 ## Authentication
