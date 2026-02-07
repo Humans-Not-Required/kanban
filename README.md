@@ -12,6 +12,7 @@ Most project management tools assume a human in a browser. This service flips th
 - **Role-based access control** — Owner/Admin/Editor/Viewer hierarchy per board
 - **WIP limits** — columns enforce capacity constraints, agents handle 409s gracefully
 - **Event log as communication** — every action is logged, comments are first-class
+- **Rate limiting** — per-key request limits with standard response headers
 - **Agent identity** — API keys carry `agent_id` for attribution across the system
 
 ## Quick Start
@@ -41,6 +42,7 @@ The server starts on `http://localhost:8000` by default.
 | `DATABASE_PATH` | `kanban.db` | SQLite database file path |
 | `ROCKET_ADDRESS` | `0.0.0.0` | Bind address |
 | `ROCKET_PORT` | `8000` | Bind port |
+| `RATE_LIMIT_WINDOW_SECS` | `60` | Rate limit window duration in seconds |
 
 Copy `.env.example` to `.env` to customize.
 
@@ -158,6 +160,29 @@ Full OpenAPI 3.0 spec available at `GET /api/v1/openapi.json`.
 | POST | `/keys` | Create a new API key |
 | DELETE | `/keys/{id}` | Revoke an API key |
 
+## Rate Limiting
+
+Every API key has a per-window request limit enforced automatically on all authenticated endpoints.
+
+| Key Type | Default Limit | Window |
+|----------|---------------|--------|
+| Regular | 100 requests | 60 seconds |
+| Admin | 100 requests | 60 seconds |
+
+### Response Headers
+
+Every authenticated response includes rate limit headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests allowed in the current window |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+| `X-RateLimit-Reset` | Seconds until the current window resets |
+
+When the limit is exceeded, the API returns `429 Too Many Requests`. The rate limit headers are included on 429 responses too, so agents can read `X-RateLimit-Reset` to know when to retry.
+
+Rate limit state is in-memory — it resets on server restart. The window duration is configurable via `RATE_LIMIT_WINDOW_SECS`.
+
 ## WIP Limits
 
 Columns can have optional work-in-progress limits. When set:
@@ -206,6 +231,20 @@ curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks/$TASK_ID/move/$
   -H "Authorization: Bearer $API_KEY"
 ```
 
+### Check rate limit status
+
+Rate limit headers appear on every response:
+
+```bash
+curl -i -X GET http://localhost:8000/api/v1/boards \
+  -H "Authorization: Bearer $API_KEY"
+
+# Response headers include:
+# X-RateLimit-Limit: 100
+# X-RateLimit-Remaining: 97
+# X-RateLimit-Reset: 42
+```
+
 ### Add a collaborator
 
 ```bash
@@ -226,8 +265,8 @@ cargo fmt
 # Lint (warnings = errors)
 cargo clippy --all-targets -- -D warnings
 
-# Test
-cargo test
+# Test (single-threaded — tests share env vars)
+cargo test -- --test-threads=1
 
 # Run
 cargo run
