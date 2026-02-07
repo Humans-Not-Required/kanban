@@ -10,10 +10,12 @@ mod rate_limit;
 mod routes;
 mod webhooks;
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 use events::EventBus;
 use rate_limit::{RateLimitHeaders, RateLimiter};
+use rocket::fs::{FileServer, Options};
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
 #[launch]
@@ -31,13 +33,18 @@ fn rocket() -> _ {
         .and_then(|v| v.parse().ok())
         .unwrap_or(60);
 
+    // Frontend static files directory (default: ../frontend/dist relative to CWD)
+    let static_dir: PathBuf = std::env::var("STATIC_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("../frontend/dist"));
+
     // Initialize main database
     let db = db::init_db().expect("Failed to initialize database");
 
     // Initialize a separate DB connection for async webhook delivery
     let webhook_db = db::init_webhook_db().expect("Failed to initialize webhook database");
 
-    rocket::build()
+    let mut build = rocket::build()
         .attach(cors)
         .attach(RateLimitHeaders)
         .manage(db)
@@ -93,5 +100,20 @@ fn rocket() -> _ {
                 routes::create_key,
                 routes::delete_key,
             ],
-        )
+        );
+
+    // Serve frontend static files if the directory exists
+    if static_dir.is_dir() {
+        println!("📦 Serving frontend from: {}", static_dir.display());
+        build = build
+            .mount("/", FileServer::new(&static_dir, Options::Index))
+            .mount("/", routes![routes::spa_fallback]);
+    } else {
+        println!(
+            "⚠️  Frontend directory not found: {} (API-only mode)",
+            static_dir.display()
+        );
+    }
+
+    build
 }
