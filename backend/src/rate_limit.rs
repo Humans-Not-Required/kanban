@@ -1,24 +1,63 @@
-// Rate limiter is kept for future IP-based rate limiting on board creation.
-// Currently unused after auth refactor removed per-key rate limiting.
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
-use rocket::{Request, Response};
+use rocket::request::{FromRequest, Outcome, Request};
+use rocket::Response;
 
-/// Fixed-window rate limiter.
+/// Fixed-window rate limiter keyed by arbitrary string (e.g. client IP).
 ///
-/// Each API key gets a counter that resets every `window` duration.
-/// The per-key limit is stored in the database (`api_keys.rate_limit`),
-/// so callers pass it in when checking.
+/// Each key gets a counter that resets every `window` duration.
 pub struct RateLimiter {
     window: Duration,
-    /// key_id → (window_start, count)
+    default_limit: u64,
+    /// key → (window_start, count)
     buckets: Mutex<HashMap<String, (Instant, u64)>>,
+}
+
+/// Client IP address extracted from the request.
+///
+/// Checks (in order):
+/// 1. `X-Forwarded-For` header (first IP — set by reverse proxies / Cloudflare Tunnel)
+/// 2. `X-Real-Ip` header
+/// 3. Socket peer address
+///
+/// Falls back to "unknown" if none are available.
+#[derive(Debug, Clone)]
+pub struct ClientIp(pub String);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for ClientIp {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        // 1. X-Forwarded-For (first entry is the real client)
+        if let Some(xff) = request.headers().get_one("X-Forwarded-For") {
+            if let Some(first_ip) = xff.split(',').next() {
+                let ip = first_ip.trim();
+                if !ip.is_empty() {
+                    return Outcome::Success(ClientIp(ip.to_string()));
+                }
+            }
+        }
+
+        // 2. X-Real-Ip
+        if let Some(real_ip) = request.headers().get_one("X-Real-Ip") {
+            let ip = real_ip.trim();
+            if !ip.is_empty() {
+                return Outcome::Success(ClientIp(ip.to_string()));
+            }
+        }
+
+        // 3. Socket peer address
+        if let Some(addr) = request.client_ip() {
+            return Outcome::Success(ClientIp(addr.to_string()));
+        }
+
+        Outcome::Success(ClientIp("unknown".to_string()))
+    }
 }
 
 /// Result of a rate limit check.
@@ -29,7 +68,8 @@ pub struct RateLimitResult {
     pub allowed: bool,
     /// Configured limit for this key.
     pub limit: u64,
-    /// Requests remaining in the current window.
+    /// Requests remaining in the current window (used by headers fairing + tests).
+    #[allow(dead_code)]
     pub remaining: u64,
     /// Seconds until the current window resets.
     pub reset_secs: u64,
@@ -37,6 +77,8 @@ pub struct RateLimitResult {
 
 /// Rocket fairing that attaches rate limit headers to every response.
 /// Reads `RateLimitResult` from request-local state (set by the auth guard).
+/// Currently unused — will be wired up when more endpoints need rate limit headers.
+#[allow(dead_code)]
 pub struct RateLimitHeaders;
 
 #[rocket::async_trait]
@@ -61,12 +103,18 @@ impl Fairing for RateLimitHeaders {
 }
 
 impl RateLimiter {
-    /// Create a new rate limiter with the given window duration.
-    pub fn new(window: Duration) -> Self {
+    /// Create a new rate limiter with the given window duration and default limit.
+    pub fn new(window: Duration, default_limit: u64) -> Self {
         RateLimiter {
             window,
+            default_limit,
             buckets: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Check (and consume) one request for `key_id` using the default limit.
+    pub fn check_default(&self, key_id: &str) -> RateLimitResult {
+        self.check(key_id, self.default_limit)
     }
 
     /// Check (and consume) one request for `key_id` with the given `limit`.
@@ -125,7 +173,7 @@ mod tests {
 
     #[test]
     fn allows_under_limit() {
-        let rl = RateLimiter::new(Duration::from_secs(60));
+        let rl = RateLimiter::new(Duration::from_secs(60), 10);
         let r = rl.check("key1", 10);
         assert!(r.allowed);
         assert_eq!(r.remaining, 9);
@@ -134,7 +182,7 @@ mod tests {
 
     #[test]
     fn blocks_at_limit() {
-        let rl = RateLimiter::new(Duration::from_secs(60));
+        let rl = RateLimiter::new(Duration::from_secs(60), 5);
         for _ in 0..5 {
             rl.check("key1", 5);
         }
@@ -145,11 +193,22 @@ mod tests {
 
     #[test]
     fn separate_keys_independent() {
-        let rl = RateLimiter::new(Duration::from_secs(60));
+        let rl = RateLimiter::new(Duration::from_secs(60), 5);
         for _ in 0..5 {
             rl.check("key1", 5);
         }
         assert!(!rl.check("key1", 5).allowed);
         assert!(rl.check("key2", 5).allowed);
+    }
+
+    #[test]
+    fn check_default_uses_default_limit() {
+        let rl = RateLimiter::new(Duration::from_secs(60), 3);
+        assert!(rl.check_default("ip1").allowed); // 1 of 3
+        assert!(rl.check_default("ip1").allowed); // 2 of 3
+        assert!(rl.check_default("ip1").allowed); // 3 of 3
+        assert!(!rl.check_default("ip1").allowed); // 4 - blocked
+        // Different IP is independent
+        assert!(rl.check_default("ip2").allowed);
     }
 }

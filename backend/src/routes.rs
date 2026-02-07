@@ -12,6 +12,7 @@ use crate::auth::BoardToken;
 use crate::db::{hash_key, DbPool};
 use crate::events::EventBus;
 use crate::models::*;
+use crate::rate_limit::{ClientIp, RateLimiter};
 
 // ============ Health & OpenAPI ============
 
@@ -66,12 +67,31 @@ pub fn board_event_stream(
 // ============ Boards ============
 
 /// Create a board — no auth required. Returns a manage_key (shown only once).
+/// Rate limited per IP address to prevent spam.
 #[post("/boards", format = "json", data = "<req>")]
 pub fn create_board(
     req: Json<CreateBoardRequest>,
+    client_ip: ClientIp,
+    rate_limiter: &State<RateLimiter>,
     db: &State<DbPool>,
 ) -> Result<Json<CreateBoardResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
+
+    // Check IP-based rate limit for board creation
+    let rl_result = rate_limiter.check_default(&client_ip.0);
+    if !rl_result.allowed {
+        return Err((
+            Status::TooManyRequests,
+            Json(ApiError {
+                error: format!(
+                    "Rate limit exceeded. You can create {} boards per hour. Try again in {} seconds.",
+                    rl_result.limit, rl_result.reset_secs
+                ),
+                code: "RATE_LIMIT_EXCEEDED".to_string(),
+                status: 429,
+            }),
+        ));
+    }
 
     if req.name.trim().is_empty() {
         return Err((

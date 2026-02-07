@@ -789,7 +789,7 @@ fn test_rate_limiter() {
     use kanban::rate_limit::RateLimiter;
     use std::time::Duration;
 
-    let rl = RateLimiter::new(Duration::from_secs(60));
+    let rl = RateLimiter::new(Duration::from_secs(60), 3);
     let key_id = "test-rate-limit-key";
     let limit = 3u64;
 

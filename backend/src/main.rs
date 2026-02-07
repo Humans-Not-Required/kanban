@@ -12,7 +12,10 @@ mod webhooks;
 
 use std::path::PathBuf;
 
+use std::time::Duration;
+
 use events::EventBus;
+use rate_limit::RateLimiter;
 use rocket::fs::{FileServer, Options};
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
@@ -36,9 +39,17 @@ fn rocket() -> _ {
     // Initialize a separate DB connection for async webhook delivery
     let webhook_db = db::init_webhook_db().expect("Failed to initialize webhook database");
 
+    // Board creation rate limiter: 10 boards per hour per IP
+    let board_rate_limit = std::env::var("BOARD_RATE_LIMIT")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(10);
+    let board_rate_limiter = RateLimiter::new(Duration::from_secs(3600), board_rate_limit);
+
     let mut build = rocket::build()
         .attach(cors)
         .manage(db)
+        .manage(board_rate_limiter)
         .manage(EventBus::with_webhooks(webhook_db))
         .mount(
             "/api/v1",
