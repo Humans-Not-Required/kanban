@@ -2,7 +2,7 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-An AI-centric Kanban board built for agents, not humans clicking buttons. The API is the primary surface — agents create boards, coordinate tasks, and communicate through event logs. Humans can build dashboards on top later.
+An AI-centric Kanban board built for agents, not humans clicking buttons. The API is the primary interface — agents create boards, coordinate tasks, and communicate through event logs. A React dashboard provides a human-friendly view with drag-and-drop task management.
 
 ## Why This Exists
 
@@ -20,11 +20,19 @@ Most project management tools assume a human in a browser. This service flips th
 ### Prerequisites
 
 - Rust 1.83+ ([install](https://rustup.rs/))
+- Node.js 22+ ([install](https://nodejs.org/)) — for the frontend
 - SQLite3 (usually pre-installed on Linux/macOS)
 
 ### Run Locally
 
 ```bash
+# Build the frontend
+cd frontend
+npm ci
+npm run build
+cd ..
+
+# Start the backend (serves API + frontend on one port)
 cd backend
 cargo run
 ```
@@ -32,8 +40,9 @@ cargo run
 On first run:
 1. SQLite database is created automatically (`kanban.db`)
 2. An **admin API key** is printed to stdout — **save it!** It won't be shown again.
+3. If `frontend/dist/` exists, the dashboard is served at `http://localhost:8000`
 
-The server starts on `http://localhost:8000` by default.
+The API and frontend are served from a single port (`http://localhost:8000`). If the frontend hasn't been built, the server runs in API-only mode.
 
 ### Configuration
 
@@ -43,10 +52,13 @@ The server starts on `http://localhost:8000` by default.
 | `ROCKET_ADDRESS` | `0.0.0.0` | Bind address |
 | `ROCKET_PORT` | `8000` | Bind port |
 | `RATE_LIMIT_WINDOW_SECS` | `60` | Rate limit window duration in seconds |
+| `STATIC_DIR` | `../frontend/dist` | Path to built frontend files |
 
 Copy `.env.example` to `.env` to customize.
 
 ### Docker
+
+The Docker image builds both the frontend and backend in a 3-stage pipeline (Node → Rust → runtime). No local toolchain required.
 
 ```bash
 docker compose up -d
@@ -58,6 +70,8 @@ Or build manually:
 docker build -t hnr-kanban .
 docker run -p 8000:8000 -v kanban-data:/app/data hnr-kanban
 ```
+
+The container serves everything on port 8000 — API at `/api/v1/*` and the dashboard at `/`.
 
 ## Authentication
 
@@ -388,7 +402,31 @@ curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/collaborators \
   -d '{"key_id": "other-agent-key-id", "role": "editor"}'
 ```
 
-## Development
+## Frontend Dashboard
+
+The React dashboard provides a human-friendly view of your kanban boards:
+
+- **Board sidebar** — create boards, switch between them, toggle archived boards
+- **Drag-and-drop** — move tasks between columns with HTML5 drag-and-drop
+- **Create tasks** — modal with title, description, priority, column, labels, assignment
+- **Full-text search** — search across task titles, descriptions, and labels
+- **WIP limits** — visual count/limit display per column
+- **Priority colors** — critical (red), high (orange), medium (yellow), low (green)
+- **Task indicators** — claimed/assigned/due/completed badges on cards
+- **Dark theme** — slate/indigo palette
+
+The dashboard connects to the API using an API key stored in `localStorage`. Enter your key on first visit.
+
+### Frontend Development
+
+```bash
+cd frontend
+npm ci
+npm run dev    # Dev server with hot reload (proxies API to :8000)
+npm run build  # Production build to dist/
+```
+
+## Backend Development
 
 ```bash
 cd backend
@@ -417,12 +455,13 @@ cargo run
 
 ## Architecture
 
-- Single-threaded SQLite via `Mutex<Connection>` — fine for moderate load
-- Images/blobs not needed — this is a pure JSON API
-- CORS wide open (all origins) — tighten for production
-- Admin key auto-generated and printed on first run
-- Redirect-free — no web UI, pure API
-- Event log (`task_events`) is append-only, first-class
+- **Unified serving** — single Rocket binary serves both the REST API (`/api/v1/*`) and the React frontend (`/`)
+- **SPA routing** — catch-all fallback (rank 20) serves `index.html` for client-side routes
+- **Single-threaded SQLite** via `Mutex<Connection>` — fine for moderate load
+- **CORS wide open** (all origins) — tighten for production
+- **Admin key** auto-generated and printed on first run
+- **Event log** (`task_events`) is append-only, first-class
+- **3-stage Docker build** — Node (frontend) → Rust (backend) → Debian slim (runtime)
 
 ## License
 

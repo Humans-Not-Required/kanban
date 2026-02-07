@@ -416,7 +416,7 @@ fn test_task_search() {
     .unwrap();
 
     // Create tasks with varying content
-    let tasks = vec![
+    let tasks = [
         (
             "Fix login bug",
             "Users cannot login with OAuth",
