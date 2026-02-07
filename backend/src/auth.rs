@@ -1,4 +1,5 @@
 use crate::db::{hash_key, DbPool};
+use crate::rate_limit::RateLimiter;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 use rocket::State;
@@ -20,6 +21,11 @@ impl<'r> FromRequest<'r> for AuthenticatedKey {
         let db = match request.guard::<&State<DbPool>>().await {
             Outcome::Success(db) => db,
             _ => return Outcome::Error((Status::InternalServerError, "Database unavailable")),
+        };
+
+        let limiter = match request.guard::<&State<RateLimiter>>().await {
+            Outcome::Success(l) => l,
+            _ => return Outcome::Error((Status::InternalServerError, "Rate limiter unavailable")),
         };
 
         // Check Authorization header, then X-API-Key
@@ -48,22 +54,42 @@ impl<'r> FromRequest<'r> for AuthenticatedKey {
         let conn = db.lock().unwrap();
 
         match conn.query_row(
-            "SELECT id, name, is_admin, agent_id FROM api_keys WHERE key_hash = ?1 AND active = 1",
+            "SELECT id, name, is_admin, agent_id, rate_limit FROM api_keys WHERE key_hash = ?1 AND active = 1",
             rusqlite::params![key_hash],
             |row| {
-                Ok(AuthenticatedKey {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    is_admin: row.get::<_, i32>(2)? == 1,
-                    agent_id: row.get(3)?,
-                })
+                Ok((
+                    AuthenticatedKey {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        is_admin: row.get::<_, i32>(2)? == 1,
+                        agent_id: row.get(3)?,
+                    },
+                    row.get::<_, i64>(4)?,
+                ))
             },
         ) {
-            Ok(auth_key) => {
+            Ok((auth_key, rate_limit)) => {
+                // Update usage stats
                 let _ = conn.execute(
                     "UPDATE api_keys SET last_used_at = datetime('now'), requests_count = requests_count + 1 WHERE id = ?1",
                     rusqlite::params![auth_key.id],
                 );
+                // Must drop the DB lock before doing rate limit check
+                drop(conn);
+
+                // Enforce rate limit (per-key, fixed window)
+                let result = limiter.check(&auth_key.id, rate_limit as u64);
+
+                // Store rate limit info in request-local state for response headers
+                let _ = request.local_cache(|| Some(result.clone()));
+
+                if !result.allowed {
+                    return Outcome::Error((
+                        Status::TooManyRequests,
+                        "Rate limit exceeded. Try again later.",
+                    ));
+                }
+
                 Outcome::Success(auth_key)
             }
             Err(_) => Outcome::Error((Status::Unauthorized, "Invalid API key")),

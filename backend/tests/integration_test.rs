@@ -335,6 +335,38 @@ fn test_wip_limit_enforcement() {
 }
 
 #[test]
+fn test_rate_limiting_integration() {
+    use kanban::rate_limit::RateLimiter;
+    use std::time::Duration;
+
+    // Create a limiter with 60s window
+    let rl = RateLimiter::new(Duration::from_secs(60));
+
+    // Simulate a key with limit of 3
+    let key_id = "test-rate-limit-key";
+    let limit = 3u64;
+
+    // First 3 requests should be allowed
+    for i in 0..3 {
+        let result = rl.check(key_id, limit);
+        assert!(result.allowed, "Request {} should be allowed", i + 1);
+        assert_eq!(result.limit, 3);
+        assert_eq!(result.remaining, 2 - i);
+    }
+
+    // 4th request should be blocked
+    let result = rl.check(key_id, limit);
+    assert!(!result.allowed, "4th request should be blocked");
+    assert_eq!(result.remaining, 0);
+    assert!(result.reset_secs <= 60);
+
+    // Different key should still work
+    let result = rl.check("other-key", limit);
+    assert!(result.allowed, "Different key should not be affected");
+    assert_eq!(result.remaining, 2);
+}
+
+#[test]
 fn test_db_wal_mode() {
     let db_path = format!("/tmp/kanban_test_wal_{}.db", uuid::Uuid::new_v4());
     std::env::set_var("DATABASE_PATH", &db_path);

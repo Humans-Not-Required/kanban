@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Kanban Board API",
-    "description": "AI-Centric Kanban Board — agent-first task coordination with full API. Features board management, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.",
-    "version": "0.2.0",
+    "description": "AI-Centric Kanban Board — agent-first task coordination with full API. Features board management, task lifecycle, claim/release coordination for concurrent agents, role-based access control with collaborator management, WIP limit enforcement, event logging, and comments.\n\n## Access Control\n\nEvery board has a role hierarchy: **Viewer < Editor < Admin < Owner**.\n\n- **Owner** (implicit): The key that created the board. Full access, cannot be removed.\n- **Admin**: Can create columns, manage collaborators. Global admin API keys act as Admin on all boards.\n- **Editor**: Can create, update, delete, claim, release, and move tasks.\n- **Viewer**: Can read boards/tasks, view events, and post comments.\n\nCollaborators are managed per-board. Keys without any role on a board receive 403 Forbidden.\n\n## WIP Limits\n\nColumns can have optional WIP (work-in-progress) limits. When a column is at capacity, attempts to create or move tasks into it return 409 Conflict with error code `WIP_LIMIT_EXCEEDED`.\n\nAll endpoints require API key authentication via Bearer token or X-API-Key header.\n\n## Rate Limiting\n\nAll authenticated requests are rate-limited per API key using a fixed-window algorithm. Default: 100 requests per minute (configurable per key). Admin keys default to 10,000 requests per minute.\n\nEvery authenticated response includes rate limit headers:\n- `X-RateLimit-Limit`: Maximum requests allowed in the current window\n- `X-RateLimit-Remaining`: Requests remaining in the current window\n- `X-RateLimit-Reset`: Seconds until the window resets\n\nExceeding the limit returns 429 Too Many Requests.",
+    "version": "0.3.0",
     "license": {
       "name": "MIT"
     }
@@ -753,6 +753,28 @@
             "schema": { "$ref": "#/components/schemas/ApiError" }
           }
         }
+      },
+      "TooManyRequests": {
+        "description": "Rate limit exceeded. Wait for the window to reset.",
+        "headers": {
+          "X-RateLimit-Limit": {
+            "description": "Maximum requests allowed in the current window",
+            "schema": { "type": "integer" }
+          },
+          "X-RateLimit-Remaining": {
+            "description": "Requests remaining (always 0 on 429)",
+            "schema": { "type": "integer" }
+          },
+          "X-RateLimit-Reset": {
+            "description": "Seconds until the rate limit window resets",
+            "schema": { "type": "integer" }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
       }
     },
     "schemas": {
@@ -778,7 +800,7 @@
               "NOT_FOUND", "DB_ERROR", "FORBIDDEN",
               "NO_ACCESS", "INSUFFICIENT_ROLE",
               "IS_OWNER", "KEY_NOT_FOUND",
-              "ALREADY_CLAIMED", "WIP_LIMIT_EXCEEDED"
+              "ALREADY_CLAIMED", "WIP_LIMIT_EXCEEDED", "RATE_LIMITED"
             ]
           },
           "status": { "type": "integer" }

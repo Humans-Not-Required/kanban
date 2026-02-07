@@ -5,8 +5,12 @@ mod access;
 mod auth;
 mod db;
 mod models;
+mod rate_limit;
 mod routes;
 
+use std::time::Duration;
+
+use rate_limit::{RateLimitHeaders, RateLimiter};
 use rocket::fairing::AdHoc;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
@@ -19,12 +23,20 @@ fn rocket() -> _ {
         .to_cors()
         .expect("CORS configuration failed");
 
+    // Rate limit window: configurable via RATE_LIMIT_WINDOW_SECS (default: 60s)
+    let window_secs: u64 = std::env::var("RATE_LIMIT_WINDOW_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(60);
+
     rocket::build()
         .attach(cors)
+        .attach(RateLimitHeaders)
         .attach(AdHoc::on_ignite("Database", |rocket| async {
             let db = db::init_db().expect("Failed to initialize database");
             rocket.manage(db)
         }))
+        .manage(RateLimiter::new(Duration::from_secs(window_secs)))
         .mount(
             "/api/v1",
             routes![
