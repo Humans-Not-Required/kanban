@@ -1391,13 +1391,13 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const baseTasks = searchResults !== null ? searchResults : tasks;
 
   // Collect unique labels and assignees for filter dropdowns
-  const allLabels = [...new Set(baseTasks.flatMap(t => (t.labels || '').split(',').map(l => l.trim()).filter(Boolean)))].sort();
+  const allLabels = [...new Set(baseTasks.flatMap(t => (Array.isArray(t.labels) ? t.labels : (t.labels || '').split(',').map(l => l.trim())).filter(Boolean)))].sort();
   const allAssignees = [...new Set(baseTasks.map(t => t.assigned_to || t.claimed_by).filter(Boolean))].sort();
 
   // Apply filters
   const displayTasks = baseTasks.filter(t => {
     if (filterPriority && String(t.priority) !== filterPriority) return false;
-    if (filterLabel && !(t.labels || '').toLowerCase().includes(filterLabel.toLowerCase())) return false;
+    if (filterLabel && !(Array.isArray(t.labels) ? t.labels.join(',') : (t.labels || '')).toLowerCase().includes(filterLabel.toLowerCase())) return false;
     if (filterAssignee && t.assigned_to !== filterAssignee && t.claimed_by !== filterAssignee) return false;
     return true;
   });
