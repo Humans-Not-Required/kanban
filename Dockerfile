@@ -15,9 +15,7 @@ RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/li
 WORKDIR /app
 COPY backend/ ./
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/target \
-    cargo build --release && \
+RUN cargo build --release && \
     cp target/release/kanban /usr/local/bin/kanban
 
 # Stage 3: Runtime

@@ -66,6 +66,13 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 14. **Auto-fill fields for human-created tasks** — monitoring agent should set priority/labels/assignment based on title+description (Jordan request, 2026-02-08). (This is handled by the Kanban Board Monitor cron job, not the app UI.)
 15. ~~**Collapsible sidebar on tablet**~~ ✅ Done (2026-02-08 02:04 UTC) — sidebar collapses on screens < 1024px (was mobile-only at 768px)
 16. ~~**Bigger description fields**~~ ✅ Done (2026-02-08 02:04 UTC) — textarea minHeight 80px → 140px
+17. ~~**JSON error catchers**~~ ✅ Done (2026-02-08 03:40 UTC) — registered Rocket catchers for 401, 404, 422, 429, 500 returning JSON instead of HTML
+
+### What's Next (Priority Order)
+
+1. **Redeploy to staging** — Docker build in progress on 192.168.0.79
+2. **Public boards UX** — clarify/extend public board discoverability (per focus notes)
+3. **Code cleanup** — review for unused imports, dead code, clippy lints
 
 ### ⚠️ Gotchas
 
