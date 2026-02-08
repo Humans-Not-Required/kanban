@@ -247,6 +247,20 @@ function subscribeToBoardEvents(boardId, onEvent, onStatus) {
   };
 }
 
+// ---- Webhooks ----
+
+const listWebhooks = (boardId) =>
+  request(`/boards/${boardId}/webhooks`, { boardId });
+
+const createWebhook = (boardId, body) =>
+  request(`/boards/${boardId}/webhooks`, { method: 'POST', body, boardId });
+
+const updateWebhook = (boardId, webhookId, body) =>
+  request(`/boards/${boardId}/webhooks/${webhookId}`, { method: 'PATCH', body, boardId });
+
+const deleteWebhook = (boardId, webhookId) =>
+  request(`/boards/${boardId}/webhooks/${webhookId}`, { method: 'DELETE', boardId });
+
 // ---- Health ----
 
 const health = () => request('/health');
@@ -261,5 +275,6 @@ export {
   searchTasks,
   getTaskEvents, commentOnTask,
   subscribeToBoardEvents,
+  listWebhooks, createWebhook, updateWebhook, deleteWebhook,
   health,
 };

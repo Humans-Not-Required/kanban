@@ -144,22 +144,23 @@ const styles = {
     background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
     padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem',
   },
-  modal: {
+  modal: (mobile) => ({
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-    padding: '12px',
-  },
+    display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', zIndex: 100,
+    padding: mobile ? '0' : '12px',
+    paddingTop: mobile ? '0' : '8vh',
+  }),
   modalContent: (mobile) => ({
-    background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
+    background: '#1e293b', border: mobile ? 'none' : '1px solid #334155', borderRadius: mobile ? '0' : '8px',
     padding: mobile ? '16px' : '24px',
     width: mobile ? '100%' : '480px', maxWidth: '100%',
-    maxHeight: '90vh', overflow: 'auto',
+    maxHeight: mobile ? '100vh' : '80vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
   }),
   modalContentWide: (mobile) => ({
-    background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
+    background: '#1e293b', border: mobile ? 'none' : '1px solid #334155', borderRadius: mobile ? '0' : '8px',
     padding: mobile ? '16px' : '24px',
     width: mobile ? '100%' : '560px', maxWidth: '100%',
-    maxHeight: '90vh', overflow: 'auto',
+    maxHeight: mobile ? '100vh' : '80vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
   }),
   input: {
     width: '100%', background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
@@ -557,7 +558,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
   };
 
   return (
-    <div style={styles.modal} onClick={onClose}>
+    <div style={styles.modal(isMobile)} onClick={onClose}>
       <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginBottom: '16px', color: '#f1f5f9' }}>New Task</h3>
         <form onSubmit={submit}>
@@ -696,7 +697,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   };
 
   return (
-    <div style={styles.modal} onClick={onClose}>
+    <div style={styles.modal(isMobile)} onClick={onClose}>
       <div style={styles.modalContentWide(isMobile)} onClick={(e) => e.stopPropagation()}>
         {/* Task header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -948,7 +949,7 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
     const manageUrl = `${origin}/board/${result.board_id}?key=${result.manage_key}`;
 
     return (
-      <div style={styles.modal} onClick={handleDone}>
+      <div style={styles.modal(isMobile)} onClick={handleDone}>
         <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
           <div style={styles.successBox}>
             <h3 style={{ color: '#22c55e', marginBottom: '8px', fontSize: isMobile ? '1rem' : '1.17rem' }}>✅ Board Created!</h3>
@@ -1001,7 +1002,7 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
   }
 
   return (
-    <div style={styles.modal} onClick={onClose}>
+    <div style={styles.modal(isMobile)} onClick={onClose}>
       <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginBottom: '16px', color: '#f1f5f9' }}>New Board</h3>
         <form onSubmit={submit}>
@@ -1022,6 +1023,200 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ---- Webhook Manager ----
+const WEBHOOK_EVENTS = [
+  'task.created', 'task.updated', 'task.deleted',
+  'task.moved', 'task.claimed', 'task.released', 'task.comment',
+];
+
+function WebhookManagerModal({ boardId, onClose, isMobile }) {
+  const [webhooks, setWebhooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newUrl, setNewUrl] = useState('');
+  const [newEvents, setNewEvents] = useState([]);
+  const [createdSecret, setCreatedSecret] = useState(null);
+  const [error, setError] = useState('');
+
+  const loadWebhooks = useCallback(async () => {
+    try {
+      const { data } = await api.listWebhooks(boardId);
+      setWebhooks(data || []);
+    } catch (err) {
+      setError(err.error || 'Failed to load webhooks');
+    } finally {
+      setLoading(false);
+    }
+  }, [boardId]);
+
+  useEffect(() => { loadWebhooks(); }, [loadWebhooks]);
+
+  const handleCreate = async () => {
+    setError('');
+    if (!newUrl.trim()) { setError('URL is required'); return; }
+    try {
+      const { data } = await api.createWebhook(boardId, {
+        url: newUrl.trim(),
+        events: newEvents.length > 0 ? newEvents : [],
+      });
+      setCreatedSecret(data.secret);
+      setNewUrl('');
+      setNewEvents([]);
+      setShowAdd(false);
+      loadWebhooks();
+    } catch (err) {
+      setError(err.error || 'Failed to create webhook');
+    }
+  };
+
+  const handleToggle = async (wh) => {
+    try {
+      await api.updateWebhook(boardId, wh.id, { active: !wh.active });
+      loadWebhooks();
+    } catch (err) {
+      setError(err.error || 'Failed to update webhook');
+    }
+  };
+
+  const handleDelete = async (wh) => {
+    if (!confirm(`Delete webhook to ${wh.url}?`)) return;
+    try {
+      await api.deleteWebhook(boardId, wh.id);
+      loadWebhooks();
+    } catch (err) {
+      setError(err.error || 'Failed to delete webhook');
+    }
+  };
+
+  const toggleEvent = (evt) => {
+    setNewEvents(prev =>
+      prev.includes(evt) ? prev.filter(e => e !== evt) : [...prev, evt]
+    );
+  };
+
+  return (
+    <div style={styles.modal(isMobile)} onClick={onClose}>
+      <div style={styles.modalContentWide(isMobile)} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>⚡ Webhooks</h2>
+          <button style={styles.btnSmall} onClick={onClose}>✕</button>
+        </div>
+
+        {error && (
+          <div style={{ background: '#ef444422', border: '1px solid #ef444444', borderRadius: '4px', padding: '8px 12px', marginBottom: '12px', color: '#fca5a5', fontSize: '0.8rem' }}>
+            {error}
+          </div>
+        )}
+
+        {createdSecret && (
+          <div style={styles.successBox}>
+            <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.85rem', marginBottom: '6px' }}>✅ Webhook created!</div>
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '6px' }}>
+              Save this secret — it's shown only once. Use it to verify webhook signatures.
+            </div>
+            <div style={styles.urlBox}>
+              <span style={{ flex: 1, color: '#e2e8f0' }}>{createdSecret}</span>
+              <button style={styles.btnSmall} onClick={() => { navigator.clipboard.writeText(createdSecret); }}>Copy</button>
+            </div>
+            <button style={styles.btnSmall} onClick={() => setCreatedSecret(null)}>Dismiss</button>
+          </div>
+        )}
+
+        {loading ? (
+          <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '20px 0', textAlign: 'center' }}>Loading…</div>
+        ) : (
+          <>
+            {webhooks.length === 0 && !showAdd && (
+              <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '20px 0', textAlign: 'center' }}>
+                No webhooks configured. Webhooks notify external services when tasks change.
+              </div>
+            )}
+
+            {webhooks.map(wh => (
+              <div key={wh.id} style={{
+                background: '#0f172a', border: '1px solid #334155', borderRadius: '6px',
+                padding: '12px', marginBottom: '8px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#e2e8f0', wordBreak: 'break-all' }}>
+                      {wh.url}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
+                      {wh.events.length === 0 ? 'All events' : wh.events.join(', ')}
+                      {wh.failure_count > 0 && (
+                        <span style={{ color: '#ef4444', marginLeft: '8px' }}>⚠️ {wh.failure_count} failures</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                    <button
+                      style={{
+                        ...styles.btnSmall,
+                        background: wh.active ? '#22c55e22' : '#ef444422',
+                        borderColor: wh.active ? '#22c55e44' : '#ef444444',
+                        color: wh.active ? '#22c55e' : '#ef4444',
+                      }}
+                      onClick={() => handleToggle(wh)}
+                    >
+                      {wh.active ? 'Active' : 'Paused'}
+                    </button>
+                    <button
+                      style={{ ...styles.btnSmall, color: '#ef4444', borderColor: '#ef444444' }}
+                      onClick={() => handleDelete(wh)}
+                    >🗑️</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {showAdd ? (
+              <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '6px', padding: '12px', marginTop: '8px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '8px', fontWeight: 600 }}>New Webhook</div>
+                <input
+                  autoFocus
+                  style={styles.input}
+                  placeholder="https://example.com/webhook"
+                  value={newUrl}
+                  onChange={e => setNewUrl(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowAdd(false); }}
+                />
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '6px' }}>
+                  Events (leave empty for all):
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                  {WEBHOOK_EVENTS.map(evt => (
+                    <button
+                      key={evt}
+                      onClick={() => toggleEvent(evt)}
+                      style={{
+                        ...styles.btnSmall,
+                        background: newEvents.includes(evt) ? '#6366f133' : 'transparent',
+                        borderColor: newEvents.includes(evt) ? '#6366f1' : '#334155',
+                        color: newEvents.includes(evt) ? '#a5b4fc' : '#64748b',
+                        fontSize: '0.7rem',
+                      }}
+                    >{evt}</button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button style={styles.btn('primary', isMobile)} onClick={handleCreate}>Create</button>
+                  <button style={styles.btn('secondary', isMobile)} onClick={() => { setShowAdd(false); setNewUrl(''); setNewEvents([]); }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                style={{ ...styles.btn('primary', isMobile), marginTop: '8px' }}
+                onClick={() => setShowAdd(true)}
+              >+ Add Webhook</button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -1055,6 +1250,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [sseStatus, setSseStatus] = useState('connecting');
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
+  const [showWebhooks, setShowWebhooks] = useState(false);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -1120,6 +1316,13 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           <span style={styles.modeBadge(canEdit)}>
             {canEdit ? '✏️ Edit' : '👁️ View'}
           </span>
+          {canEdit && !archived && (
+            <button
+              style={styles.btnSmall}
+              onClick={() => setShowWebhooks(true)}
+              title="Webhooks"
+            >⚡</button>
+          )}
           {canEdit && !archived && (
             <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
           )}

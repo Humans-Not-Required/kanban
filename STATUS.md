@@ -59,9 +59,11 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 7. ~~**Real-time updates via SSE**~~ ✅ Done (2026-02-08 00:06 UTC) — frontend subscribes to `/boards/{id}/events/stream`, debounced 300ms refresh, auto-reconnect with exponential backoff, live connection indicator (green pulsing dot)
 8. ~~**Add HTTP integration tests**~~ ✅ Done (2026-02-08 00:06 UTC) — 20 Rocket test client tests covering board CRUD, auth guards (Bearer/X-API-Key/?key=), task CRUD, move/claim/release, comments, archive/unarchive, search, rate limiting
 9. ~~**Column management in frontend**~~ ✅ Done (2026-02-08 00:36 UTC) — Backend: PATCH/DELETE/reorder endpoints + 7 tests. Frontend: inline rename, ⚙️ menu, add column button.
-10. **Webhook management in frontend** — create/list/delete webhooks from the UI
-11. **Board settings panel** — edit name, description, public/private toggle from the UI
-12. **Improved task filtering** — filter by label, priority, assignee in the column view
+10. **Modal positioning updates** — upper third of screen on desktop/tablet, full viewport on mobile (Jordan's request, 2026-02-08)
+11. **Webhook management in frontend** — create/list/delete webhooks from the UI
+12. **Board settings panel** — edit name, description, public/private toggle from the UI
+13. **Improved task filtering** — filter by label, priority, assignee in the column view
+14. **Auto-fill fields for human-created tasks** — monitoring agent should set priority/labels/assignment based on title+description (Jordan request, 2026-02-08). (This is handled by the Kanban Board Monitor cron job, not the app UI.)
 
 ### ⚠️ Gotchas
 
@@ -90,4 +92,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 00:37 UTC — Session: Column management (rename, delete, reorder, add). 3 new backend endpoints + 7 new HTTP tests. Frontend: inline rename, ⚙️ context menu, "+" add column button. 49 total tests passing (8 unit + 27 HTTP + 14 DB integration), zero clippy warnings. Deployed to staging.*
+*Last updated: 2026-02-08 01:22 UTC — Jordan requested modal positioning tweaks + monitor-driven auto-fill of task fields for human-created tasks. Added both to What's Next; auto-fill is handled by Kanban Board Monitor cron logic.*
