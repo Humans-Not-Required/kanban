@@ -29,5 +29,5 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 hmac = "0.12"
 hex = "0.4"
 
-# Pin time crate to avoid MSRV 1.88 requirement from newer versions
-time = ">=0.3.20, <0.3.47"
+# Pin time crate to avoid MSRV 1.88 requirement (time-core 0.1.8+ needs edition2024)
+time = ">=0.3.20, <0.3.42"
