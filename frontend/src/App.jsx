@@ -115,10 +115,11 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: mobile ? '10px 12px' : '12px 20px', background: '#1e293b',
     borderBottom: '1px solid #334155',
+    minHeight: mobile ? '44px' : '48px', overflow: 'hidden',
   }),
-  logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
+  logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 },
   logoImg: { width: '24px', height: '24px' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' },
+  headerRight: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', overflow: 'hidden', flexShrink: 1, minWidth: 0 },
   menuBtn: {
     background: 'transparent', border: '1px solid #475569', color: '#cbd5e1',
     padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '1.1rem',

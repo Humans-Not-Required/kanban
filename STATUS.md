@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 09:10 UTC — Sidebar footer + mobile button bar aesthetics. Deployed. Next: public boards UX (awaiting Jordan input).*
+*Last updated: 2026-02-08 09:32 UTC — comment count on cards, search ✕ clear, favicon → logo.svg. Deployed.*
