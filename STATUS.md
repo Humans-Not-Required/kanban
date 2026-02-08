@@ -70,9 +70,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Priority Order)
 
-1. **Verify staging deploy** — Docker build kicked off via `nohup` on 192.168.0.79 (check `/tmp/kanban-build.log` and `docker ps`). Cache mounts were causing stale build failures — removed them. Build runs from scratch (~10-15 min for Rust compile).
-2. **Public boards UX** — clarify/extend public board discoverability (per focus notes)
-3. **Code cleanup** — review for unused imports, dead code, clippy lints
+1. **Verify staging deploy** — Docker build in progress on 192.168.0.79. Fixed `time` crate MSRV issue (time-core 0.1.8+ needs edition2024/Rust 1.88; pinned time <0.3.42). Check `/tmp/kanban-build.log` and `docker ps`. After build: `docker stop kanban; docker rm kanban; docker run -d --name kanban -p 3002:8000 -v /home/username/apps/kanban/data:/app/data --restart unless-stopped kanban:latest`
+2. **Public boards UX** — awaiting Jordan's input. Current model documented in task comment. Three tiers: private (unlisted), public (listed), manage URL (full access).
+3. **Code cleanup** — clippy clean ✅, review for dead code
 
 ### ⚠️ Gotchas
 
@@ -101,4 +101,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 03:50 UTC — JSON error catchers added. Docker cache mount fix committed. Staging rebuild in progress (nohup). 44 tests passing.*
+*Last updated: 2026-02-08 04:20 UTC — Fixed time crate MSRV issue (pinned <0.3.42). Staging rebuild in progress. 44 tests passing. Clippy clean.*
