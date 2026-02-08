@@ -415,6 +415,7 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, is
         {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
         {task.due_at && <span>📅 {new Date(task.due_at).toLocaleDateString()}</span>}
         {task.completed_at && <span>✅</span>}
+        {task.comment_count > 0 && <span>💬 {task.comment_count}</span>}
       </div>
       {task.labels && task.labels.length > 0 && (
         <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
@@ -1681,17 +1682,23 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
       </div>
 
       <div style={styles.searchBar(isMobile)}>
-        <input
-          style={{ ...styles.input, marginBottom: 0, flex: 1 }}
-          placeholder="Search tasks..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && doSearch()}
-        />
+        <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+          <input
+            style={{ ...styles.input, marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined }}
+            placeholder="Search tasks..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && doSearch()}
+          />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); setSearchResults(null); }}
+              style={{ position: 'absolute', right: '6px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', padding: '2px 4px', lineHeight: 1 }}
+              title="Clear search"
+            >✕</button>
+          )}
+        </div>
         <button style={styles.btnSmall} onClick={doSearch}>Search</button>
-        {searchResults !== null && (
-          <button style={styles.btnSmall} onClick={() => { setSearch(''); setSearchResults(null); }}>Clear</button>
-        )}
         <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : '#1e293b', color: hasActiveFilters ? '#3b82f6' : '#94a3b8', border: `1px solid ${hasActiveFilters ? '#3b82f644' : '#334155'}` }} onClick={() => setShowFilters(f => !f)}>
           {showFilters ? '▲' : '▼'} Filter{hasActiveFilters ? ' ●' : ''}
         </button>

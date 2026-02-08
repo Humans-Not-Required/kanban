@@ -809,7 +809,8 @@ pub fn search_tasks(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
                 t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
-                t.created_at, t.updated_at
+                t.created_at, t.updated_at,
+                (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count
          FROM tasks t
          JOIN columns c ON t.column_id = c.id
          WHERE t.board_id = ?1
@@ -842,7 +843,8 @@ pub fn search_tasks(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
                 t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
-                t.created_at, t.updated_at",
+                t.created_at, t.updated_at,
+                (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count",
         "SELECT COUNT(*)",
     );
     let count_param_refs: Vec<&dyn rusqlite::types::ToSql> =
@@ -898,7 +900,8 @@ pub fn list_tasks(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
                 t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
-                t.created_at, t.updated_at
+                t.created_at, t.updated_at,
+                (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count
          FROM tasks t
          JOIN columns c ON t.column_id = c.id
          WHERE t.board_id = ?1",
@@ -2500,7 +2503,8 @@ fn load_task_response(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
                 t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
-                t.created_at, t.updated_at
+                t.created_at, t.updated_at,
+                (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count
          FROM tasks t
          JOIN columns c ON t.column_id = c.id
          WHERE t.id = ?1",
@@ -2534,6 +2538,7 @@ fn row_to_task(row: &rusqlite::Row) -> Result<TaskResponse, rusqlite::Error> {
         completed_at: row.get(15)?,
         created_at: row.get(16)?,
         updated_at: row.get(17)?,
+        comment_count: row.get(18).unwrap_or(0),
     })
 }
 

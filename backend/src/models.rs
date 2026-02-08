@@ -188,6 +188,7 @@ pub struct TaskResponse {
     pub completed_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub comment_count: i64,
 }
 
 #[derive(Debug, Serialize)]
