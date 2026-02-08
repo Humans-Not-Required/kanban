@@ -207,11 +207,20 @@ const styles = {
 };
 
 function priorityColor(p) {
-  if (p === 'critical') return '#ef4444';
-  if (p === 'high') return '#f97316';
-  if (p === 'medium') return '#eab308';
-  if (p === 'low') return '#22c55e';
+  // Handle both string and integer priorities
+  if (p === 'critical' || p >= 3) return '#ef4444';
+  if (p === 'high' || p === 2) return '#f97316';
+  if (p === 'medium' || p === 1) return '#eab308';
+  if (p === 'low' || p === 0) return '#22c55e';
   return '#64748b';
+}
+
+function priorityLabel(p) {
+  if (p === 'critical' || p >= 3) return 'critical';
+  if (p === 'high' || p === 2) return 'high';
+  if (p === 'medium' || p === 1) return 'medium';
+  if (p === 'low' || p === 0) return 'low';
+  return String(p);
 }
 
 // ---- Copy to clipboard helper ----
@@ -303,7 +312,7 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, is
     >
       <div style={styles.cardTitle}>{task.title}</div>
       <div style={styles.cardMeta}>
-        <span style={{ color: priorityColor(task.priority) }}>{task.priority}</span>
+        <span style={{ color: priorityColor(task.priority) }}>{priorityLabel(task.priority)}</span>
         {task.assigned_to && <span>→ {task.assigned_to}</span>}
         {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
         {task.due_at && <span>📅 {new Date(task.due_at).toLocaleDateString()}</span>}
@@ -410,7 +419,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickT
 function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
-  const [priority, setPriority] = useState('medium');
+  const [priority, setPriority] = useState(1);
   const [columnId, setColumnId] = useState(columns[0]?.id || '');
   const [labels, setLabels] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -423,11 +432,11 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
     try {
       await api.createTask(boardId, {
         title: title.trim(),
-        description: desc.trim() || undefined,
-        priority,
+        description: desc.trim() || '',
+        priority: Number(priority),
         column_id: columnId,
         labels: labels.trim() ? labels.split(',').map(l => l.trim()).filter(Boolean) : [],
-        assigned_to: assignedTo.trim() || undefined,
+        assigned_to: assignedTo.trim() || null,
       });
       onCreated();
       onClose();
@@ -446,11 +455,11 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
           <input style={styles.input} placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
           <textarea style={styles.textarea} placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} />
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-            <select style={styles.select} value={priority} onChange={e => setPriority(e.target.value)}>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+            <select style={styles.select} value={priority} onChange={e => setPriority(Number(e.target.value))}>
+              <option value={3}>Critical</option>
+              <option value={2}>High</option>
+              <option value={1}>Medium</option>
+              <option value={0}>Low</option>
             </select>
             <select style={styles.select} value={columnId} onChange={e => setColumnId(e.target.value)}>
               {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -596,7 +605,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
             {!editing && (
               <div style={styles.cardMeta}>
                 <span style={{ color: priorityColor(task.priority) }}>
-                  {task.priority === 0 ? 'low' : task.priority === 1 ? 'medium' : task.priority === 2 ? 'high' : task.priority >= 3 ? 'critical' : `p${task.priority}`}
+                  {priorityLabel(task.priority)}
                 </span>
                 {task.assigned_to && <span>→ {task.assigned_to}</span>}
                 {task.claimed_by && <span>🔒 {task.claimed_by}</span>}

@@ -1,4 +1,33 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Deserialize priority from either an integer or a string like "low", "medium", "high", "critical".
+fn deserialize_priority<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::Number(n) => n.as_i64().map(|v| v as i32).ok_or_else(|| serde::de::Error::custom("invalid number")),
+        serde_json::Value::String(s) => match s.to_lowercase().as_str() {
+            "critical" | "urgent" => Ok(3),
+            "high" => Ok(2),
+            "medium" | "normal" => Ok(1),
+            "low" | "none" => Ok(0),
+            other => other.parse::<i32>().map_err(|_| serde::de::Error::custom(format!("unknown priority: {}", other))),
+        },
+        serde_json::Value::Null => Ok(0),
+        _ => Err(serde::de::Error::custom("priority must be a number or string")),
+    }
+}
+
+/// Deserialize a String that accepts null as empty string.
+fn deserialize_string_or_null<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    Ok(value.unwrap_or_default())
+}
 
 // ============ Boards ============
 
@@ -76,11 +105,11 @@ pub struct CreateColumnRequest {
 #[derive(Debug, Deserialize)]
 pub struct CreateTaskRequest {
     pub title: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_string_or_null")]
     pub description: String,
     /// Column ID. If omitted, uses the first column of the board.
     pub column_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_priority")]
     pub priority: i32,
     /// Explicit position within column. If omitted, appends to end.
     pub position: Option<i32>,
@@ -92,7 +121,7 @@ pub struct CreateTaskRequest {
     pub metadata: serde_json::Value,
     pub due_at: Option<String>,
     /// Optional: identify who created this task (free text, e.g. "nanook", "jordan")
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_string_or_null")]
     pub actor_name: String,
 }
 
