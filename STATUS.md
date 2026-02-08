@@ -70,7 +70,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Priority Order)
 
-1. **Redeploy to staging** — Docker build in progress on 192.168.0.79
+1. **Verify staging deploy** — Docker build kicked off via `nohup` on 192.168.0.79 (check `/tmp/kanban-build.log` and `docker ps`). Cache mounts were causing stale build failures — removed them. Build runs from scratch (~10-15 min for Rust compile).
 2. **Public boards UX** — clarify/extend public board discoverability (per focus notes)
 3. **Code cleanup** — review for unused imports, dead code, clippy lints
 
@@ -101,4 +101,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 02:35 UTC — All What's Next items complete. API routes at /api/v1/. Staging deployed and verified working. Corrected test count (44, not 52).*
+*Last updated: 2026-02-08 03:50 UTC — JSON error catchers added. Docker cache mount fix committed. Staging rebuild in progress (nohup). 44 tests passing.*
