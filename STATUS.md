@@ -76,9 +76,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 4. ~~**Filter spacing fix**~~ ✅ Done (2026-02-08 06:15 UTC) — proper padding + dark background on filter row.
 5. ~~**Filter button icon**~~ ✅ Done (2026-02-08 06:15 UTC) — ▼/▲ toggle arrow replaces emoji.
 5b. ~~**Live indicator simplified**~~ ✅ Done (2026-02-08 06:15 UTC) — dot-only when connected (hover for tooltip), text only on error/reconnecting.
-6. **Replace header emoji with real logo** — swap emoji for proper logo.
+6. ~~**Replace header emoji with real logo**~~ ✅ Done (2026-02-08 07:10 UTC) — SVG kanban board logo in header and welcome screen, replaced all 📋 emoji references.
 7. **Live indicator decision** — Jordan questions its purpose. SSE connection status; may remove or simplify.
-8. **Hamburger menu aesthetics** — tablet sidebar toggle needs better design.
+8. ~~**Hamburger menu aesthetics**~~ ✅ Done (2026-02-08 07:10 UTC) — improved border contrast (#475569), lighter text (#cbd5e1), larger padding, rounded corners (6px), smooth transition.
 9. **Public boards UX** — awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
 
 **New Kanban Board:**
@@ -114,4 +114,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 06:34 UTC — collapsible columns implemented. Next: logo, hamburger menu, public boards UX.*
+*Last updated: 2026-02-08 07:10 UTC — logo + hamburger styling done. Next: live indicator decision, public boards UX (awaiting Jordan input).*
