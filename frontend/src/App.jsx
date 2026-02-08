@@ -1427,6 +1427,14 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           allColumns={columns}
         />
       )}
+
+      {showWebhooks && (
+        <WebhookManagerModal
+          boardId={board.id}
+          onClose={() => setShowWebhooks(false)}
+          isMobile={isMobile}
+        />
+      )}
     </div>
   );
 }
