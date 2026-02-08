@@ -352,9 +352,11 @@ function MoveTaskDropdown({ boardId, task, columns, onMoved, onCancel }) {
   );
 }
 
-function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns }) {
+function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns, collapsed: externalCollapsed, onToggleCollapse }) {
   const [dragOver, setDragOver] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = isMobile ? internalCollapsed : (externalCollapsed || false);
+  const toggleCollapse = isMobile ? () => setInternalCollapsed(c => !c) : onToggleCollapse;
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(column.name);
   const [showMenu, setShowMenu] = useState(false);
@@ -424,6 +426,32 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
   const isFirst = colIdx === 0;
   const isLast = colIdx === sortedCols.length - 1;
 
+  // Desktop collapsed: render a narrow vertical bar
+  if (!isMobile && collapsed) {
+    return (
+      <div
+        style={{
+          width: '40px', minWidth: '40px', flex: '0 0 40px',
+          background: '#1a2332', borderRadius: '8px', border: '1px solid #334155',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          cursor: 'pointer', maxHeight: 'calc(100vh - 200px)', overflow: 'hidden',
+          padding: '8px 0',
+        }}
+        onClick={toggleCollapse}
+        onDragOver={canEdit ? (e) => { e.preventDefault(); toggleCollapse?.(); } : undefined}
+        title={`Expand ${column.name}`}
+      >
+        <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '8px' }}>{colTasks.length}</span>
+        <span style={{
+          writingMode: 'vertical-rl', textOrientation: 'mixed',
+          fontSize: '0.8rem', fontWeight: 600, color: '#e2e8f0',
+          letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          maxHeight: 'calc(100vh - 260px)',
+        }}>{column.name}</span>
+      </div>
+    );
+  }
+
   return (
     <div
       style={styles.column(dragOver && canEdit, isMobile)}
@@ -432,8 +460,8 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
       onDrop={!isMobile && canEdit ? handleDrop : undefined}
     >
       <div
-        style={{ ...styles.columnHeader, cursor: isMobile ? 'pointer' : 'default', position: 'relative' }}
-        onClick={isMobile && !renaming ? () => setCollapsed(c => !c) : undefined}
+        style={{ ...styles.columnHeader, cursor: 'pointer', position: 'relative' }}
+        onClick={!renaming ? toggleCollapse : undefined}
       >
         {renaming ? (
           <input
@@ -450,7 +478,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
             onDoubleClick={canEdit && !archived ? (e) => { e.stopPropagation(); setRenameValue(column.name); setRenaming(true); } : undefined}
             title={canEdit ? 'Double-click to rename' : ''}
           >
-            {isMobile && (collapsed ? '▸ ' : '▾ ')}{column.name}
+            {isMobile ? (collapsed ? '▸ ' : '▾ ') : ''}{column.name}
           </span>
         )}
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1445,6 +1473,10 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [filterLabel, setFilterLabel] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [collapsedColumns, setCollapsedColumns] = useState({});
+  const toggleColumnCollapse = useCallback((colId) => {
+    setCollapsedColumns(prev => ({ ...prev, [colId]: !prev[colId] }));
+  }, []);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -1592,6 +1624,8 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
             onClickTask={setSelectedTask}
             isMobile={isMobile}
             allColumns={columns}
+            collapsed={collapsedColumns[col.id]}
+            onToggleCollapse={() => toggleColumnCollapse(col.id)}
           />
         ))}
         {canEdit && !archived && (
