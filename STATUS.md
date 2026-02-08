@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 11:10 UTC — Deploy succeeded! Stopped qr-service + app-directory containers to free RAM during build, libsqlite3-sys compiled successfully (~4 min). All 3 services back up. kanban on port 8001, health check OK. All recent features now live: JSON catchers, comment counts, search clear button, SVG favicon, header overflow fix.*
+*Last updated: 2026-02-08 12:10 UTC — Added /llms.txt endpoint (both /api/v1/llms.txt and /llms.txt root) for LLM API discovery. Plain-text API docs covering auth model, all endpoints, task schema, rate limits. 44 tests passing. Pushed to main, deploy building on staging. Fixed port mapping: docker-compose now maps 3002→8001 (was 8001→8001).*
