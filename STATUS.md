@@ -62,10 +62,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 10. ~~**Modal positioning updates**~~ ✅ Done (2026-02-08 01:40 UTC) — upper third (8vh top padding) on desktop/tablet, full viewport on mobile
 11. ~~**Webhook management in frontend**~~ ✅ Done (2026-02-08 01:45 UTC) — WebhookManagerModal was already built, just needed wiring (render was missing from JSX)
 12. ~~**Board settings panel**~~ ✅ Done (2026-02-08 01:50 UTC) — PATCH /boards/{id} endpoint + BoardSettingsModal (name, desc, is_public) + 3 HTTP tests (30 total)
-13. **Improved task filtering** — filter by label, priority, assignee in the column view
+13. ~~**Improved task filtering**~~ ✅ Done (2026-02-08 02:04 UTC) — filter bar with priority, label, and assignee dropdowns; highlights when active; clear button
 14. **Auto-fill fields for human-created tasks** — monitoring agent should set priority/labels/assignment based on title+description (Jordan request, 2026-02-08). (This is handled by the Kanban Board Monitor cron job, not the app UI.)
-15. **Collapsible sidebar on tablet** — allow collapsing the sidebar around tablet breakpoints (Jordan request, 2026-02-08).
-16. **Bigger description fields** — task description inputs/textarea need more vertical space/rows (Jordan request, 2026-02-08).
+15. ~~**Collapsible sidebar on tablet**~~ ✅ Done (2026-02-08 02:04 UTC) — sidebar collapses on screens < 1024px (was mobile-only at 768px)
+16. ~~**Bigger description fields**~~ ✅ Done (2026-02-08 02:04 UTC) — textarea minHeight 80px → 140px
 
 ### ⚠️ Gotchas
 
