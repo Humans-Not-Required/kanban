@@ -80,7 +80,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 7. **Live indicator decision** — Jordan questions its purpose. SSE connection status; may remove or simplify.
 8. ~~**Hamburger menu aesthetics**~~ ✅ Done (2026-02-08 07:10 UTC) — improved border contrast (#475569), lighter text (#cbd5e1), larger padding, rounded corners (6px), smooth transition.
 9. ~~**Esc key closes modals**~~ ✅ Done (2026-02-08 08:05 UTC) — useEscapeKey hook on all 5 modals.
-10. **Autocomplete/dropdowns for Labels + Assigned To** — suggest existing values but allow free text (Jordan request 2026-02-08).
+10. ~~**Autocomplete/dropdowns for Labels + Assigned To**~~ ✅ Done (2026-02-08 08:32 UTC) — AutocompleteInput component with per-token suggestions for comma-separated labels, arrow keys + Tab/Enter selection, applied to both create and edit modals.
 11. ~~**Shift+Enter submits new task**~~ ✅ Done (2026-02-08 08:05 UTC) — works from any field in create task modal.
 12. ~~**Fix tiny vertical scroll on desktop**~~ ✅ Done (2026-02-08 08:05 UTC) — app uses height:100vh+overflow:hidden.
 13. **Mobile button bar aesthetics** — simplify/clean up (Jordan feedback 2026-02-08).
@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 08:06 UTC — Esc closes modals, Shift+Enter new task, vertical scroll fix. Deployed. Next: autocomplete labels/assignee, mobile button bar, sidebar footer.*
+*Last updated: 2026-02-08 08:32 UTC — Autocomplete for labels/assignee fields. Deployed. Next: mobile button bar aesthetics, sidebar footer aesthetics.*
