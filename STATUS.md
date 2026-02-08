@@ -39,7 +39,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Core API** — all routes working with new auth model
 - **Frontend** — React + Vite dashboard with drag-and-drop
 - **Docker** — 3-stage multi-stage build
-- **Tests** — 49 passing (8 unit + 14 DB integration + 27 HTTP integration), zero clippy warnings
+- **Tests** — 52 passing (8 unit + 14 DB integration + 30 HTTP integration), zero clippy warnings
 - **Deployed** — kanban.ckbdev.com via Cloudflare Tunnel
 
 ### Tech Stack
@@ -60,8 +60,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 8. ~~**Add HTTP integration tests**~~ ✅ Done (2026-02-08 00:06 UTC) — 20 Rocket test client tests covering board CRUD, auth guards (Bearer/X-API-Key/?key=), task CRUD, move/claim/release, comments, archive/unarchive, search, rate limiting
 9. ~~**Column management in frontend**~~ ✅ Done (2026-02-08 00:36 UTC) — Backend: PATCH/DELETE/reorder endpoints + 7 tests. Frontend: inline rename, ⚙️ menu, add column button.
 10. ~~**Modal positioning updates**~~ ✅ Done (2026-02-08 01:40 UTC) — upper third (8vh top padding) on desktop/tablet, full viewport on mobile
-11. **Webhook management in frontend** — create/list/delete webhooks from the UI
-12. **Board settings panel** — edit name, description, public/private toggle from the UI
+11. ~~**Webhook management in frontend**~~ ✅ Done (2026-02-08 01:45 UTC) — WebhookManagerModal was already built, just needed wiring (render was missing from JSX)
+12. ~~**Board settings panel**~~ ✅ Done (2026-02-08 01:50 UTC) — PATCH /boards/{id} endpoint + BoardSettingsModal (name, desc, is_public) + 3 HTTP tests (30 total)
 13. **Improved task filtering** — filter by label, priority, assignee in the column view
 14. **Auto-fill fields for human-created tasks** — monitoring agent should set priority/labels/assignment based on title+description (Jordan request, 2026-02-08). (This is handled by the Kanban Board Monitor cron job, not the app UI.)
 
@@ -92,4 +92,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 01:40 UTC — Jordan requested modal positioning tweaks + monitor-driven auto-fill of task fields for human-created tasks. Added both to What's Next; auto-fill is handled by Kanban Board Monitor cron logic.*
+*Last updated: 2026-02-08 01:50 UTC — Jordan requested modal positioning tweaks + monitor-driven auto-fill of task fields for human-created tasks. Added both to What's Next; auto-fill is handled by Kanban Board Monitor cron logic.*
