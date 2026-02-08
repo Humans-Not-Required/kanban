@@ -31,7 +31,7 @@
 
 ### Tasks
 - POST /api/v1/boards/{id}/tasks — create task (auth required)
-- GET /api/v1/boards/{id}/tasks — list tasks (public, supports ?column_id=&priority=&label=&assigned_to=&claimed_by=&search=)
+- GET /api/v1/boards/{id}/tasks — list tasks (public, supports ?column_id=&priority=&label=&assigned_to=&claimed_by=&search=&limit=&offset=; default limit=200, max 1000)
 - GET /api/v1/boards/{id}/tasks/{task_id} — get task (public)
 - PUT /api/v1/boards/{id}/tasks/{task_id} — update task (auth required)
 - DELETE /api/v1/boards/{id}/tasks/{task_id} — delete task (auth required)

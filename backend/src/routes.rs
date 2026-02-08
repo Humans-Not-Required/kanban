@@ -894,7 +894,7 @@ pub fn search_tasks(
 
 /// List tasks — public, no auth required.
 #[allow(clippy::too_many_arguments)]
-#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>")]
+#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>&<limit>&<offset>")]
 pub fn list_tasks(
     board_id: &str,
     column: Option<&str>,
@@ -902,6 +902,8 @@ pub fn list_tasks(
     claimed: Option<&str>,
     priority: Option<i32>,
     label: Option<&str>,
+    limit: Option<i64>,
+    offset: Option<i64>,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<TaskResponse>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
@@ -941,6 +943,14 @@ pub fn list_tasks(
     }
 
     sql.push_str(" ORDER BY c.position ASC, t.priority DESC, t.position ASC");
+
+    // Pagination: limit defaults to 200, max 1000. offset defaults to 0.
+    let effective_limit = limit.unwrap_or(200).min(1000).max(1);
+    let effective_offset = offset.unwrap_or(0).max(0);
+    params.push(Box::new(effective_limit));
+    sql.push_str(&format!(" LIMIT ?{}", params.len()));
+    params.push(Box::new(effective_offset));
+    sql.push_str(&format!(" OFFSET ?{}", params.len()));
 
     let mut stmt = conn.prepare(&sql).map_err(|e| db_error(&e.to_string()))?;
     let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();

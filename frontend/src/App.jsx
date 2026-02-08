@@ -113,9 +113,10 @@ const styles = {
   app: { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   header: (mobile) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: mobile ? '10px 12px' : '12px 20px', background: '#1e293b',
+    padding: mobile ? '8px 10px' : '12px 20px', background: '#1e293b',
     borderBottom: '1px solid #334155',
-    minHeight: mobile ? '44px' : '48px', overflow: 'hidden',
+    minHeight: mobile ? '40px' : '48px', overflow: 'hidden',
+    gap: '8px',
   }),
   logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 },
   logoImg: { width: '24px', height: '24px' },
@@ -1554,7 +1555,7 @@ function AccessIndicator({ boardId, canEdit, isMobile }) {
         border: `1px solid ${canEdit ? '#22c55e33' : '#64748b33'}`,
         borderRight: 'none', whiteSpace: 'nowrap',
       }}>
-        {canEdit ? '✏️ Full Access' : '👁️ View Only'}
+        {canEdit ? (isMobile ? '✏️' : '✏️ Full Access') : (isMobile ? '👁️' : '👁️ View Only')}
       </span>
       <button
         onClick={() => setShowShare(s => !s)}
