@@ -1665,24 +1665,18 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{board.description}</p>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-          <LiveIndicator status={sseStatus} />
-          <AccessIndicator boardId={board.id} canEdit={canEdit} isMobile={isMobile} />
-          <button
-            style={styles.btnSmall}
-            onClick={() => setShowSettings(true)}
-            title="Board Settings"
-          >⚙️</button>
+        <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           {canEdit && !archived && (
-            <button
-              style={styles.btnSmall}
-              onClick={() => setShowWebhooks(true)}
-              title="Webhooks"
-            >⚡</button>
+            <button style={{ ...styles.btn('primary', isMobile), order: isMobile ? -1 : 0 }} onClick={() => setShowCreate(true)}>+ Task</button>
           )}
-          {canEdit && !archived && (
-            <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
-          )}
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <LiveIndicator status={sseStatus} />
+            <AccessIndicator boardId={board.id} canEdit={canEdit} isMobile={isMobile} />
+            <button style={styles.btnSmall} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
+            {canEdit && !archived && (
+              <button style={styles.btnSmall} onClick={() => setShowWebhooks(true)} title="Webhooks">⚡</button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1850,7 +1844,7 @@ function DirectBoardInput({ onOpen }) {
   };
 
   return (
-    <form onSubmit={submit} style={{ display: 'flex', gap: '6px', padding: '8px 16px' }}>
+    <form onSubmit={submit} style={{ display: 'flex', gap: '6px' }}>
       <input
         style={styles.directBoardInput}
         placeholder="Board ID or URL..."
@@ -1980,22 +1974,17 @@ function App() {
             </div>
           )}
 
-          <div style={{ borderTop: '1px solid #334155', marginTop: 'auto' }}>
-            <div style={{ padding: '8px 16px' }}>
-              <label style={{ fontSize: '0.75rem', color: '#64748b', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showArchived}
-                  onChange={e => setShowArchived(e.target.checked)}
-                  style={{ marginRight: '6px' }}
-                />
-                Show archived
-              </label>
-            </div>
-            <div style={{ padding: '0 16px 4px', fontSize: '0.7rem', color: '#475569' }}>
-              Open by ID:
-            </div>
+          <div style={{ borderTop: '1px solid #334155', marginTop: 'auto', padding: '12px' }}>
             <DirectBoardInput onOpen={handleOpenDirect} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', padding: '8px 4px 0' }}>
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={e => setShowArchived(e.target.checked)}
+                style={{ accentColor: '#6366f1' }}
+              />
+              Show archived boards
+            </label>
           </div>
         </div>
 
