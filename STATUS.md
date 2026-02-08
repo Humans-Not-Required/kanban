@@ -71,7 +71,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 ### What's Next (Priority Order) — Jordan UI Feedback (2026-02-08)
 
 1. ~~**View/edit mode UX overhaul**~~ ✅ Done (2026-02-08 06:15 UTC) — replaced pill badge with AccessIndicator ("Full Access"/"View Only") + "🔗 Share" button. SharePopover shows copy-able view URL and manage URL (edit-only). Hint for view-only users. Deployed.
-2. **Collapsible columns** (HIGH) — mobile: vertical accordion; tablet/desktop: horizontal collapse to column title only.
+2. ~~**Collapsible columns**~~ ✅ Done (2026-02-08 06:34 UTC) — desktop/tablet: click header to collapse to narrow 40px vertical bar with task count + rotated name; click to expand; drag-over auto-expands. Mobile: existing accordion unchanged.
 3. ~~**Filter button dark theme fix**~~ ✅ Done (2026-02-08 06:15 UTC) — dark bg with subtle border, blue tint when active.
 4. ~~**Filter spacing fix**~~ ✅ Done (2026-02-08 06:15 UTC) — proper padding + dark background on filter row.
 5. ~~**Filter button icon**~~ ✅ Done (2026-02-08 06:15 UTC) — ▼/▲ toggle arrow replaces emoji.
@@ -114,4 +114,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 06:15 UTC — view/edit UX overhaul + filter fixes deployed. Next: collapsible columns, logo, hamburger menu.*
+*Last updated: 2026-02-08 06:34 UTC — collapsible columns implemented. Next: logo, hamburger menu, public boards UX.*
