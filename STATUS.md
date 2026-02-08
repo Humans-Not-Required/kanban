@@ -39,7 +39,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Core API** — all routes working with new auth model
 - **Frontend** — React + Vite dashboard with drag-and-drop
 - **Docker** — 3-stage multi-stage build
-- **Tests** — 52 passing (8 unit + 14 DB integration + 30 HTTP integration), zero clippy warnings
+- **Tests** — 44 passing (14 DB/unit integration + 30 HTTP integration), zero clippy warnings
 - **Deployed** — kanban.ckbdev.com via Cloudflare Tunnel
 
 ### Tech Stack
@@ -94,4 +94,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 01:50 UTC — Jordan requested modal positioning tweaks + monitor-driven auto-fill of task fields for human-created tasks. Added both to What's Next; auto-fill is handled by Kanban Board Monitor cron logic.*
+*Last updated: 2026-02-08 02:35 UTC — All What's Next items complete. API routes at /api/v1/. Staging deployed and verified working. Corrected test count (44, not 52).*
