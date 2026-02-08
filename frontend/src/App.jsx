@@ -20,12 +20,13 @@ const styles = {
     padding: mobile ? '10px 12px' : '12px 20px', background: '#1e293b',
     borderBottom: '1px solid #334155',
   }),
-  logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer' },
+  logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
+  logoImg: { width: '24px', height: '24px' },
   headerRight: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' },
   menuBtn: {
-    background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
-    padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '1.1rem',
-    lineHeight: 1,
+    background: 'transparent', border: '1px solid #475569', color: '#cbd5e1',
+    padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '1.1rem',
+    lineHeight: 1, transition: 'background 0.15s, border-color 0.15s',
   },
   modeBadge: (canEdit) => ({
     fontSize: '0.7rem', fontWeight: 600,
@@ -747,7 +748,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 </span>
                 {task.assigned_to && <span>→ {task.assigned_to}</span>}
                 {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
-                {task.column_name && <span>📋 {task.column_name}</span>}
+                {task.column_name && <span>⬜ {task.column_name}</span>}
                 {task.created_by && task.created_by !== 'anonymous' && <span>by {task.created_by}</span>}
               </div>
             )}
@@ -1820,7 +1821,8 @@ function App() {
             <button style={styles.menuBtn} onClick={() => setSidebarOpen(o => !o)}>☰</button>
           )}
           <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
-            📋 Kanban
+            <img src="/logo.svg" alt="" style={styles.logoImg} />
+            Kanban
           </div>
         </div>
         <div style={styles.headerRight}>
@@ -1891,7 +1893,7 @@ function App() {
         ) : (
           <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center', padding: '20px' }}>
             <div>
-              <p style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📋 Kanban</p>
+              <p style={{ fontSize: '1.5rem', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><img src="/logo.svg" alt="" style={{ width: '28px', height: '28px' }} /> Kanban</p>
               <p style={{ color: '#94a3b8', marginBottom: '4px' }}>Humans Not Required</p>
               <p style={{ fontSize: '0.85rem', maxWidth: '400px', lineHeight: '1.5' }}>
                 {collapseSidebar ? 'Tap ☰ to browse boards, or create a new one.' : 'Select a public board, open one by ID, or create a new one.'}
