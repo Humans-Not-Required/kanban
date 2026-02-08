@@ -68,11 +68,17 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 16. ~~**Bigger description fields**~~ ✅ Done (2026-02-08 02:04 UTC) — textarea minHeight 80px → 140px
 17. ~~**JSON error catchers**~~ ✅ Done (2026-02-08 03:40 UTC) — registered Rocket catchers for 401, 404, 422, 429, 500 returning JSON instead of HTML
 
-### What's Next (Priority Order)
+### What's Next (Priority Order) — Jordan UI Feedback (2026-02-08)
 
-1. ~~**Verify staging deploy**~~ ✅ Done (2026-02-08 04:35 UTC) — Docker build succeeded. Killed old native process on port 3002, fixed /app/data permissions (chown 1000:1000), container running. Fresh DB (old boards gone per auth refactor). Recreated HNR Projects board with new IDs. Updated both playbooks.
-2. ~~**Code cleanup**~~ ✅ Done (2026-02-08 04:38 UTC) — clippy clean, zero dead code warnings, all 44 tests passing (14 unit + 30 HTTP).
-3. **Public boards UX** — awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
+1. **View/edit mode UX overhaul** (HIGH) — pill button is misleading, keys not intuitive, URLs not visible. Redesign: clear mode indicator, copy-URL button, better manage key vs read-only distinction.
+2. **Collapsible columns** (HIGH) — mobile: vertical accordion; tablet/desktop: horizontal collapse to column title only.
+3. **Filter button dark theme fix** — light background doesn't match dark theme.
+4. **Filter spacing fix** — spacing off when filters expanded.
+5. **Filter button icon** — needs better icon.
+6. **Replace header emoji with real logo** — swap emoji for proper logo.
+7. **Live indicator decision** — Jordan questions its purpose. SSE connection status; may remove or simplify.
+8. **Hamburger menu aesthetics** — tablet sidebar toggle needs better design.
+9. **Public boards UX** — awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
 
 **New Kanban Board:**
 - Board ID: `9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360`
@@ -107,4 +113,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 04:38 UTC — Staging Docker deploy complete. Fresh DB with new board. 44 tests passing. Clippy clean. No dead code.*
+*Last updated: 2026-02-08 05:39 UTC — Jordan filed 9 new UI tasks. Priorities updated. Build focus: view/edit UX + collapsible columns + filter fixes.*

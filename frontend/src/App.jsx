@@ -1309,20 +1309,124 @@ function WebhookManagerModal({ boardId, onClose, isMobile }) {
 
 function LiveIndicator({ status }) {
   const color = status === 'connected' ? '#22c55e' : status === 'disconnected' ? '#ef4444' : '#eab308';
-  const label = status === 'connected' ? 'Live' : status === 'disconnected' ? 'Reconnecting...' : 'Connecting...';
+  const title = status === 'connected' ? 'Live — real-time sync active' : status === 'disconnected' ? 'Reconnecting…' : 'Connecting…';
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: '5px',
-      fontSize: '0.7rem', color, fontWeight: 500,
-      padding: '2px 8px', borderRadius: '10px',
-      background: `${color}11`, border: `1px solid ${color}33`,
+    <span title={title} style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      fontSize: '0.65rem', color: status === 'connected' ? '#64748b' : color, fontWeight: 500,
+      padding: '2px 6px', borderRadius: '10px', cursor: 'default',
     }}>
       <span style={{
         width: '6px', height: '6px', borderRadius: '50%', background: color,
         ...(status === 'connected' ? { animation: 'pulse 2s ease-in-out infinite' } : {}),
       }} />
-      {label}
+      {status !== 'connected' && title}
     </span>
+  );
+}
+
+// ---- Share / Access Popover ----
+function SharePopover({ boardId, canEdit, onClose }) {
+  const origin = window.location.origin;
+  const viewUrl = `${origin}/board/${boardId}`;
+  const manageKey = api.getBoardKey(boardId);
+  const manageUrl = manageKey ? `${viewUrl}?key=${manageKey}` : null;
+  const [copied, setCopied] = useState(null);
+
+  const copy = (text, label) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  };
+
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', top: '100%', right: 0, marginTop: '6px', zIndex: 300,
+        background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
+        padding: '12px', width: '320px', maxWidth: '90vw',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+      }}>
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Share Board
+        </div>
+
+        {/* View URL */}
+        <div style={{ marginBottom: canEdit ? '10px' : 0 }}>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '4px' }}>👁️ Read-only link — anyone with this can view</div>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <input readOnly value={viewUrl} style={{
+              flex: 1, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155',
+              borderRadius: '4px', padding: '5px 8px', fontSize: '0.75rem', outline: 'none',
+            }} onClick={e => e.target.select()} />
+            <button onClick={() => copy(viewUrl, 'view')} style={{
+              background: copied === 'view' ? '#22c55e22' : '#334155', color: copied === 'view' ? '#22c55e' : '#e2e8f0',
+              border: 'none', borderRadius: '4px', padding: '5px 8px', cursor: 'pointer', fontSize: '0.75rem', whiteSpace: 'nowrap',
+            }}>{copied === 'view' ? '✓ Copied' : 'Copy'}</button>
+          </div>
+        </div>
+
+        {/* Manage URL */}
+        {canEdit && manageUrl && (
+          <div>
+            <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '4px' }}>✏️ Edit link — full access (keep private!)</div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <input readOnly value={manageUrl} style={{
+                flex: 1, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155',
+                borderRadius: '4px', padding: '5px 8px', fontSize: '0.75rem', outline: 'none',
+              }} onClick={e => e.target.select()} />
+              <button onClick={() => copy(manageUrl, 'manage')} style={{
+                background: copied === 'manage' ? '#22c55e22' : '#334155', color: copied === 'manage' ? '#22c55e' : '#e2e8f0',
+                border: 'none', borderRadius: '4px', padding: '5px 8px', cursor: 'pointer', fontSize: '0.75rem', whiteSpace: 'nowrap',
+              }}>{copied === 'manage' ? '✓ Copied' : 'Copy'}</button>
+            </div>
+          </div>
+        )}
+
+        {/* Hint for view-only users */}
+        {!canEdit && (
+          <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: '8px', lineHeight: 1.4 }}>
+            Need edit access? Open the board using the manage link (contains <code style={{ color: '#94a3b8' }}>?key=...</code>).
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ---- Access Mode Indicator + Share ----
+function AccessIndicator({ boardId, canEdit, isMobile }) {
+  const [showShare, setShowShare] = useState(false);
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      <span style={{
+        fontSize: '0.7rem', fontWeight: 600,
+        padding: '3px 8px', borderRadius: '12px 0 0 12px',
+        background: canEdit ? '#22c55e15' : '#64748b15',
+        color: canEdit ? '#22c55e' : '#94a3b8',
+        border: `1px solid ${canEdit ? '#22c55e33' : '#64748b33'}`,
+        borderRight: 'none', whiteSpace: 'nowrap',
+      }}>
+        {canEdit ? '✏️ Full Access' : '👁️ View Only'}
+      </span>
+      <button
+        onClick={() => setShowShare(s => !s)}
+        style={{
+          fontSize: '0.7rem', fontWeight: 600,
+          padding: '3px 8px', borderRadius: '0 12px 12px 0',
+          background: showShare ? '#3b82f622' : (canEdit ? '#22c55e15' : '#64748b15'),
+          color: showShare ? '#3b82f6' : (canEdit ? '#22c55e' : '#94a3b8'),
+          border: `1px solid ${canEdit ? '#22c55e33' : '#64748b33'}`,
+          cursor: 'pointer', whiteSpace: 'nowrap',
+        }}
+        title="Share board"
+      >
+        {isMobile ? '🔗' : '🔗 Share'}
+      </button>
+      {showShare && <SharePopover boardId={boardId} canEdit={canEdit} onClose={() => setShowShare(false)} />}
+    </div>
   );
 }
 
@@ -1416,9 +1520,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
           <LiveIndicator status={sseStatus} />
-          <span style={styles.modeBadge(canEdit)}>
-            {canEdit ? '✏️ Edit' : '👁️ View'}
-          </span>
+          <AccessIndicator boardId={board.id} canEdit={canEdit} isMobile={isMobile} />
           <button
             style={styles.btnSmall}
             onClick={() => setShowSettings(true)}
@@ -1449,12 +1551,12 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
         {searchResults !== null && (
           <button style={styles.btnSmall} onClick={() => { setSearch(''); setSearchResults(null); }}>Clear</button>
         )}
-        <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f6' : undefined }} onClick={() => setShowFilters(f => !f)}>
-          🔽 Filter{hasActiveFilters ? ' ●' : ''}
+        <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : '#1e293b', color: hasActiveFilters ? '#3b82f6' : '#94a3b8', border: `1px solid ${hasActiveFilters ? '#3b82f644' : '#334155'}` }} onClick={() => setShowFilters(f => !f)}>
+          {showFilters ? '▲' : '▼'} Filter{hasActiveFilters ? ' ●' : ''}
         </button>
       </div>
       {showFilters && (
-        <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', background: '#1a2332', borderBottom: '1px solid #1e293b' }}>
           <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
             <option value="1">🔴 Critical</option>
@@ -1692,9 +1794,7 @@ function App() {
             <IdentityBadge isMobile={isMobile} />
           )}
           {selectedBoardId && (
-            <span style={styles.modeBadge(canEdit)}>
-              {canEdit ? '✏️ Edit' : '👁️ View'}
-            </span>
+            <AccessIndicator boardId={selectedBoardId} canEdit={canEdit} isMobile={isMobile} />
           )}
         </div>
       </div>
