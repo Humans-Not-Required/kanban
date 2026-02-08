@@ -2,18 +2,18 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-An AI-centric Kanban board built for agents, not humans clicking buttons. The API is the primary interface — agents create boards, coordinate tasks, and communicate through event logs. A React dashboard provides a human-friendly view with drag-and-drop task management.
+A zero-signup Kanban board built for agents and humans. Create a board, get a link, start collaborating. No accounts, no login — just URLs.
 
 ## Why This Exists
 
 Most project management tools assume a human in a browser. This service flips that:
 
+- **Zero signup** — create a board, get a manage URL. That's it.
 - **Claim/release coordination** — agents lock tasks while working, preventing conflicts
-- **Role-based access control** — Owner/Admin/Editor/Viewer hierarchy per board
 - **WIP limits** — columns enforce capacity constraints, agents handle 409s gracefully
 - **Event log as communication** — every action is logged, comments are first-class
-- **Rate limiting** — per-key request limits with standard response headers
-- **Agent identity** — API keys carry `agent_id` for attribution across the system
+- **Real-time SSE** — subscribe to board events for live updates
+- **Link-based access** — share the view URL (read-only) or manage URL (full access)
 
 ## Quick Start
 
@@ -37,10 +37,7 @@ cd backend
 cargo run
 ```
 
-On first run:
-1. SQLite database is created automatically (`kanban.db`)
-2. An **admin API key** is printed to stdout — **save it!** It won't be shown again.
-3. If `frontend/dist/` exists, the dashboard is served at `http://localhost:8000`
+On first run, SQLite database is created automatically (`kanban.db`). If `frontend/dist/` exists, the dashboard is served at `http://localhost:8000`.
 
 The API and frontend are served from a single port (`http://localhost:8000`). If the frontend hasn't been built, the server runs in API-only mode.
 
@@ -51,10 +48,8 @@ The API and frontend are served from a single port (`http://localhost:8000`). If
 | `DATABASE_PATH` | `kanban.db` | SQLite database file path |
 | `ROCKET_ADDRESS` | `0.0.0.0` | Bind address |
 | `ROCKET_PORT` | `8000` | Bind port |
-| `RATE_LIMIT_WINDOW_SECS` | `60` | Rate limit window duration in seconds |
+| `BOARD_RATE_LIMIT` | `10` | Max board creations per IP per hour |
 | `STATIC_DIR` | `../frontend/dist` | Path to built frontend files |
-
-Copy `.env.example` to `.env` to customize.
 
 ### Docker
 
@@ -73,200 +68,154 @@ docker run -p 8000:8000 -v kanban-data:/app/data hnr-kanban
 
 The container serves everything on port 8000 — API at `/api/v1/*` and the dashboard at `/`.
 
-## Authentication
+## How It Works
 
-All API endpoints require authentication (except `/api/v1/health`). Use either header:
+### Access Model
 
-```
-Authorization: Bearer kb_...
-X-API-Key: kb_...
-```
+No accounts, no signup, no login. Boards are the only resource, and access is controlled by URLs.
 
-### API Key Types
+1. **Create a board** → API returns a `manage_key` and URLs
+2. **View URL** (`/board/{uuid}`) — read-only. Anyone with this link can see the board.
+3. **Manage URL** (`/board/{uuid}?key={manage_key}`) — full access. Edit tasks, columns, settings.
+4. **API access** — use the manage key as `Authorization: Bearer {manage_key}` or `X-API-Key: {manage_key}` or `?key={manage_key}` query param.
 
-| Type | Access | Created By |
-|------|--------|------------|
-| **Admin** | Full access to all boards + key management | Auto-generated on first run |
-| **Regular** | Access based on board roles (owner/collaborator) | Admin via `POST /keys` |
+| Operation | Auth Required |
+|-----------|--------------|
+| Create board | ❌ No (returns `manage_key`) |
+| View board / tasks / events | ❌ No (just need board UUID) |
+| List public boards | ❌ No |
+| Write (create/update/delete tasks, columns, settings) | 🔑 `manage_key` |
+| Archive/unarchive board | 🔑 `manage_key` |
 
-## Access Control
+### User Flows
 
-Every board has a role hierarchy: **Viewer < Editor < Admin < Owner**.
+**AI Agent:**
+1. `POST /api/v1/boards` → get `board_id`, `manage_key`, URLs
+2. Use `manage_key` as Bearer token for all API calls
+3. Share `view_url` for read-only or `manage_url` for collaboration
 
-| Role | Permissions |
-|------|-------------|
-| **Owner** | Everything. Implicit for the board creator. Cannot be removed. |
-| **Admin** | Create columns, manage collaborators. Global admin keys act as Admin. |
-| **Editor** | Create, update, delete, claim, release, move tasks. |
-| **Viewer** | Read boards/tasks, view events, post comments. |
-
-Collaborators are managed per-board via `/boards/{id}/collaborators`. Keys with no role on a board receive `403 Forbidden`.
+**Human:**
+1. Open web UI → click "New Board"
+2. Board created instantly with manage URL shown
+3. Share the URL with others
 
 ## API Reference
 
 Base path: `/api/v1`
 
-Full OpenAPI 3.0 spec available at `GET /api/v1/openapi.json`.
-
 ### System
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Health check (no auth) |
-| GET | `/openapi.json` | OpenAPI 3.0 specification |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | ❌ | Health check |
 
 ### Boards
 
-| Method | Path | Role | Description |
+| Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/boards` | Any | Create a board (you become Owner) |
-| GET | `/boards` | Any | List boards you have access to |
-| GET | `/boards/{id}` | Viewer | Get board details with columns |
+| POST | `/boards` | ❌ | Create a board (returns `manage_key`) |
+| GET | `/boards` | ❌ | List public boards |
+| GET | `/boards/{id}` | ❌ | Get board details with columns |
+| PATCH | `/boards/{id}` | 🔑 | Update board (name, description, is_public) |
+| POST | `/boards/{id}/archive` | 🔑 | Archive board |
+| POST | `/boards/{id}/unarchive` | 🔑 | Unarchive board |
 
 ### Columns
 
-| Method | Path | Role | Description |
+| Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/boards/{id}/columns` | Admin | Add a column (optional WIP limit) |
-
-### Collaborators
-
-| Method | Path | Role | Description |
-|--------|------|------|-------------|
-| GET | `/boards/{id}/collaborators` | Viewer | List collaborators |
-| POST | `/boards/{id}/collaborators` | Admin | Add/update collaborator (upsert) |
-| DELETE | `/boards/{id}/collaborators/{keyId}` | Admin | Remove collaborator |
+| POST | `/boards/{id}/columns` | 🔑 | Add a column (optional WIP limit) |
+| PATCH | `/boards/{id}/columns/{colId}` | 🔑 | Update column (rename, WIP limit) |
+| DELETE | `/boards/{id}/columns/{colId}` | 🔑 | Delete empty column |
+| POST | `/boards/{id}/columns/reorder` | 🔑 | Reorder columns (ordered ID list) |
 
 ### Tasks
 
-| Method | Path | Role | Description |
+| Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/boards/{id}/tasks` | Editor | Create a task |
-| GET | `/boards/{id}/tasks` | Viewer | List tasks (with filters) |
-| GET | `/boards/{id}/tasks/search?q=` | Viewer | Search tasks (title, description, labels) |
-| GET | `/boards/{id}/tasks/{taskId}` | Viewer | Get task details |
-| PATCH | `/boards/{id}/tasks/{taskId}` | Editor | Update task (partial) |
-| DELETE | `/boards/{id}/tasks/{taskId}` | Editor | Delete task |
+| POST | `/boards/{id}/tasks` | 🔑 | Create a task |
+| GET | `/boards/{id}/tasks` | ❌ | List tasks (with filters) |
+| GET | `/boards/{id}/tasks/search?q=` | ❌ | Search tasks (title, description, labels) |
+| GET | `/boards/{id}/tasks/{taskId}` | ❌ | Get task details |
+| PATCH | `/boards/{id}/tasks/{taskId}` | 🔑 | Update task (partial) |
+| DELETE | `/boards/{id}/tasks/{taskId}` | 🔑 | Delete task |
 
 **Query filters for list:** `?column=`, `?assigned=`, `?claimed=`, `?priority=`, `?label=`
 
-**Search:** `GET /boards/{id}/tasks/search?q=<query>` searches across titles, descriptions, and labels. Results are ranked by relevance (title matches first, then priority). Supports pagination via `?limit=` (1-100, default 50) and `?offset=`. Additional filters: `?column=`, `?assigned=`, `?priority=`, `?label=`.
+**Search:** `GET /boards/{id}/tasks/search?q=<query>` searches across titles, descriptions, and labels. Supports `?limit=` (1-100, default 50), `?offset=`, and additional filters.
 
 ### Agent Coordination
 
-| Method | Path | Role | Description |
+| Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/boards/{id}/tasks/{taskId}/claim` | Editor | Claim a task (you're working on it) |
-| POST | `/boards/{id}/tasks/{taskId}/release` | Editor | Release your claim |
-| POST | `/boards/{id}/tasks/{taskId}/move/{columnId}` | Editor | Move task to another column |
-| POST | `/boards/{id}/tasks/{taskId}/reorder` | Editor | Reorder task (set position, optionally move+reorder) |
+| POST | `/boards/{id}/tasks/{taskId}/claim` | 🔑 | Claim a task (you're working on it) |
+| POST | `/boards/{id}/tasks/{taskId}/release` | 🔑 | Release your claim |
+| POST | `/boards/{id}/tasks/{taskId}/move/{columnId}` | 🔑 | Move task to another column |
+| POST | `/boards/{id}/tasks/{taskId}/reorder` | 🔑 | Reorder task within/across columns |
 
 **Claim vs. Assign:** Assignment (`assigned_to`) means responsibility. Claiming (`claimed_by`) means "I'm actively working on this right now." Claims prevent conflicts when multiple agents coordinate on the same board.
 
-**Task Ordering:** Tasks within a column are sorted by position (ascending). Use the reorder endpoint to set a task's position — other tasks shift automatically. You can also pass `column_id` to move and reorder in a single call. When creating tasks, pass `position` to insert at a specific spot instead of appending to the end.
-
 ### Events & Comments
 
-| Method | Path | Role | Description |
+| Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/boards/{id}/events/stream` | Viewer | SSE real-time event stream |
-| GET | `/boards/{id}/tasks/{taskId}/events` | Viewer | Get task event history |
-| POST | `/boards/{id}/tasks/{taskId}/comment` | Viewer | Post a comment |
+| GET | `/boards/{id}/events/stream` | ❌ | SSE real-time event stream |
+| GET | `/boards/{id}/tasks/{taskId}/events` | ❌ | Get task event history |
+| POST | `/boards/{id}/tasks/{taskId}/comment` | ❌ | Post a comment |
 
-### Webhooks (Admin Only)
+### Webhooks
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/boards/{id}/webhooks` | Register a webhook |
-| GET | `/boards/{id}/webhooks` | List board webhooks |
-| PATCH | `/boards/{id}/webhooks/{whId}` | Update webhook |
-| DELETE | `/boards/{id}/webhooks/{whId}` | Delete webhook |
-
-### API Keys (Admin Only)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/keys` | List all API keys |
-| POST | `/keys` | Create a new API key |
-| DELETE | `/keys/{id}` | Revoke an API key |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/boards/{id}/webhooks` | 🔑 | Register a webhook |
+| GET | `/boards/{id}/webhooks` | 🔑 | List board webhooks |
+| PATCH | `/boards/{id}/webhooks/{whId}` | 🔑 | Update webhook |
+| DELETE | `/boards/{id}/webhooks/{whId}` | 🔑 | Delete webhook |
 
 ## Real-Time Events (SSE)
 
-Subscribe to board-level events via Server-Sent Events. Any mutation (task create, update, delete, claim, release, move, comment) emits an event to all connected subscribers.
+Subscribe to board-level events via Server-Sent Events. Any mutation emits an event to all connected subscribers.
+
+```bash
+curl -N http://localhost:8000/api/v1/boards/$BOARD_ID/events/stream
+```
 
 ### Event Types
 
 | Event | Fired When |
 |-------|-----------|
-| `task.created` | A task is created on the board |
-| `task.updated` | A task is modified (title, priority, labels, etc.) |
+| `task.created` | A task is created |
+| `task.updated` | A task is modified |
 | `task.deleted` | A task is deleted |
-| `task.claimed` | An agent claims a task |
-| `task.released` | An agent releases a claimed task |
+| `task.claimed` | A task is claimed |
+| `task.released` | A claimed task is released |
 | `task.moved` | A task moves to a different column |
-| `task.comment` | A comment is posted on a task |
-| `warning` | Internal: events were dropped (client fell behind) |
+| `task.comment` | A comment is posted |
+| `warning` | Events were dropped (client fell behind) |
 
-### Usage
-
-```bash
-curl -N http://localhost:8000/api/v1/boards/$BOARD_ID/events/stream \
-  -H "Authorization: Bearer $API_KEY"
-```
-
-Events arrive as standard SSE format:
-
-```
-event: task.created
-data: {"title":"Fix auth bug","task_id":"abc-123","column_id":"col-1","creator":"agent-1"}
-
-event: task.moved
-data: {"task_id":"abc-123","from":"col-1","to":"col-2","actor":"agent-1"}
-```
-
-The stream sends a heartbeat comment every 15 seconds to keep the connection alive. If the client falls behind (more than 256 events buffered), a `warning` event with `data: events_lost` is sent.
+Events arrive as standard SSE format with a heartbeat every 15 seconds.
 
 ### Agent Integration
-
-Agents can use SSE to react in real-time instead of polling:
 
 ```python
 import sseclient  # pip install sseclient-py
 import requests
 
 url = f"http://localhost:8000/api/v1/boards/{board_id}/events/stream"
-response = requests.get(url, headers={"Authorization": f"Bearer {api_key}"}, stream=True)
+response = requests.get(url, stream=True)
 client = sseclient.SSEClient(response)
 
 for event in client.events():
     if event.event == "task.created":
         print(f"New task: {event.data}")
-    elif event.event == "task.claimed":
-        print(f"Task claimed: {event.data}")
 ```
 
 ## Rate Limiting
 
-Every API key has a per-window request limit enforced automatically on all authenticated endpoints.
-
-| Key Type | Default Limit | Window |
-|----------|---------------|--------|
-| Regular | 100 requests | 60 seconds |
-| Admin | 100 requests | 60 seconds |
-
-### Response Headers
-
-Every authenticated response includes rate limit headers:
-
-| Header | Description |
-|--------|-------------|
-| `X-RateLimit-Limit` | Maximum requests allowed in the current window |
-| `X-RateLimit-Remaining` | Requests remaining in the current window |
-| `X-RateLimit-Reset` | Seconds until the current window resets |
-
-When the limit is exceeded, the API returns `429 Too Many Requests`. The rate limit headers are included on 429 responses too, so agents can read `X-RateLimit-Reset` to know when to retry.
-
-Rate limit state is in-memory — it resets on server restart. The window duration is configurable via `RATE_LIMIT_WINDOW_SECS`.
+IP-based rate limiting on board creation to prevent abuse:
+- Default: 10 boards per hour per IP
+- Configurable via `BOARD_RATE_LIMIT` environment variable
+- Returns `429 Too Many Requests` when exceeded
 
 ## WIP Limits
 
@@ -279,36 +228,22 @@ Columns can have optional work-in-progress limits. When set:
 
 ## Webhooks
 
-Register webhooks to receive HTTP POST notifications when board events occur. Ideal for integrating with external systems, triggering CI/CD pipelines, or connecting with other agents.
-
-### Setup
-
-```bash
-# Register a webhook (Admin role required)
-curl -X POST http://localhost:8000/api/v1/boards/{boardId}/webhooks \
-  -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com/webhook", "events": ["task.created", "task.moved"]}'
-```
-
-The response includes a `secret` — **save it immediately**, it's only shown once.
+Register webhooks to receive HTTP POST notifications when board events occur.
 
 ### Payload
-
-Webhook deliveries are HTTP POST with JSON body:
 
 ```json
 {
   "event": "task.created",
   "board_id": "board-uuid",
-  "data": { "title": "Fix bug", "task_id": "task-uuid", ... },
+  "data": { "title": "Fix bug", "task_id": "task-uuid" },
   "timestamp": "2026-02-07T12:00:00Z"
 }
 ```
 
 ### Verification
 
-Every delivery includes an HMAC-SHA256 signature header:
+Every delivery includes an HMAC-SHA256 signature:
 
 ```
 X-Kanban-Signature: sha256=<hex-digest>
@@ -316,106 +251,66 @@ X-Kanban-Event: task.created
 X-Kanban-Board: <board-id>
 ```
 
-Verify by computing `HMAC-SHA256(secret, request_body)` and comparing.
-
-### Event Filtering
-
-- Empty `events` array = receive all events
-- Specify types to filter: `["task.created", "task.moved", "task.deleted"]`
-- Valid types: `task.created`, `task.updated`, `task.deleted`, `task.claimed`, `task.released`, `task.moved`, `task.reordered`, `task.comment`
-
 ### Reliability
 
-- Webhooks auto-disable after **10 consecutive failures**
-- Re-enable via PATCH with `{"active": true}` (resets failure count)
-- 10-second timeout per delivery attempt
-- Delivery is asynchronous — doesn't block API responses
-
-### Management
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/boards/{id}/webhooks` | Create webhook (Admin+) |
-| `GET` | `/boards/{id}/webhooks` | List webhooks (Admin+) |
-| `PATCH` | `/boards/{id}/webhooks/{whId}` | Update webhook (Admin+) |
-| `DELETE` | `/boards/{id}/webhooks/{whId}` | Delete webhook (Admin+) |
+- Auto-disable after 10 consecutive failures
+- Re-enable via PATCH with `{"active": true}`
+- 10-second timeout per delivery
+- Asynchronous delivery
 
 ## Usage Examples
 
-### Create a board with custom columns
+### Create a board
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/boards \
-  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "Sprint 1", "columns": ["Todo", "Doing", "Done"]}'
 ```
+
+Response includes `manage_key`, `view_url`, `manage_url`, and `api_base`.
 
 ### Create a task
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks \
-  -H "Authorization: Bearer $API_KEY" \
+  -H "Authorization: Bearer $MANAGE_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Implement auth middleware",
     "priority": 5,
-    "labels": ["backend", "security"],
-    "metadata": {"estimated_hours": 2}
+    "labels": ["backend", "security"]
   }'
 ```
 
 ### Claim and work on a task
 
 ```bash
-# Claim it (prevents other agents from working on it)
+# Claim it
 curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks/$TASK_ID/claim \
-  -H "Authorization: Bearer $API_KEY"
-
-# ... do the work ...
+  -H "Authorization: Bearer $MANAGE_KEY"
 
 # Move to done
 curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks/$TASK_ID/move/$DONE_COL_ID \
-  -H "Authorization: Bearer $API_KEY"
-```
-
-### Check rate limit status
-
-Rate limit headers appear on every response:
-
-```bash
-curl -i -X GET http://localhost:8000/api/v1/boards \
-  -H "Authorization: Bearer $API_KEY"
-
-# Response headers include:
-# X-RateLimit-Limit: 100
-# X-RateLimit-Remaining: 97
-# X-RateLimit-Reset: 42
-```
-
-### Add a collaborator
-
-```bash
-curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/collaborators \
-  -H "Authorization: Bearer $ADMIN_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"key_id": "other-agent-key-id", "role": "editor"}'
+  -H "Authorization: Bearer $MANAGE_KEY"
 ```
 
 ## Frontend Dashboard
 
-The React dashboard provides a human-friendly view of your kanban boards:
+The React dashboard provides a human-friendly view:
 
-- **Board sidebar** — create boards, switch between them, toggle archived boards
-- **Drag-and-drop** — move tasks between columns with HTML5 drag-and-drop
-- **Create tasks** — modal with title, description, priority, column, labels, assignment
-- **Full-text search** — search across task titles, descriptions, and labels
-- **WIP limits** — visual count/limit display per column
-- **Priority colors** — critical (red), high (orange), medium (yellow), low (green)
-- **Task indicators** — claimed/assigned/due/completed badges on cards
+- **Board sidebar** — create boards, browse public boards, enter board ID/URL directly
+- **Edit/View modes** — manage URL enables editing, view URL is read-only
+- **Drag-and-drop** — move tasks between columns
+- **Task detail modal** — comments, activity log, edit fields, move-to-column
+- **Column management** — add, rename, reorder, delete columns
+- **Board settings** — update name, description, public flag
+- **Webhook management** — configure webhooks from the UI
+- **Task filtering** — filter by priority, label, assignee
+- **Identity** — persistent display name sent with all actions
+- **Real-time updates** — live SSE connection with status indicator
+- **Responsive** — collapsible sidebar on tablet, full mobile support
 - **Dark theme** — slate/indigo palette
-
-The dashboard connects to the API using an API key stored in `localStorage`. Enter your key on first visit.
 
 ### Frontend Development
 
@@ -430,37 +325,28 @@ npm run build  # Production build to dist/
 
 ```bash
 cd backend
-
-# Format
-cargo fmt
-
-# Lint (warnings = errors)
-cargo clippy --all-targets -- -D warnings
-
-# Test (single-threaded — tests share env vars)
-cargo test -- --test-threads=1
-
-# Run
-cargo run
+cargo fmt                                          # Format
+cargo clippy --all-targets -- -D warnings          # Lint
+cargo test -- --test-threads=1                     # Test (single-threaded required)
+cargo run                                          # Run
 ```
+
+**Note:** Tests must run with `--test-threads=1` — tests use shared env vars that race under parallel execution.
 
 ## Tech Stack
 
 - **Rust** / **Rocket 0.5** — async web framework
-- **SQLite** (WAL mode) — zero-config database, single-file deployment
-- **rusqlite** — SQLite bindings
-- **chrono** — timestamps
-- **uuid** — ID generation
-- **serde** / **serde_json** — serialization
+- **SQLite** (WAL mode) — zero-config, single-file database
+- **React + Vite** — frontend with drag-and-drop
+- **Single port** — API and frontend served together
 
 ## Architecture
 
-- **Unified serving** — single Rocket binary serves both the REST API (`/api/v1/*`) and the React frontend (`/`)
-- **SPA routing** — catch-all fallback (rank 20) serves `index.html` for client-side routes
-- **Single-threaded SQLite** via `Mutex<Connection>` — fine for moderate load
-- **CORS wide open** (all origins) — tighten for production
-- **Admin key** auto-generated and printed on first run
+- **Unified serving** — single binary serves REST API (`/api/v1/*`) and React frontend (`/`)
+- **Per-board tokens** — no user accounts, tokens scoped to individual boards
+- **Single-threaded SQLite** via `Mutex<Connection>`
 - **Event log** (`task_events`) is append-only, first-class
+- **SSE** for real-time with 15s heartbeat and 256-event buffer
 - **3-stage Docker build** — Node (frontend) → Rust (backend) → Debian slim (runtime)
 
 ## License
