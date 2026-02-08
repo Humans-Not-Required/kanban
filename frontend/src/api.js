@@ -115,6 +115,15 @@ const unarchiveBoard = (id) =>
 const addColumn = (boardId, body) =>
   request(`/boards/${boardId}/columns`, { method: 'POST', body, boardId });
 
+const updateColumn = (boardId, columnId, body) =>
+  request(`/boards/${boardId}/columns/${columnId}`, { method: 'PATCH', body, boardId });
+
+const deleteColumn = (boardId, columnId) =>
+  request(`/boards/${boardId}/columns/${columnId}`, { method: 'DELETE', boardId });
+
+const reorderColumns = (boardId, columnIds) =>
+  request(`/boards/${boardId}/columns/reorder`, { method: 'POST', body: { column_ids: columnIds }, boardId });
+
 // ---- Tasks ----
 
 const listTasks = (boardId, params = '') =>
@@ -247,7 +256,7 @@ export {
   getDisplayName, setDisplayName,
   extractKeyFromUrl, cleanKeyFromUrl,
   listBoards, getBoard, createBoard, archiveBoard, unarchiveBoard,
-  addColumn,
+  addColumn, updateColumn, deleteColumn, reorderColumns,
   listTasks, getTask, createTask, updateTask, deleteTask, moveTask, claimTask, releaseTask,
   searchTasks,
   getTaskEvents, commentOnTask,

@@ -100,6 +100,18 @@ pub struct CreateColumnRequest {
     pub wip_limit: Option<i32>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateColumnRequest {
+    pub name: Option<String>,
+    pub wip_limit: Option<Option<i32>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderColumnsRequest {
+    /// Ordered list of column IDs — first = position 0, second = position 1, etc.
+    pub column_ids: Vec<String>,
+}
+
 // ============ Tasks ============
 
 #[derive(Debug, Deserialize)]

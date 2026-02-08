@@ -39,6 +39,9 @@ fn test_client() -> Client {
                 kanban::routes::archive_board,
                 kanban::routes::unarchive_board,
                 kanban::routes::create_column,
+                kanban::routes::update_column,
+                kanban::routes::delete_column,
+                kanban::routes::reorder_columns,
                 kanban::routes::create_task,
                 kanban::routes::search_tasks,
                 kanban::routes::list_tasks,
@@ -657,4 +660,179 @@ fn test_http_rate_limiting() {
     assert_eq!(resp.status(), Status::TooManyRequests);
     let body: serde_json::Value = resp.into_json().unwrap();
     assert_eq!(body["code"], "RATE_LIMIT_EXCEEDED");
+}
+
+// ============ Column Management ============
+
+#[test]
+fn test_http_update_column_rename() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Col Rename Test");
+
+    // Get the board to find column IDs
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+    assert_eq!(board["columns"][0]["name"], "To Do");
+
+    // Rename the column
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/columns/{}", board_id, col_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"name": "Backlog"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let col: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(col["name"], "Backlog");
+    assert_eq!(col["id"], col_id);
+}
+
+#[test]
+fn test_http_update_column_no_auth() {
+    let client = test_client();
+    let (board_id, _key) = create_test_board(&client, "Col No Auth");
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Try without auth — should fail
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/columns/{}", board_id, col_id))
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Nope"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Unauthorized);
+}
+
+#[test]
+fn test_http_delete_empty_column() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Col Delete Test");
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    // Board has 3 columns: To Do, In Progress, Done. Delete the middle one (no tasks).
+    let col_id = board["columns"][1]["id"].as_str().unwrap();
+
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/columns/{}", board_id, col_id))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["deleted"], true);
+
+    // Verify board now has 2 columns
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(board["columns"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn test_http_delete_column_with_tasks_rejected() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Col Delete Tasks");
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Add a task to the first column
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Block Delete", "column_id": "{}"}}"#,
+            col_id
+        ))
+        .dispatch();
+
+    // Try to delete — should fail with 409
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/columns/{}", board_id, col_id))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Conflict);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["code"], "COLUMN_NOT_EMPTY");
+}
+
+#[test]
+fn test_http_delete_last_column_rejected() {
+    let client = test_client();
+
+    // Create a board with just 1 column
+    let resp = client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Single Col", "columns": ["Only"]}"#)
+        .dispatch();
+    let body: serde_json::Value = resp.into_json().unwrap();
+    let board_id = body["id"].as_str().unwrap();
+    let key = body["manage_key"].as_str().unwrap();
+    let col_id = body["columns"][0]["id"].as_str().unwrap();
+
+    // Try to delete the only column — should fail with 409
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/columns/{}", board_id, col_id))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Conflict);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["code"], "LAST_COLUMN");
+}
+
+#[test]
+fn test_http_reorder_columns() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Col Reorder Test");
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let cols = board["columns"].as_array().unwrap();
+    // Original order: To Do (0), In Progress (1), Done (2)
+    let id0 = cols[0]["id"].as_str().unwrap().to_string();
+    let id1 = cols[1]["id"].as_str().unwrap().to_string();
+    let id2 = cols[2]["id"].as_str().unwrap().to_string();
+
+    // Reorder: Done, To Do, In Progress
+    let resp = client
+        .post(format!("/api/v1/boards/{}/columns/reorder", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(serde_json::json!({ "column_ids": [id2, id0, id1] }).to_string())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let reordered: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(reordered[0]["name"], "Done");
+    assert_eq!(reordered[0]["position"], 0);
+    assert_eq!(reordered[1]["name"], "To Do");
+    assert_eq!(reordered[1]["position"], 1);
+    assert_eq!(reordered[2]["name"], "In Progress");
+    assert_eq!(reordered[2]["position"], 2);
+}
+
+#[test]
+fn test_http_reorder_columns_wrong_count() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Col Reorder Bad");
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let cols = board["columns"].as_array().unwrap();
+    let id0 = cols[0]["id"].as_str().unwrap().to_string();
+
+    // Send only 1 of 3 column IDs
+    let resp = client
+        .post(format!("/api/v1/boards/{}/columns/reorder", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(serde_json::json!({ "column_ids": [id0] }).to_string())
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["code"], "INVALID_COLUMN_LIST");
 }

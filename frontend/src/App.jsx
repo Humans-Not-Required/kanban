@@ -351,9 +351,12 @@ function MoveTaskDropdown({ boardId, task, columns, onMoved, onCancel }) {
   );
 }
 
-function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickTask, isMobile, allColumns }) {
+function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns }) {
   const [dragOver, setDragOver] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(column.name);
+  const [showMenu, setShowMenu] = useState(false);
   const colTasks = tasks.filter(t => t.column_id === column.id)
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
 
@@ -373,9 +376,52 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickT
     }
   };
 
+  const handleRename = async () => {
+    const newName = renameValue.trim();
+    if (!newName || newName === column.name) { setRenaming(false); return; }
+    try {
+      await api.updateColumn(boardId, column.id, { name: newName });
+      setRenaming(false);
+      onBoardRefresh();
+    } catch (err) {
+      alert(`Failed to rename: ${err.error || 'Unknown error'}`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete column "${column.name}"?\n\nNote: Column must be empty (no tasks).`)) return;
+    try {
+      await api.deleteColumn(boardId, column.id);
+      onBoardRefresh();
+    } catch (err) {
+      alert(err.error || 'Failed to delete column');
+    }
+  };
+
+  const handleMoveColumn = async (direction) => {
+    const sorted = [...allColumns].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex(c => c.id === column.id);
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= sorted.length) return;
+    // Swap positions
+    const newOrder = sorted.map(c => c.id);
+    [newOrder[idx], newOrder[targetIdx]] = [newOrder[targetIdx], newOrder[idx]];
+    try {
+      await api.reorderColumns(boardId, newOrder);
+      onBoardRefresh();
+    } catch (err) {
+      alert(err.error || 'Failed to reorder');
+    }
+  };
+
   const wipInfo = column.wip_limit
     ? `${colTasks.length}/${column.wip_limit}`
     : `${colTasks.length}`;
+
+  const sortedCols = [...allColumns].sort((a, b) => a.position - b.position);
+  const colIdx = sortedCols.findIndex(c => c.id === column.id);
+  const isFirst = colIdx === 0;
+  const isLast = colIdx === sortedCols.length - 1;
 
   return (
     <div
@@ -385,11 +431,74 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, archived, onClickT
       onDrop={!isMobile && canEdit ? handleDrop : undefined}
     >
       <div
-        style={{ ...styles.columnHeader, cursor: isMobile ? 'pointer' : 'default' }}
-        onClick={isMobile ? () => setCollapsed(c => !c) : undefined}
+        style={{ ...styles.columnHeader, cursor: isMobile ? 'pointer' : 'default', position: 'relative' }}
+        onClick={isMobile && !renaming ? () => setCollapsed(c => !c) : undefined}
       >
-        <span>{isMobile && (collapsed ? '▸ ' : '▾ ')}{column.name}</span>
-        <span style={styles.taskCount}>{wipInfo}</span>
+        {renaming ? (
+          <input
+            autoFocus
+            style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #3b82f6', borderRadius: '4px', padding: '2px 6px', fontSize: '0.85rem', fontWeight: 600, width: '100%' }}
+            value={renameValue}
+            onChange={e => setRenameValue(e.target.value)}
+            onBlur={handleRename}
+            onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false); }}
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <span
+            onDoubleClick={canEdit && !archived ? (e) => { e.stopPropagation(); setRenameValue(column.name); setRenaming(true); } : undefined}
+            title={canEdit ? 'Double-click to rename' : ''}
+          >
+            {isMobile && (collapsed ? '▸ ' : '▾ ')}{column.name}
+          </span>
+        )}
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={styles.taskCount}>{wipInfo}</span>
+          {canEdit && !archived && (
+            <span
+              style={{ cursor: 'pointer', fontSize: '0.85rem', opacity: 0.6, userSelect: 'none', padding: '0 2px' }}
+              onClick={(e) => { e.stopPropagation(); setShowMenu(m => !m); }}
+              title="Column options"
+            >⚙️</span>
+          )}
+        </span>
+        {showMenu && canEdit && !archived && (
+          <div style={{
+            position: 'absolute', top: '100%', right: 0, zIndex: 50,
+            background: '#1e293b', border: '1px solid #334155', borderRadius: '6px',
+            padding: '4px 0', minWidth: '140px', boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+          }}>
+            <button
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '0.8rem' }}
+              onClick={() => { setRenameValue(column.name); setRenaming(true); setShowMenu(false); }}
+              onMouseEnter={e => e.target.style.background = '#334155'}
+              onMouseLeave={e => e.target.style.background = 'none'}
+            >✏️ Rename</button>
+            {!isFirst && (
+              <button
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '0.8rem' }}
+                onClick={() => { handleMoveColumn(-1); setShowMenu(false); }}
+                onMouseEnter={e => e.target.style.background = '#334155'}
+                onMouseLeave={e => e.target.style.background = 'none'}
+              >⬅️ Move Left</button>
+            )}
+            {!isLast && (
+              <button
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '0.8rem' }}
+                onClick={() => { handleMoveColumn(1); setShowMenu(false); }}
+                onMouseEnter={e => e.target.style.background = '#334155'}
+                onMouseLeave={e => e.target.style.background = 'none'}
+              >➡️ Move Right</button>
+            )}
+            <div style={{ borderTop: '1px solid #334155', margin: '4px 0' }} />
+            <button
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem' }}
+              onClick={() => { handleDelete(); setShowMenu(false); }}
+              onMouseEnter={e => e.target.style.background = '#334155'}
+              onMouseLeave={e => e.target.style.background = 'none'}
+            >🗑️ Delete</button>
+          </div>
+        )}
       </div>
       {!(isMobile && collapsed) && (
         <div style={styles.taskList(isMobile)}>
@@ -937,13 +1046,15 @@ function LiveIndicator({ status }) {
   );
 }
 
-function BoardView({ board, canEdit, onRefresh, isMobile }) {
+function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [sseStatus, setSseStatus] = useState('connecting');
+  const [addingColumn, setAddingColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState('');
 
   const loadTasks = useCallback(async () => {
     try {
@@ -1038,13 +1149,56 @@ function BoardView({ board, canEdit, onRefresh, isMobile }) {
             boardId={board.id}
             canEdit={canEdit}
             onRefresh={loadTasks}
+            onBoardRefresh={onBoardRefresh}
             archived={archived}
             onClickTask={setSelectedTask}
             isMobile={isMobile}
             allColumns={columns}
           />
         ))}
-        {columns.length === 0 && (
+        {canEdit && !archived && (
+          addingColumn ? (
+            <div style={{ ...styles.column(false, isMobile), minWidth: isMobile ? undefined : '200px', maxWidth: isMobile ? undefined : '200px', justifyContent: 'flex-start' }}>
+              <input
+                autoFocus
+                style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #3b82f6', borderRadius: '4px', padding: '6px 8px', fontSize: '0.85rem', width: '100%' }}
+                placeholder="Column name..."
+                value={newColumnName}
+                onChange={e => setNewColumnName(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const name = newColumnName.trim();
+                    if (!name) return;
+                    try {
+                      await api.addColumn(board.id, { name });
+                      setNewColumnName('');
+                      setAddingColumn(false);
+                      onBoardRefresh();
+                    } catch (err) { alert(err.error || 'Failed to add column'); }
+                  }
+                  if (e.key === 'Escape') { setAddingColumn(false); setNewColumnName(''); }
+                }}
+                onBlur={() => { setAddingColumn(false); setNewColumnName(''); }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                minWidth: isMobile ? undefined : '60px', maxWidth: isMobile ? undefined : '60px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: '#64748b', fontSize: '1.5rem',
+                borderRadius: '8px', border: '2px dashed #334155',
+                minHeight: isMobile ? '50px' : undefined,
+                transition: 'border-color .2s, color .2s',
+              }}
+              onClick={() => setAddingColumn(true)}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.color = '#3b82f6'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#334155'; e.currentTarget.style.color = '#64748b'; }}
+              title="Add column"
+            >+</div>
+          )
+        )}
+        {columns.length === 0 && !addingColumn && (
           <div style={styles.empty}>No columns yet.</div>
         )}
       </div>
@@ -1131,20 +1285,24 @@ function App() {
 
   useEffect(() => { loadBoards(); }, [loadBoards]);
 
+  const loadBoardDetail = useCallback(async (boardId) => {
+    const id = boardId || selectedBoardId;
+    if (!id) { setBoardDetail(null); setLoadError(null); return; }
+    setLoadError(null);
+    try {
+      const { data } = await api.getBoard(id);
+      setBoardDetail(data);
+    } catch (err) {
+      console.error('Failed to load board:', err);
+      setLoadError(err.status === 404 ? 'Board not found.' : 'Failed to load board.');
+      setBoardDetail(null);
+    }
+  }, [selectedBoardId]);
+
   useEffect(() => {
     if (!selectedBoardId) { setBoardDetail(null); setLoadError(null); return; }
-    setLoadError(null);
-    (async () => {
-      try {
-        const { data } = await api.getBoard(selectedBoardId);
-        setBoardDetail(data);
-      } catch (err) {
-        console.error('Failed to load board:', err);
-        setLoadError(err.status === 404 ? 'Board not found.' : 'Failed to load board.');
-        setBoardDetail(null);
-      }
-    })();
-  }, [selectedBoardId]);
+    loadBoardDetail(selectedBoardId);
+  }, [selectedBoardId, loadBoardDetail]);
 
   const canEdit = selectedBoardId ? api.hasBoardKey(selectedBoardId) : false;
 
@@ -1233,7 +1391,7 @@ function App() {
         </div>
 
         {boardDetail ? (
-          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => setSelectedBoardId(s => s)} isMobile={isMobile} />
+          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} isMobile={isMobile} />
         ) : loadError ? (
           <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>

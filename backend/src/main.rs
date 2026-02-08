@@ -64,6 +64,9 @@ fn rocket() -> _ {
                 routes::unarchive_board,
                 // Columns (manage key required)
                 routes::create_column,
+                routes::update_column,
+                routes::delete_column,
+                routes::reorder_columns,
                 // Tasks (read = public, write = manage key)
                 routes::create_task,
                 routes::search_tasks,
