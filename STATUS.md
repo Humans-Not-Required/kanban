@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 10:50 UTC — refactored JSON catchers to lib module, registered in tests. Code pushed but deploy OOM'd (libsqlite3-sys compile). Service still running previous version. Next deploy: stop other containers first to free RAM.*
+*Last updated: 2026-02-08 11:10 UTC — Deploy succeeded! Stopped qr-service + app-directory containers to free RAM during build, libsqlite3-sys compiled successfully (~4 min). All 3 services back up. kanban on port 8001, health check OK. All recent features now live: JSON catchers, comment counts, search clear button, SVG favicon, header overflow fix.*
