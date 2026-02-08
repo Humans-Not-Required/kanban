@@ -70,9 +70,15 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Priority Order)
 
-1. **Verify staging deploy** — Docker build in progress on 192.168.0.79. Fixed `time` crate MSRV issue (time-core 0.1.8+ needs edition2024/Rust 1.88; pinned time <0.3.42). Check `/tmp/kanban-build.log` and `docker ps`. After build: `docker stop kanban; docker rm kanban; docker run -d --name kanban -p 3002:8000 -v /home/username/apps/kanban/data:/app/data --restart unless-stopped kanban:latest`
-2. **Public boards UX** — awaiting Jordan's input. Current model documented in task comment. Three tiers: private (unlisted), public (listed), manage URL (full access).
-3. **Code cleanup** — clippy clean ✅, review for dead code
+1. ~~**Verify staging deploy**~~ ✅ Done (2026-02-08 04:35 UTC) — Docker build succeeded. Killed old native process on port 3002, fixed /app/data permissions (chown 1000:1000), container running. Fresh DB (old boards gone per auth refactor). Recreated HNR Projects board with new IDs. Updated both playbooks.
+2. ~~**Code cleanup**~~ ✅ Done (2026-02-08 04:38 UTC) — clippy clean, zero dead code warnings, all 44 tests passing (14 unit + 30 HTTP).
+3. **Public boards UX** — awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
+
+**New Kanban Board:**
+- Board ID: `9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360`
+- Manage key: `kb_e40d165d8fc245dd8b33d3a1962e1316`
+- View URL: https://kanban.ckbdev.com/board/9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360
+- Manage URL: https://kanban.ckbdev.com/board/9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360?key=kb_e40d165d8fc245dd8b33d3a1962e1316
 
 ### ⚠️ Gotchas
 
@@ -101,4 +107,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 04:20 UTC — Fixed time crate MSRV issue (pinned <0.3.42). Staging rebuild in progress. 44 tests passing. Clippy clean.*
+*Last updated: 2026-02-08 04:38 UTC — Staging Docker deploy complete. Fresh DB with new board. 44 tests passing. Clippy clean. No dead code.*
