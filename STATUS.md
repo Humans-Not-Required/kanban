@@ -64,6 +64,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 12. ~~**Board settings panel**~~ ✅ Done (2026-02-08 01:50 UTC) — PATCH /boards/{id} endpoint + BoardSettingsModal (name, desc, is_public) + 3 HTTP tests (30 total)
 13. **Improved task filtering** — filter by label, priority, assignee in the column view
 14. **Auto-fill fields for human-created tasks** — monitoring agent should set priority/labels/assignment based on title+description (Jordan request, 2026-02-08). (This is handled by the Kanban Board Monitor cron job, not the app UI.)
+15. **Collapsible sidebar on tablet** — allow collapsing the sidebar around tablet breakpoints (Jordan request, 2026-02-08).
+16. **Bigger description fields** — task description inputs/textarea need more vertical space/rows (Jordan request, 2026-02-08).
 
 ### ⚠️ Gotchas
 

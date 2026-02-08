@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
 
 // ---- Responsive hook ----
-function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+function useBreakpoint() {
+  const [width, setWidth] = useState(window.innerWidth);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < breakpoint);
+    const handler = () => setWidth(window.innerWidth);
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
-  }, [breakpoint]);
-  return isMobile;
+  }, []);
+  return { isMobile: width < 768, isCompact: width < 1024 };
 }
 
 // ---- Styles ----
@@ -169,7 +169,7 @@ const styles = {
   },
   textarea: {
     width: '100%', background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
-    padding: '10px', borderRadius: '4px', fontSize: '16px', minHeight: '80px',
+    padding: '10px', borderRadius: '4px', fontSize: '16px', minHeight: '140px',
     resize: 'vertical', marginBottom: '10px', fontFamily: 'inherit',
     boxSizing: 'border-box',
   },
@@ -1337,6 +1337,10 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [newColumnName, setNewColumnName] = useState('');
   const [showWebhooks, setShowWebhooks] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [filterPriority, setFilterPriority] = useState('');
+  const [filterLabel, setFilterLabel] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -1384,7 +1388,20 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   };
 
   const columns = board.columns || [];
-  const displayTasks = searchResults !== null ? searchResults : tasks;
+  const baseTasks = searchResults !== null ? searchResults : tasks;
+
+  // Collect unique labels and assignees for filter dropdowns
+  const allLabels = [...new Set(baseTasks.flatMap(t => (t.labels || '').split(',').map(l => l.trim()).filter(Boolean)))].sort();
+  const allAssignees = [...new Set(baseTasks.map(t => t.assigned_to || t.claimed_by).filter(Boolean))].sort();
+
+  // Apply filters
+  const displayTasks = baseTasks.filter(t => {
+    if (filterPriority && String(t.priority) !== filterPriority) return false;
+    if (filterLabel && !(t.labels || '').toLowerCase().includes(filterLabel.toLowerCase())) return false;
+    if (filterAssignee && t.assigned_to !== filterAssignee && t.claimed_by !== filterAssignee) return false;
+    return true;
+  });
+  const hasActiveFilters = filterPriority || filterLabel || filterAssignee;
   const archived = !!board.archived_at;
 
   return (
@@ -1432,7 +1449,32 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
         {searchResults !== null && (
           <button style={styles.btnSmall} onClick={() => { setSearch(''); setSearchResults(null); }}>Clear</button>
         )}
+        <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f6' : undefined }} onClick={() => setShowFilters(f => !f)}>
+          🔽 Filter{hasActiveFilters ? ' ●' : ''}
+        </button>
       </div>
+      {showFilters && (
+        <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+            <option value="">Any Priority</option>
+            <option value="1">🔴 Critical</option>
+            <option value="2">🟠 High</option>
+            <option value="3">🟡 Medium</option>
+            <option value="4">🟢 Low</option>
+          </select>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+            <option value="">Any Label</option>
+            {allLabels.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+            <option value="">Any Assignee</option>
+            {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          {hasActiveFilters && (
+            <button style={styles.btnSmall} onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); }}>Clear Filters</button>
+          )}
+        </div>
+      )}
 
       <div style={styles.columnsContainer(isMobile)}>
         {columns.sort((a, b) => a.position - b.position).map(col => (
@@ -1566,7 +1608,8 @@ function DirectBoardInput({ onOpen }) {
 }
 
 function App() {
-  const isMobile = useIsMobile();
+  const { isMobile, isCompact } = useBreakpoint();
+  const collapseSidebar = isCompact; // collapse sidebar on mobile + tablet
   const [boards, setBoards] = useState([]);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [boardDetail, setBoardDetail] = useState(null);
@@ -1630,14 +1673,14 @@ function App() {
 
   const handleSelectBoard = (boardId) => {
     setSelectedBoardId(boardId);
-    if (isMobile) setSidebarOpen(false);
+    if (collapseSidebar) setSidebarOpen(false);
   };
 
   return (
     <div style={styles.app}>
       <div style={styles.header(isMobile)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {isMobile && (
+          {collapseSidebar && (
             <button style={styles.menuBtn} onClick={() => setSidebarOpen(o => !o)}>☰</button>
           )}
           <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
@@ -1658,11 +1701,11 @@ function App() {
 
       <div style={styles.main(isMobile)}>
         {/* Sidebar overlay for mobile */}
-        {isMobile && sidebarOpen && (
+        {collapseSidebar && sidebarOpen && (
           <div style={styles.sidebarOverlay} onClick={() => setSidebarOpen(false)} />
         )}
 
-        <div style={styles.sidebar(isMobile, sidebarOpen)}>
+        <div style={styles.sidebar(collapseSidebar, sidebarOpen)}>
           <div style={styles.sidebarHeader}>
             <span>Public Boards</span>
             <button style={styles.btnSmall} onClick={() => { setShowCreateBoard(true); setSidebarOpen(false); }}>+ New</button>
@@ -1717,7 +1760,7 @@ function App() {
               <p style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📋 Kanban</p>
               <p style={{ color: '#94a3b8', marginBottom: '4px' }}>Humans Not Required</p>
               <p style={{ fontSize: '0.85rem', maxWidth: '400px', lineHeight: '1.5' }}>
-                {isMobile ? 'Tap ☰ to browse boards, or create a new one.' : 'Select a public board, open one by ID, or create a new one.'}
+                {collapseSidebar ? 'Tap ☰ to browse boards, or create a new one.' : 'Select a public board, open one by ID, or create a new one.'}
                 <br />
                 <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
                   No signup required.
