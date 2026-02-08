@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
 
+// ---- Escape key hook ----
+function useEscapeKey(onClose) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+}
+
 // ---- Responsive hook ----
 function useBreakpoint() {
   const [width, setWidth] = useState(window.innerWidth);
@@ -14,7 +23,7 @@ function useBreakpoint() {
 
 // ---- Styles ----
 const styles = {
-  app: { minHeight: '100vh', display: 'flex', flexDirection: 'column' },
+  app: { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   header: (mobile) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: mobile ? '10px 12px' : '12px 20px', background: '#1e293b',
@@ -556,6 +565,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
 }
 
 function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
+  useEscapeKey(onClose);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [priority, setPriority] = useState(1);
@@ -564,9 +574,8 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
   const [assignedTo, setAssignedTo] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!title.trim()) return;
+  const submitTask = async () => {
+    if (!title.trim() || loading) return;
     setLoading(true);
     try {
       await api.createTask(boardId, {
@@ -585,6 +594,17 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
       setLoading(false);
     }
   };
+
+  const submit = (e) => { e.preventDefault(); submitTask(); };
+
+  // Shift+Enter submits from anywhere in the modal
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.shiftKey && e.key === 'Enter') { e.preventDefault(); submitTask(); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  });
 
   return (
     <div style={styles.modal(isMobile)} onClick={onClose}>
@@ -619,6 +639,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile }) {
 }
 
 function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns }) {
+  useEscapeKey(onClose);
   const [events, setEvents] = useState([]);
   const [comment, setComment] = useState('');
   const [actorName, setActorName] = useState(() => api.getDisplayName());
@@ -929,6 +950,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
 }
 
 function CreateBoardModal({ onClose, onCreated, isMobile }) {
+  useEscapeKey(onClose);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [columns, setColumns] = useState('To Do, In Progress, Done');
@@ -1064,6 +1086,7 @@ const WEBHOOK_EVENTS = [
 ];
 
 function BoardSettingsModal({ board, canEdit, onClose, onRefresh, isMobile }) {
+  useEscapeKey(onClose);
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || '');
   const [isPublic, setIsPublic] = useState(board.is_public || false);
@@ -1149,6 +1172,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, isMobile }) {
 }
 
 function WebhookManagerModal({ boardId, onClose, isMobile }) {
+  useEscapeKey(onClose);
   const [webhooks, setWebhooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
