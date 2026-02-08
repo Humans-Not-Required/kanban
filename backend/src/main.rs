@@ -17,50 +17,9 @@ use std::time::Duration;
 use events::EventBus;
 use rate_limit::RateLimiter;
 use rocket::fs::{FileServer, Options};
-use rocket::serde::json::Json;
-use rocket::{Request};
 use rocket_cors::{AllowedOrigins, CorsOptions};
-use serde_json::json;
 
-#[catch(401)]
-fn unauthorized(_req: &Request) -> Json<serde_json::Value> {
-    Json(json!({
-        "error": "UNAUTHORIZED",
-        "message": "Missing or invalid management key. Use Authorization: Bearer YOUR_KEY, X-API-Key header, or ?key= query param."
-    }))
-}
-
-#[catch(404)]
-fn not_found(_req: &Request) -> Json<serde_json::Value> {
-    Json(json!({
-        "error": "NOT_FOUND",
-        "message": "The requested resource was not found."
-    }))
-}
-
-#[catch(422)]
-fn unprocessable(_req: &Request) -> Json<serde_json::Value> {
-    Json(json!({
-        "error": "UNPROCESSABLE_ENTITY",
-        "message": "The request body could not be processed."
-    }))
-}
-
-#[catch(429)]
-fn too_many_requests(_req: &Request) -> Json<serde_json::Value> {
-    Json(json!({
-        "error": "RATE_LIMIT_EXCEEDED",
-        "message": "Too many requests. Please try again later."
-    }))
-}
-
-#[catch(500)]
-fn internal_error(_req: &Request) -> Json<serde_json::Value> {
-    Json(json!({
-        "error": "INTERNAL_ERROR",
-        "message": "An internal server error occurred."
-    }))
-}
+use kanban::catchers::*;
 
 #[launch]
 fn rocket() -> _ {

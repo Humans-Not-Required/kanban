@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 09:32 UTC — comment count on cards, search ✕ clear, favicon → logo.svg. Deployed.*
+*Last updated: 2026-02-08 10:10 UTC — fixed header overflow on mobile (flexShrink/overflow:hidden on headerRight). Deployed.*

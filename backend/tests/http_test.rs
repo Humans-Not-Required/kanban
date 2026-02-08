@@ -65,7 +65,14 @@ fn test_client() -> Client {
                 kanban::routes::update_webhook,
                 kanban::routes::delete_webhook,
             ],
-        );
+        )
+        .register("/", catchers![
+            kanban::catchers::unauthorized,
+            kanban::catchers::not_found,
+            kanban::catchers::unprocessable,
+            kanban::catchers::too_many_requests,
+            kanban::catchers::internal_error,
+        ]);
 
     Client::tracked(rocket).expect("valid rocket instance")
 }
@@ -218,6 +225,11 @@ fn test_http_write_requires_manage_key() {
         "Expected 401/403, got {}",
         resp.status()
     );
+
+    // Verify JSON error format from catcher
+    let body: serde_json::Value = resp.into_json().expect("should be JSON");
+    assert!(body["error"].is_string(), "Error response should have 'error' field");
+    assert!(body["message"].is_string(), "Error response should have 'message' field");
 }
 
 #[test]
