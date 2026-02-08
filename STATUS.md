@@ -34,7 +34,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Core API** — all routes working with new auth model
 - **Frontend** — React + Vite dashboard with drag-and-drop
 - **Docker** — 3-stage multi-stage build
-- **Tests** — 17 passing (3 unit + 14 integration), zero clippy warnings
+- **Tests** — 42 passing (8 unit + 14 DB integration + 20 HTTP integration), zero clippy warnings
 - **Deployed** — kanban.ckbdev.com via Cloudflare Tunnel
 
 ### Tech Stack
@@ -51,8 +51,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 4. ~~**Task editing in frontend**~~ ✅ Done (2026-02-07 23:04 UTC) — edit button in task detail modal, inline form for title/desc/priority/labels/assignment, delete with confirmation
 5. ~~**IP-based rate limiting for board creation**~~ ✅ Done (2026-02-07 23:35 UTC) — ClientIp guard (XFF/X-Real-Ip/socket), 10 boards/hr/IP default, configurable via BOARD_RATE_LIMIT env var, 429 with RATE_LIMIT_EXCEEDED code
 6. ~~**Desktop move-to-column in detail modal**~~ ✅ Done (2026-02-07 23:36 UTC) — removed isMobile guard, now available on all screen sizes
-7. **Real-time updates via SSE** — connect to `/boards/{id}/events/stream` for live task changes
-8. **Add HTTP integration tests** — current tests are unit/DB-level; add Rocket test client tests for rate limiting, auth guards, etc.
+7. ~~**Real-time updates via SSE**~~ ✅ Done (2026-02-08 00:06 UTC) — frontend subscribes to `/boards/{id}/events/stream`, debounced 300ms refresh, auto-reconnect with exponential backoff, live connection indicator (green pulsing dot)
+8. ~~**Add HTTP integration tests**~~ ✅ Done (2026-02-08 00:06 UTC) — 20 Rocket test client tests covering board CRUD, auth guards (Bearer/X-API-Key/?key=), task CRUD, move/claim/release, comments, archive/unarchive, search, rate limiting
+9. **Column management in frontend** — add/rename/reorder/delete columns from the UI
+10. **Webhook management in frontend** — create/list/delete webhooks from the UI
+11. **Board settings panel** — edit name, description, public/private toggle from the UI
+12. **Improved task filtering** — filter by label, priority, assignee in the column view
 
 ### ⚠️ Gotchas
 
@@ -81,4 +85,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-07 23:36 UTC — Session: IP-based rate limiting on board creation (ClientIp guard, 10/hr/IP, 429 response). Move-to-column dropdown now available on desktop (was mobile-only). 22 tests passing (4 lib + 4 bin + 14 integration), zero clippy warnings. Both changes deployed to staging.*
+*Last updated: 2026-02-08 00:07 UTC — Session: Real-time SSE updates in frontend (live indicator, debounced refresh, auto-reconnect). 20 new HTTP integration tests (Rocket test client). 42 total tests passing (8 unit + 14 DB integration + 20 HTTP integration), zero clippy warnings. Deployed to staging.*
