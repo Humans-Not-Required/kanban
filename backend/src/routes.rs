@@ -29,6 +29,17 @@ pub fn openapi() -> (ContentType, &'static str) {
     (ContentType::JSON, include_str!("../openapi.json"))
 }
 
+#[get("/llms.txt")]
+pub fn llms_txt() -> (ContentType, &'static str) {
+    (ContentType::Text, include_str!("../llms.txt"))
+}
+
+/// Root-level /llms.txt for standard discovery (outside /api/v1)
+#[get("/llms.txt", rank = 2)]
+pub fn root_llms_txt() -> (ContentType, &'static str) {
+    (ContentType::Text, include_str!("../llms.txt"))
+}
+
 // ============ SSE Event Stream ============
 
 /// Public: anyone with the board UUID can subscribe to events.

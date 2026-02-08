@@ -1,0 +1,89 @@
+# Kanban Board API
+> Agent-first kanban board service. Zero signup, token-based access.
+
+## Quick Start
+1. Create a board: POST /api/v1/boards {"name": "My Board"}
+   - Returns manage_key (save it — shown once), board id, view/manage URLs
+2. Add tasks: POST /api/v1/boards/{id}/tasks {"title": "...", "column_id": "..."} with Authorization: Bearer {manage_key}
+3. View board: GET /api/v1/boards/{id} (no auth needed)
+
+## Auth Model
+- Create board: no auth required, returns a manage_key
+- Read operations (GET): public, just need the board UUID
+- Write operations (POST/PUT/PATCH/DELETE): require manage_key via Bearer token, X-API-Key header, or ?key= query param
+- No user accounts. Boards are the only resource. Tokens are per-board.
+
+## Core Endpoints
+
+### Boards
+- POST /api/v1/boards — create board (returns manage_key)
+- GET /api/v1/boards — list public boards
+- GET /api/v1/boards/{id} — get board with columns
+- PATCH /api/v1/boards/{id} — update name/description/is_public (auth required)
+- POST /api/v1/boards/{id}/archive — archive board (auth required)
+- POST /api/v1/boards/{id}/unarchive — unarchive board (auth required)
+
+### Columns
+- POST /api/v1/boards/{id}/columns — create column (auth required)
+- PATCH /api/v1/boards/{id}/columns/{col_id} — update column (auth required)
+- DELETE /api/v1/boards/{id}/columns/{col_id} — delete empty column (auth required)
+- POST /api/v1/boards/{id}/columns/reorder — reorder columns (auth required)
+
+### Tasks
+- POST /api/v1/boards/{id}/tasks — create task (auth required)
+- GET /api/v1/boards/{id}/tasks — list tasks (public, supports ?column_id=&priority=&label=&assigned_to=&claimed_by=&search=)
+- GET /api/v1/boards/{id}/tasks/{task_id} — get task (public)
+- PUT /api/v1/boards/{id}/tasks/{task_id} — update task (auth required)
+- DELETE /api/v1/boards/{id}/tasks/{task_id} — delete task (auth required)
+- POST /api/v1/boards/{id}/tasks/batch — batch create tasks (auth required)
+
+### Task Actions
+- POST /api/v1/boards/{id}/tasks/{task_id}/claim?agent={name} — claim task (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/release — release claim (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/move/{column_id} — move to column (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/reorder — reorder within column (auth required)
+
+### Comments & Events
+- POST /api/v1/boards/{id}/tasks/{task_id}/comment — add comment (auth required, body: {"message": "...", "actor_name": "..."})
+- GET /api/v1/boards/{id}/tasks/{task_id}/events — get task activity log (public)
+
+### Real-Time
+- GET /api/v1/boards/{id}/events/stream — SSE event stream (public)
+
+### Dependencies
+- POST /api/v1/boards/{id}/dependencies — create dependency (auth required)
+- GET /api/v1/boards/{id}/dependencies — list dependencies (public)
+- DELETE /api/v1/boards/{id}/dependencies/{dep_id} — delete dependency (auth required)
+
+### Webhooks
+- POST /api/v1/boards/{id}/webhooks — create webhook (auth required)
+- GET /api/v1/boards/{id}/webhooks — list webhooks (auth required)
+- PUT /api/v1/boards/{id}/webhooks/{wh_id} — update webhook (auth required)
+- DELETE /api/v1/boards/{id}/webhooks/{wh_id} — delete webhook (auth required)
+
+## Task Object
+```json
+{
+  "id": "uuid",
+  "board_id": "uuid",
+  "column_id": "uuid",
+  "title": "string",
+  "description": "string (optional, markdown)",
+  "priority": 0-3 (0=critical, 1=high, 2=medium, 3=low),
+  "labels": ["string"],
+  "assigned_to": "string (optional)",
+  "claimed_by": "string (optional)",
+  "position": 0,
+  "created_at": "ISO-8601",
+  "updated_at": "ISO-8601"
+}
+```
+
+## Rate Limits
+- Board creation: 10 per hour per IP (configurable)
+
+## OpenAPI
+Full spec available at: GET /api/v1/openapi.json
+
+## Source
+https://github.com/Humans-Not-Required/kanban

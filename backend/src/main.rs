@@ -59,6 +59,7 @@ fn rocket() -> _ {
             routes![
                 routes::health,
                 routes::openapi,
+                routes::llms_txt,
                 // Boards (create = no auth, list = public only)
                 routes::create_board,
                 routes::list_boards,
@@ -101,6 +102,9 @@ fn rocket() -> _ {
                 routes::delete_webhook,
             ],
         );
+
+    // Mount llms.txt at root level for standard discovery
+    build = build.mount("/", routes![routes::root_llms_txt]);
 
     // Serve frontend static files if the directory exists
     if static_dir.is_dir() {
