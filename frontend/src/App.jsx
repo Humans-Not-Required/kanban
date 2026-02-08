@@ -909,12 +909,32 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
   );
 }
 
+function LiveIndicator({ status }) {
+  const color = status === 'connected' ? '#22c55e' : status === 'disconnected' ? '#ef4444' : '#eab308';
+  const label = status === 'connected' ? 'Live' : status === 'disconnected' ? 'Reconnecting...' : 'Connecting...';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '5px',
+      fontSize: '0.7rem', color, fontWeight: 500,
+      padding: '2px 8px', borderRadius: '10px',
+      background: `${color}11`, border: `1px solid ${color}33`,
+    }}>
+      <span style={{
+        width: '6px', height: '6px', borderRadius: '50%', background: color,
+        ...(status === 'connected' ? { animation: 'pulse 2s ease-in-out infinite' } : {}),
+      }} />
+      {label}
+    </span>
+  );
+}
+
 function BoardView({ board, canEdit, onRefresh, isMobile }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [sseStatus, setSseStatus] = useState('connecting');
 
   const loadTasks = useCallback(async () => {
     try {
@@ -926,6 +946,30 @@ function BoardView({ board, canEdit, onRefresh, isMobile }) {
   }, [board.id]);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  // SSE: subscribe to real-time board events (debounced refresh)
+  useEffect(() => {
+    setSseStatus('connecting');
+    let debounceTimer = null;
+    const debouncedRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadTasks(), 300);
+    };
+    const sub = api.subscribeToBoardEvents(
+      board.id,
+      (evt) => {
+        // On any task event, debounce-refresh the task list
+        if (evt.event !== 'warning') {
+          debouncedRefresh();
+        }
+      },
+      (status) => setSseStatus(status),
+    );
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      sub.close();
+    };
+  }, [board.id, loadTasks]);
 
   const doSearch = async () => {
     if (!search.trim()) { setSearchResults(null); return; }
@@ -952,6 +996,7 @@ function BoardView({ board, canEdit, onRefresh, isMobile }) {
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+          <LiveIndicator status={sseStatus} />
           <span style={styles.modeBadge(canEdit)}>
             {canEdit ? '✏️ Edit' : '👁️ View'}
           </span>

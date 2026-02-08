@@ -169,6 +169,75 @@ const commentOnTask = (boardId, taskId, message, actorName) => {
   });
 };
 
+// ---- SSE (Server-Sent Events) ----
+
+/**
+ * Subscribe to real-time board events via SSE.
+ * Returns an object with { close() } to unsubscribe.
+ * 
+ * @param {string} boardId - Board UUID
+ * @param {function} onEvent - Callback: ({ event, data }) => void
+ * @param {function} [onStatus] - Optional status callback: ('connected' | 'disconnected' | 'error') => void
+ * @returns {{ close: () => void }}
+ */
+function subscribeToBoardEvents(boardId, onEvent, onStatus) {
+  const url = `${BASE}/boards/${boardId}/events/stream`;
+  let es = null;
+  let closed = false;
+  let reconnectTimer = null;
+  let reconnectDelay = 1000;
+
+  function connect() {
+    if (closed) return;
+    es = new EventSource(url);
+
+    es.onopen = () => {
+      reconnectDelay = 1000; // reset backoff on successful connection
+      if (onStatus) onStatus('connected');
+    };
+
+    es.onerror = () => {
+      if (closed) return;
+      if (onStatus) onStatus('disconnected');
+      es.close();
+      // Reconnect with exponential backoff (max 30s)
+      reconnectTimer = setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        connect();
+      }, reconnectDelay);
+    };
+
+    // Listen for all known event types
+    const eventTypes = [
+      'task.created', 'task.updated', 'task.deleted',
+      'task.moved', 'task.claimed', 'task.released',
+      'task.reordered', 'task.comment', 'warning',
+    ];
+
+    eventTypes.forEach(type => {
+      es.addEventListener(type, (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          onEvent({ event: type, data });
+        } catch {
+          onEvent({ event: type, data: e.data });
+        }
+      });
+    });
+  }
+
+  connect();
+
+  return {
+    close() {
+      closed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (es) es.close();
+      if (onStatus) onStatus('disconnected');
+    },
+  };
+}
+
 // ---- Health ----
 
 const health = () => request('/health');
@@ -182,5 +251,6 @@ export {
   listTasks, getTask, createTask, updateTask, deleteTask, moveTask, claimTask, releaseTask,
   searchTasks,
   getTaskEvents, commentOnTask,
+  subscribeToBoardEvents,
   health,
 };
