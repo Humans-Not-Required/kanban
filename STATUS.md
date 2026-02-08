@@ -79,10 +79,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 6. ~~**Replace header emoji with real logo**~~ ✅ Done (2026-02-08 07:10 UTC) — SVG kanban board logo in header and welcome screen, replaced all 📋 emoji references.
 7. **Live indicator decision** — Jordan questions its purpose. SSE connection status; may remove or simplify.
 8. ~~**Hamburger menu aesthetics**~~ ✅ Done (2026-02-08 07:10 UTC) — improved border contrast (#475569), lighter text (#cbd5e1), larger padding, rounded corners (6px), smooth transition.
-9. **Esc key closes modals (when appropriate)** — Jordan request (2026-02-08).
+9. ~~**Esc key closes modals**~~ ✅ Done (2026-02-08 08:05 UTC) — useEscapeKey hook on all 5 modals.
 10. **Autocomplete/dropdowns for Labels + Assigned To** — suggest existing values but allow free text (Jordan request 2026-02-08).
-11. **Shift+Enter submits new task** — Jordan request (2026-02-08).
-12. **Fix tiny vertical scroll on desktop** — layout height off by a few px (Jordan report 2026-02-08).
+11. ~~**Shift+Enter submits new task**~~ ✅ Done (2026-02-08 08:05 UTC) — works from any field in create task modal.
+12. ~~**Fix tiny vertical scroll on desktop**~~ ✅ Done (2026-02-08 08:05 UTC) — app uses height:100vh+overflow:hidden.
 13. **Mobile button bar aesthetics** — simplify/clean up (Jordan feedback 2026-02-08).
 14. **Sidebar footer aesthetics** — messy bottom area (Jordan feedback 2026-02-08).
 15. **Public boards UX** — awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 07:10 UTC — logo + hamburger styling done. Next: live indicator decision, public boards UX (awaiting Jordan input).*
+*Last updated: 2026-02-08 08:06 UTC — Esc closes modals, Shift+Enter new task, vertical scroll fix. Deployed. Next: autocomplete labels/assignee, mobile button bar, sidebar footer.*
