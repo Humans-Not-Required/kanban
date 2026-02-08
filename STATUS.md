@@ -83,8 +83,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 10. ~~**Autocomplete/dropdowns for Labels + Assigned To**~~ ✅ Done (2026-02-08 08:32 UTC) — AutocompleteInput component with per-token suggestions for comma-separated labels, arrow keys + Tab/Enter selection, applied to both create and edit modals.
 11. ~~**Shift+Enter submits new task**~~ ✅ Done (2026-02-08 08:05 UTC) — works from any field in create task modal.
 12. ~~**Fix tiny vertical scroll on desktop**~~ ✅ Done (2026-02-08 08:05 UTC) — app uses height:100vh+overflow:hidden.
-13. **Mobile button bar aesthetics** — simplify/clean up (Jordan feedback 2026-02-08).
-14. **Sidebar footer aesthetics** — messy bottom area (Jordan feedback 2026-02-08).
+13. ~~**Mobile button bar aesthetics**~~ ✅ Done (2026-02-08 09:10 UTC) — + Task button first on mobile, icon buttons grouped compactly.
+14. ~~**Sidebar footer aesthetics**~~ ✅ Done (2026-02-08 09:10 UTC) — cleaner spacing, removed "Open by ID" label, accent-colored checkbox.
 15. **Public boards UX** — awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
 
 **New Kanban Board:**
@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 08:32 UTC — Autocomplete for labels/assignee fields. Deployed. Next: mobile button bar aesthetics, sidebar footer aesthetics.*
+*Last updated: 2026-02-08 09:10 UTC — Sidebar footer + mobile button bar aesthetics. Deployed. Next: public boards UX (awaiting Jordan input).*
