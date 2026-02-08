@@ -104,6 +104,9 @@ const createBoard = async (body) => {
   return result;
 };
 
+const updateBoard = (id, body) =>
+  request(`/boards/${id}`, { method: 'PATCH', body, boardId: id });
+
 const archiveBoard = (id) =>
   request(`/boards/${id}/archive`, { method: 'POST', boardId: id });
 
@@ -269,7 +272,7 @@ export {
   getBoardKey, setBoardKey, removeBoardKey, hasBoardKey,
   getDisplayName, setDisplayName,
   extractKeyFromUrl, cleanKeyFromUrl,
-  listBoards, getBoard, createBoard, archiveBoard, unarchiveBoard,
+  listBoards, getBoard, createBoard, updateBoard, archiveBoard, unarchiveBoard,
   addColumn, updateColumn, deleteColumn, reorderColumns,
   listTasks, getTask, createTask, updateTask, deleteTask, moveTask, claimTask, releaseTask,
   searchTasks,

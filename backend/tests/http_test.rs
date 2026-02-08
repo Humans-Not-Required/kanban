@@ -36,6 +36,7 @@ fn test_client() -> Client {
                 kanban::routes::create_board,
                 kanban::routes::list_boards,
                 kanban::routes::get_board,
+                kanban::routes::update_board,
                 kanban::routes::archive_board,
                 kanban::routes::unarchive_board,
                 kanban::routes::create_column,
@@ -835,4 +836,54 @@ fn test_http_reorder_columns_wrong_count() {
     assert_eq!(resp.status(), Status::BadRequest);
     let body: serde_json::Value = resp.into_json().unwrap();
     assert_eq!(body["code"], "INVALID_COLUMN_LIST");
+}
+
+// ============ Update Board Settings ============
+
+#[test]
+fn test_http_update_board() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Settings Test");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Update name and description
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"name": "Updated Name", "description": "New desc", "is_public": true}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["name"], "Updated Name");
+    assert_eq!(body["description"], "New desc");
+    assert_eq!(body["is_public"], true);
+}
+
+#[test]
+fn test_http_update_board_empty_name_rejected() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Empty Name Test");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"name": "  "}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+}
+
+#[test]
+fn test_http_update_board_no_auth() {
+    let client = test_client();
+    let (board_id, _) = create_test_board(&client, "No Auth Update");
+
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Hacked"}"#)
+        .dispatch();
+    assert!(resp.status() == Status::Unauthorized || resp.status() == Status::Forbidden);
 }

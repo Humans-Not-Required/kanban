@@ -44,6 +44,14 @@ pub struct CreateBoardRequest {
     pub is_public: bool,
 }
 
+/// Update board settings (all fields optional).
+#[derive(Debug, Deserialize)]
+pub struct UpdateBoardRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub is_public: Option<bool>,
+}
+
 /// Returned when creating a board. Includes the manage_key (shown only once).
 #[derive(Debug, Serialize)]
 pub struct CreateBoardResponse {

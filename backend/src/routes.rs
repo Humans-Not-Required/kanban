@@ -205,6 +205,60 @@ pub fn list_boards(
     Ok(Json(boards))
 }
 
+// ============ Update Board Settings ============
+
+/// Update board name, description, or public flag — requires manage key.
+#[patch("/boards/<board_id>", format = "json", data = "<req>")]
+pub fn update_board(
+    board_id: &str,
+    req: Json<UpdateBoardRequest>,
+    token: BoardToken,
+    db: &State<DbPool>,
+) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    let token_hash = hash_key(&token.0);
+    access::require_board_exists(&conn, board_id)?;
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+
+    // Build dynamic update
+    let mut updates = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(ref name) = req.name {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            return Err((Status::BadRequest, Json(ApiError {
+                error: "Board name cannot be empty".to_string(),
+                code: "INVALID_INPUT".to_string(),
+                status: 400,
+            })));
+        }
+        updates.push("name = ?");
+        params.push(Box::new(trimmed.to_string()));
+    }
+    if let Some(ref desc) = req.description {
+        updates.push("description = ?");
+        params.push(Box::new(desc.trim().to_string()));
+    }
+    if let Some(is_public) = req.is_public {
+        updates.push("is_public = ?");
+        params.push(Box::new(is_public as i32));
+    }
+
+    if updates.is_empty() {
+        return load_board_response(&conn, board_id);
+    }
+
+    updates.push("updated_at = datetime('now')");
+    let sql = format!("UPDATE boards SET {} WHERE id = ?", updates.join(", "));
+    params.push(Box::new(board_id.to_string()));
+
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    conn.execute(&sql, param_refs.as_slice()).map_err(|e| db_error(&e.to_string()))?;
+
+    load_board_response(&conn, board_id)
+}
+
 // ============ Board Archive / Unarchive ============
 
 /// Archive a board — requires manage key.

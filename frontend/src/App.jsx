@@ -1034,6 +1034,91 @@ const WEBHOOK_EVENTS = [
   'task.moved', 'task.claimed', 'task.released', 'task.comment',
 ];
 
+function BoardSettingsModal({ board, canEdit, onClose, onRefresh, isMobile }) {
+  const [name, setName] = useState(board.name);
+  const [description, setDescription] = useState(board.description || '');
+  const [isPublic, setIsPublic] = useState(board.is_public || false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    setError('');
+    if (!name.trim()) { setError('Board name is required'); return; }
+    setSaving(true);
+    try {
+      await api.updateBoard(board.id, {
+        name: name.trim(),
+        description: description.trim(),
+        is_public: isPublic,
+      });
+      onRefresh();
+      onClose();
+    } catch (err) {
+      setError(err.error || 'Failed to update board');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={styles.modal(isMobile)} onClick={onClose}>
+      <div style={styles.modalContent(isMobile)} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>⚙️ Board Settings</h2>
+          <button style={styles.btnSmall} onClick={onClose}>✕</button>
+        </div>
+
+        {error && (
+          <div style={{ background: '#ef444422', border: '1px solid #ef444444', borderRadius: '4px', padding: '8px 12px', marginBottom: '12px', color: '#fca5a5', fontSize: '0.8rem' }}>
+            {error}
+          </div>
+        )}
+
+        <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Name</label>
+        <input
+          style={styles.input}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          disabled={!canEdit}
+        />
+
+        <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Description</label>
+        <textarea
+          style={{ ...styles.input, minHeight: '60px', resize: 'vertical' }}
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          disabled={!canEdit}
+        />
+
+        <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', cursor: canEdit ? 'pointer' : 'default' }}>
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={e => setIsPublic(e.target.checked)}
+            disabled={!canEdit}
+          />
+          Public (listed in board directory)
+        </label>
+
+        <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '16px' }}>
+          <div>Board ID: <code style={{ color: '#94a3b8' }}>{board.id}</code></div>
+          <div>Created: {new Date(board.created_at).toLocaleString()}</div>
+        </div>
+
+        {canEdit && (
+          <button
+            style={styles.btn('primary', isMobile)}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function WebhookManagerModal({ boardId, onClose, isMobile }) {
   const [webhooks, setWebhooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1251,6 +1336,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [showWebhooks, setShowWebhooks] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -1316,6 +1402,11 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           <span style={styles.modeBadge(canEdit)}>
             {canEdit ? '✏️ Edit' : '👁️ View'}
           </span>
+          <button
+            style={styles.btnSmall}
+            onClick={() => setShowSettings(true)}
+            title="Board Settings"
+          >⚙️</button>
           {canEdit && !archived && (
             <button
               style={styles.btnSmall}
@@ -1425,6 +1516,16 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           onRefresh={loadTasks}
           isMobile={isMobile}
           allColumns={columns}
+        />
+      )}
+
+      {showSettings && (
+        <BoardSettingsModal
+          board={board}
+          canEdit={canEdit}
+          onClose={() => setShowSettings(false)}
+          onRefresh={onBoardRefresh}
+          isMobile={isMobile}
         />
       )}
 
