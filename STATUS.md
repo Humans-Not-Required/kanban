@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 10:10 UTC — fixed header overflow on mobile (flexShrink/overflow:hidden on headerRight). Deployed.*
+*Last updated: 2026-02-08 10:50 UTC — refactored JSON catchers to lib module, registered in tests. Code pushed but deploy OOM'd (libsqlite3-sys compile). Service still running previous version. Next deploy: stop other containers first to free RAM.*
