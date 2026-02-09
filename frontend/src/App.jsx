@@ -11,12 +11,25 @@ function normalizeLabels(labelsStr) {
   return labelsStr.split(',').map(l => normalizeLabel(l)).filter(Boolean);
 }
 
-// ---- Escape key hook ----
+// ---- Escape key hook (layered: only topmost modal closes) ----
+let escapeLayerId = 0;
+const escapeStack = [];
 function useEscapeKey(onClose) {
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    const id = ++escapeLayerId;
+    escapeStack.push(id);
+    const handler = (e) => {
+      if (e.key === 'Escape' && escapeStack[escapeStack.length - 1] === id) {
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
     document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    return () => {
+      document.removeEventListener('keydown', handler);
+      const idx = escapeStack.indexOf(id);
+      if (idx !== -1) escapeStack.splice(idx, 1);
+    };
   }, [onClose]);
 }
 
@@ -130,7 +143,7 @@ const styles = {
   }),
   logo: { fontSize: '1.2rem', fontWeight: 700, color: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 },
   logoImg: { width: '24px', height: '24px' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', overflow: 'hidden', flexShrink: 1, minWidth: 0 },
+  headerRight: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', flexShrink: 1, minWidth: 0 },
   menuBtn: {
     background: '#1e293b', border: '1px solid #334155', color: '#94a3b8',
     padding: '7px', borderRadius: '6px', cursor: 'pointer',
@@ -848,6 +861,22 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
             </div>
           )}
           <AutocompleteInput style={styles.input} placeholder="Assigned to (optional)" value={assignedTo} onChange={setAssignedTo} suggestions={allAssignees || []} />
+          {(allAssignees || []).length > 0 && (
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '-6px', marginBottom: '6px' }}>
+              {(allAssignees || []).slice(0, 8).map(a => {
+                const isActive = assignedTo.trim() === a;
+                return (
+                  <button key={a} type="button" onClick={() => {
+                    setAssignedTo(isActive ? '' : a);
+                  }} style={{
+                    padding: '2px 8px', fontSize: '0.7rem', borderRadius: '10px', cursor: 'pointer',
+                    background: isActive ? '#22c55e33' : '#1e293b', color: isActive ? '#86efac' : '#64748b',
+                    border: `1px solid ${isActive ? '#22c55e44' : '#334155'}`, whiteSpace: 'nowrap',
+                  }}>{a}</button>
+                );
+              })}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
             <button type="button" style={styles.btn('secondary', isMobile)} onClick={onClose}>Cancel</button>
             <button type="submit" style={styles.btn('primary', isMobile)} disabled={loading || !title.trim()}>
@@ -1078,6 +1107,22 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               onChange={setEditAssigned}
               suggestions={allAssignees || []}
             />
+            {(allAssignees || []).length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '-6px', marginBottom: '6px' }}>
+                {(allAssignees || []).slice(0, 8).map(a => {
+                  const isActive = editAssigned.trim() === a;
+                  return (
+                    <button key={a} type="button" onClick={() => {
+                      setEditAssigned(isActive ? '' : a);
+                    }} style={{
+                      padding: '2px 8px', fontSize: '0.7rem', borderRadius: '10px', cursor: 'pointer',
+                      background: isActive ? '#22c55e33' : '#1e293b', color: isActive ? '#86efac' : '#64748b',
+                      border: `1px solid ${isActive ? '#22c55e44' : '#334155'}`, whiteSpace: 'nowrap',
+                    }}>{a}</button>
+                  );
+                })}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
               <button
                 style={styles.btn('danger', isMobile)}
