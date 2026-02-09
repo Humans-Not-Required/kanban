@@ -891,7 +891,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
   );
 }
 
-function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns, allLabels, allAssignees }) {
+function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns, allLabels, allAssignees, quickDoneColumnId, quickDoneAutoArchive }) {
   useEscapeKey(onClose);
   const [events, setEvents] = useState([]);
   const [comment, setComment] = useState('');
@@ -900,6 +900,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   const commentsEndRef = useRef(null);
   const [posting, setPosting] = useState(false);
   const [showMove, setShowMove] = useState(false);
+  const [markingDone, setMarkingDone] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDesc, setEditDesc] = useState(task.description || '');
@@ -925,6 +926,35 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
       alert(err.error || 'Failed to archive/unarchive task');
     } finally {
       setArchiving(false);
+    }
+  };
+
+  // Determine the done column: configured or last column
+  const doneColumn = (() => {
+    if (!allColumns || allColumns.length === 0) return null;
+    if (quickDoneColumnId) {
+      return allColumns.find(c => c.id === quickDoneColumnId) || null;
+    }
+    // Default: last column by position
+    return allColumns.reduce((a, b) => (a.position > b.position ? a : b), allColumns[0]);
+  })();
+
+  const isAlreadyDone = doneColumn && task.column_id === doneColumn.id;
+
+  const handleMarkDone = async () => {
+    if (!doneColumn || isAlreadyDone) return;
+    setMarkingDone(true);
+    try {
+      await api.moveTask(boardId, task.id, doneColumn.id);
+      if (quickDoneAutoArchive) {
+        await api.archiveTask(boardId, task.id);
+      }
+      onRefresh();
+      onClose();
+    } catch (err) {
+      alert(err.error || 'Failed to mark task as done');
+    } finally {
+      setMarkingDone(false);
     }
   };
 
@@ -1055,6 +1085,14 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
             )}
           </div>
           <div style={{ display: 'flex', gap: '4px', marginLeft: '8px', flexShrink: 0 }}>
+            {canEdit && !editing && doneColumn && !isAlreadyDone && !isArchived && (
+              <button
+                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
+                onClick={handleMarkDone}
+                disabled={markingDone}
+                title={`Mark done${quickDoneAutoArchive ? ' & archive' : ''} → ${doneColumn.name}`}
+              >{markingDone ? '⏳' : '✓'}</button>
+            )}
             {canEdit && !editing && (
               <button
                 style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
@@ -1398,6 +1436,8 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || '');
   const [isPublic, setIsPublic] = useState(board.is_public || false);
+  const [quickDoneColumnId, setQuickDoneColumnId] = useState(board.quick_done_column_id || '');
+  const [quickDoneAutoArchive, setQuickDoneAutoArchive] = useState(board.quick_done_auto_archive || false);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -1413,6 +1453,8 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
         name: name.trim(),
         description: description.trim(),
         is_public: isPublic,
+        quick_done_column_id: quickDoneColumnId || '',
+        quick_done_auto_archive: quickDoneAutoArchive,
       });
       onRefresh();
       onClose();
@@ -1486,6 +1528,31 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
           />
           Public (listed in board directory)
         </label>
+
+        {canEdit && (
+          <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', marginBottom: '16px' }}>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>✓ Quick Done Button</label>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Target column</label>
+            <select
+              style={{ ...styles.input, cursor: 'pointer' }}
+              value={quickDoneColumnId}
+              onChange={e => setQuickDoneColumnId(e.target.value)}
+            >
+              <option value="">Last column (default)</option>
+              {(board.columns || []).map(col => (
+                <option key={col.id} value={col.id}>{col.name}</option>
+              ))}
+            </select>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={quickDoneAutoArchive}
+                onChange={e => setQuickDoneAutoArchive(e.target.checked)}
+              />
+              Auto-archive task when marked done
+            </label>
+          </div>
+        )}
 
         <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '16px' }}>
           <div>Board ID: <code style={{ color: '#94a3b8' }}>{board.id}</code></div>
@@ -2404,6 +2471,8 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           allColumns={columns}
           allLabels={allLabels}
           allAssignees={allAssignees}
+          quickDoneColumnId={board.quick_done_column_id}
+          quickDoneAutoArchive={board.quick_done_auto_archive}
         />
       )}
 

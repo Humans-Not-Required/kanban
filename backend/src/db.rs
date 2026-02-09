@@ -146,6 +146,15 @@ pub fn init_db() -> Result<DbPool, String> {
     );
     // (silently ignored if column already exists)
 
+    // Migration: add quick-done settings to boards
+    let _ = conn.execute_batch(
+        "ALTER TABLE boards ADD COLUMN quick_done_column_id TEXT;"
+    );
+    let _ = conn.execute_batch(
+        "ALTER TABLE boards ADD COLUMN quick_done_auto_archive INTEGER NOT NULL DEFAULT 0;"
+    );
+    // (silently ignored if columns already exist)
+
     Ok(Mutex::new(conn))
 }
 

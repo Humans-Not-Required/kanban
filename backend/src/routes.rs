@@ -274,6 +274,34 @@ pub fn update_board(
         updates.push("is_public = ?");
         params.push(Box::new(is_public as i32));
     }
+    if let Some(ref col_id) = req.quick_done_column_id {
+        if col_id.is_empty() {
+            // Empty string clears the setting (use default last column)
+            updates.push("quick_done_column_id = NULL");
+        } else {
+            // Validate that the column exists on this board
+            let col_exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) > 0 FROM columns WHERE id = ?1 AND board_id = ?2",
+                    rusqlite::params![col_id, board_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+            if !col_exists {
+                return Err((Status::BadRequest, Json(ApiError {
+                    error: "quick_done_column_id must reference a column on this board".to_string(),
+                    code: "INVALID_COLUMN".to_string(),
+                    status: 400,
+                })));
+            }
+            updates.push("quick_done_column_id = ?");
+            params.push(Box::new(col_id.clone()));
+        }
+    }
+    if let Some(auto_archive) = req.quick_done_auto_archive {
+        updates.push("quick_done_auto_archive = ?");
+        params.push(Box::new(auto_archive as i32));
+    }
 
     if updates.is_empty() {
         return load_board_response(&conn, board_id);
@@ -2665,7 +2693,8 @@ fn load_board_response(
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
     let board = conn
         .query_row(
-            "SELECT b.id, b.name, b.description, b.archived, b.is_public, b.created_at, b.updated_at
+            "SELECT b.id, b.name, b.description, b.archived, b.is_public, b.created_at, b.updated_at,
+                    b.quick_done_column_id, b.quick_done_auto_archive
              FROM boards b
              WHERE b.id = ?1",
             rusqlite::params![board_id],
@@ -2678,6 +2707,8 @@ fn load_board_response(
                     row.get::<_, i32>(4)? == 1,
                     row.get::<_, String>(5)?,
                     row.get::<_, String>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, i32>(8).unwrap_or(0) == 1,
                 ))
             },
         )
@@ -2716,6 +2747,8 @@ fn load_board_response(
         task_count,
         archived: board.3,
         is_public: board.4,
+        quick_done_column_id: board.7,
+        quick_done_auto_archive: board.8,
         created_at: board.5,
         updated_at: board.6,
     }))

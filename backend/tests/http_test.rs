@@ -876,6 +876,56 @@ fn test_http_update_board() {
 }
 
 #[test]
+fn test_http_quick_done_settings() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Quick Done Test");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Board should start with no quick_done settings
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["quick_done_column_id"], serde_json::Value::Null);
+    assert_eq!(body["quick_done_auto_archive"], false);
+
+    // Get the first column's ID
+    let first_col_id = body["columns"][0]["id"].as_str().unwrap().to_string();
+
+    // Set quick_done_column_id and auto_archive
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"quick_done_column_id": "{}", "quick_done_auto_archive": true}}"#, first_col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["quick_done_column_id"], first_col_id);
+    assert_eq!(body["quick_done_auto_archive"], true);
+
+    // Clear quick_done_column_id by sending empty string
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"quick_done_column_id": ""}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["quick_done_column_id"], serde_json::Value::Null);
+    // auto_archive should still be true
+    assert_eq!(body["quick_done_auto_archive"], true);
+
+    // Invalid column ID should be rejected
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"quick_done_column_id": "nonexistent-col"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+}
+
+#[test]
 fn test_http_update_board_empty_name_rejected() {
     let client = test_client();
     let (board_id, manage_key) = create_test_board(&client, "Empty Name Test");

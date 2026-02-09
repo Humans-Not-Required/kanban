@@ -50,6 +50,8 @@ pub struct UpdateBoardRequest {
     pub name: Option<String>,
     pub description: Option<String>,
     pub is_public: Option<bool>,
+    pub quick_done_column_id: Option<String>,
+    pub quick_done_auto_archive: Option<bool>,
 }
 
 /// Returned when creating a board. Includes the manage_key (shown only once).
@@ -75,6 +77,8 @@ pub struct BoardResponse {
     pub task_count: usize,
     pub archived: bool,
     pub is_public: bool,
+    pub quick_done_column_id: Option<String>,
+    pub quick_done_auto_archive: bool,
     pub created_at: String,
     pub updated_at: String,
 }
