@@ -1222,6 +1222,14 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 placeholder="Add a comment..."
                 value={comment}
                 onChange={e => setComment(e.target.value)}
+                onKeyDown={e => {
+                  if (e.shiftKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (comment.trim() && !posting) {
+                      submitComment(e);
+                    }
+                  }
+                }}
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
@@ -1979,18 +1987,67 @@ function SharePopover({ boardId, canEdit, onClose }) {
 // ---- Access Mode Indicator + Share ----
 function AccessIndicator({ boardId, canEdit, isMobile }) {
   const [showShare, setShowShare] = useState(false);
+  const [showModeInfo, setShowModeInfo] = useState(false);
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-      <span style={{
-        fontSize: '0.7rem', fontWeight: 600,
-        padding: '3px 8px', borderRadius: '12px 0 0 12px',
-        background: canEdit ? '#22c55e15' : '#64748b15',
-        color: canEdit ? '#22c55e' : '#94a3b8',
-        border: `1px solid ${canEdit ? '#22c55e33' : '#64748b33'}`,
-        borderRight: 'none', whiteSpace: 'nowrap',
-      }}>
+      <button
+        onClick={() => setShowModeInfo(v => !v)}
+        style={{
+          fontSize: '0.7rem', fontWeight: 600,
+          padding: '3px 8px', borderRadius: '12px 0 0 12px',
+          background: canEdit ? '#22c55e15' : '#64748b15',
+          color: canEdit ? '#22c55e' : '#94a3b8',
+          border: `1px solid ${canEdit ? '#22c55e33' : '#64748b33'}`,
+          borderRight: 'none', whiteSpace: 'nowrap',
+          cursor: 'pointer',
+        }}
+        title="What does this mean?"
+      >
         {canEdit ? (isMobile ? '✏️' : '✏️ Full Access') : (isMobile ? '👁️' : '👁️ View Only')}
-      </span>
+      </button>
+      {showModeInfo && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', top: '100%', left: 0, marginTop: '6px',
+            background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
+            padding: '12px', width: isMobile ? '260px' : '300px', zIndex: 2000,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.5',
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: '8px', color: '#f1f5f9' }}>
+            {canEdit ? '✏️ Full Access Mode' : '👁️ View Only Mode'}
+          </div>
+          {canEdit ? (
+            <div>
+              <p style={{ margin: '0 0 6px' }}>You have the <strong style={{ color: '#22c55e' }}>manage key</strong> for this board. You can:</p>
+              <ul style={{ margin: '0 0 6px', paddingLeft: '16px' }}>
+                <li>Create, edit, and delete tasks</li>
+                <li>Add and manage columns</li>
+                <li>Post comments</li>
+                <li>Archive tasks and the board</li>
+                <li>Change board settings</li>
+              </ul>
+              <p style={{ margin: 0, fontSize: '0.72rem', color: '#94a3b8' }}>Share the <strong>View URL</strong> for read-only access, or the <strong>Manage URL</strong> to grant full access.</p>
+            </div>
+          ) : (
+            <div>
+              <p style={{ margin: '0 0 6px' }}>You're viewing this board in <strong style={{ color: '#94a3b8' }}>read-only</strong> mode. You can:</p>
+              <ul style={{ margin: '0 0 6px', paddingLeft: '16px' }}>
+                <li>View all tasks and columns</li>
+                <li>Search and filter</li>
+                <li>View comments and activity</li>
+              </ul>
+              <p style={{ margin: 0, fontSize: '0.72rem', color: '#94a3b8' }}>Need edit access? Ask the board owner for the <strong>Manage URL</strong> (contains the <code style={{ background: '#0f172a', padding: '1px 4px', borderRadius: '3px' }}>?key=</code> parameter).</p>
+            </div>
+          )}
+          <button
+            onClick={() => setShowModeInfo(false)}
+            style={{ marginTop: '8px', fontSize: '0.7rem', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >Dismiss</button>
+        </div>
+      )}
       <button
         onClick={() => setShowShare(s => !s)}
         style={{
@@ -2027,6 +2084,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const [filterAssignee, setFilterAssignee] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
+  const [showSearchBar, setShowSearchBar] = useState(!isMobile);
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const [tasksLoaded, setTasksLoaded] = useState(false);
   const [newActivityCount, setNewActivityCount] = useState(0);
@@ -2150,6 +2208,17 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               )}
             </button>
             <button style={styles.btn('secondary', isMobile)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
+            {isMobile && (
+              <button
+                style={{
+                  ...styles.btn('secondary', isMobile),
+                  background: showSearchBar ? '#3b82f622' : undefined,
+                  borderColor: showSearchBar ? '#3b82f644' : undefined,
+                }}
+                onClick={() => setShowSearchBar(v => !v)}
+                title="Search & Filter"
+              >🔍</button>
+            )}
           </div>
           {canEdit && !archived && (
             <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
@@ -2157,47 +2226,49 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         </div>
       </div>
 
-      <div style={styles.searchBar(isMobile)}>
-        <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
-          <input
-            style={{ ...styles.input, marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined, height: '32px', padding: '4px 10px', fontSize: '0.8rem' }}
-            placeholder="Search tasks..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && doSearch()}
-          />
-          {search && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => { setSearch(''); setSearchResults(null); }}
-              style={{
-                position: 'absolute',
-                right: '6px',
-                width: '22px',
-                height: '22px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '999px',
-                background: '#0b1220',
-                border: '1px solid #334155',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                fontSize: '14px',
-                padding: 0,
-                lineHeight: 1,
-              }}
-              title="Clear search"
-            >×</button>
-          )}
+      {showSearchBar && (
+        <div style={styles.searchBar(isMobile)}>
+          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+            <input
+              style={{ ...styles.input, marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined, height: '32px', padding: '4px 10px', fontSize: '0.8rem' }}
+              placeholder="Search tasks..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && doSearch()}
+            />
+            {search && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => { setSearch(''); setSearchResults(null); }}
+                style={{
+                  position: 'absolute',
+                  right: '6px',
+                  width: '22px',
+                  height: '22px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '999px',
+                  background: '#0b1220',
+                  border: '1px solid #334155',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+                title="Clear search"
+              >×</button>
+            )}
+          </div>
+          <button style={styles.btnSmall} onClick={doSearch}>Search</button>
+          <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : '#1e293b', color: hasActiveFilters ? '#3b82f6' : '#94a3b8', border: `1px solid ${hasActiveFilters ? '#3b82f644' : '#334155'}` }} onClick={() => setShowFilters(f => !f)}>
+            {showFilters ? '▲' : '▼'} Filter{hasActiveFilters ? ' ●' : ''}
+          </button>
         </div>
-        <button style={styles.btnSmall} onClick={doSearch}>Search</button>
-        <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : '#1e293b', color: hasActiveFilters ? '#3b82f6' : '#94a3b8', border: `1px solid ${hasActiveFilters ? '#3b82f644' : '#334155'}` }} onClick={() => setShowFilters(f => !f)}>
-          {showFilters ? '▲' : '▼'} Filter{hasActiveFilters ? ' ●' : ''}
-        </button>
-      </div>
-      {showFilters && (
+      )}
+      {showSearchBar && showFilters && (
         <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #1e293b' }}>
           <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
