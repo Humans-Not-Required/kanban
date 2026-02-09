@@ -139,9 +139,16 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Remaining)
 
-1. **Public boards UX** - three tiers: private (unlisted), public (listed), manage URL
+1. **Public boards discovery UX** — welcome page as discovery hub (search, categories, featured). Sidebar is now "My Boards" only.
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
-3. **Better question tracking** - improve workflow for question-type tasks
+
+### Completed (2026-02-09 Daytime, Session 3 — 07:10 UTC)
+
+- ~~**My Boards sidebar**~~ ✅ Done (07:09 UTC) — sidebar now shows "My Boards" (localStorage-based) instead of public boards. Auto-adds boards when opened. ✏️/👁 icons for edit/view access. ✕ remove button. Public boards in expandable section at bottom. Commit: 8992d62
+- ~~**Question: Efficient Updates API Status?**~~ ✅ Answered — activity API with ?since= is implemented (backend + frontend). Kanban monitoring cron doesn't use it yet.
+- ~~**Discussion: Rethink Public Boards**~~ ✅ Answered — sidebar = workspace (My Boards), welcome page = discovery. Future: search, categories, featured.
+- ~~**Brainstorm: Local Agent Chat**~~ ✅ Answered — recommended simple HTTP pub/sub (Rust/SQLite) with rooms, SSE, mDNS. Awaiting Jordan's direction.
+- ~~**Better question tracking**~~ ✅ Process implemented — question/discussion tasks get answered via comment, moved to Review, assigned to Jordan.
 
 ### Completed (2026-02-09 Daytime, Session 2 — 06:49 UTC)
 
