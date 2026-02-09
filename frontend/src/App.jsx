@@ -122,9 +122,11 @@ const styles = {
   logoImg: { width: '24px', height: '24px' },
   headerRight: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', overflow: 'hidden', flexShrink: 1, minWidth: 0 },
   menuBtn: {
-    background: 'transparent', border: '1px solid #475569', color: '#cbd5e1',
-    padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '1.1rem',
-    lineHeight: 1, transition: 'background 0.15s, border-color 0.15s',
+    background: '#1e293b', border: '1px solid #334155', color: '#94a3b8',
+    padding: '7px', borderRadius: '6px', cursor: 'pointer',
+    lineHeight: 0, transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '34px', height: '34px',
   },
   modeBadge: (canEdit) => ({
     fontSize: '0.7rem', fontWeight: 600,
@@ -2399,7 +2401,28 @@ function App() {
       <div style={styles.header(isMobile)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {collapseSidebar && (
-            <button style={styles.menuBtn} onClick={() => setSidebarOpen(o => !o)}>☰</button>
+            <button
+              style={styles.menuBtn}
+              onClick={() => setSidebarOpen(o => !o)}
+              aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ display: 'block' }}>
+                <rect
+                  y={sidebarOpen ? 8 : 2} width="18" height="2" rx="1" fill="currentColor"
+                  style={{ transition: 'all 0.25s ease', transformOrigin: 'center',
+                    transform: sidebarOpen ? 'rotate(45deg)' : 'rotate(0)' }}
+                />
+                <rect
+                  y="8" width="18" height="2" rx="1" fill="currentColor"
+                  style={{ transition: 'opacity 0.2s ease', opacity: sidebarOpen ? 0 : 1 }}
+                />
+                <rect
+                  y={sidebarOpen ? 8 : 14} width="18" height="2" rx="1" fill="currentColor"
+                  style={{ transition: 'all 0.25s ease', transformOrigin: 'center',
+                    transform: sidebarOpen ? 'rotate(-45deg)' : 'rotate(0)' }}
+                />
+              </svg>
+            </button>
           )}
           <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
             <img src="/logo.svg" alt="" style={styles.logoImg} />
@@ -2484,7 +2507,7 @@ function App() {
               <p style={{ fontSize: '1.5rem', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><img src="/logo.svg" alt="" style={{ width: '28px', height: '28px' }} /> Kanban</p>
               <p style={{ color: '#94a3b8', marginBottom: '4px' }}>Humans Not Required</p>
               <p style={{ fontSize: '0.85rem', maxWidth: '400px', lineHeight: '1.5' }}>
-                {collapseSidebar ? 'Tap ☰ to browse boards, or create a new one.' : 'Select a public board, open one by ID, or create a new one.'}
+                {collapseSidebar ? 'Tap the menu to browse boards, or create a new one.' : 'Select a public board, open one by ID, or create a new one.'}
                 <br />
                 <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
                   No signup required.
