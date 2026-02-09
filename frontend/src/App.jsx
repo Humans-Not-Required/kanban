@@ -248,7 +248,7 @@ const styles = {
   },
   modal: (mobile) => ({
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-    display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', zIndex: 100,
+    display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', zIndex: 1100,
     padding: mobile ? '0' : '12px',
     paddingTop: mobile ? '0' : '4vh',
   }),
