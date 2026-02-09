@@ -139,21 +139,32 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Remaining)
 
-1. **Task workflow states** - process improvement for build cron columns
-2. **Public boards UX** - three tiers: private (unlisted), public (listed), manage URL
-3. ~~**Drop-down styling**~~ ✅ Done (2026-02-09 05:34 UTC) - smaller text, active state blue highlight on filter dropdowns
-4. ~~**Code cleanup**~~ ✅ Done (2026-02-09 05:34 UTC) - removed dead sseStatus/showWebhooks state
-5. **Activity tracker completeness** - ensure all event types tracked
-6. ~~**Board archiving UI**~~ ✅ Done (2026-02-09 06:14 UTC) - archive/unarchive in Board Settings modal with confirmation, sidebar toggle button
-7. ~~**Remove webhook button**~~ ✅ Done (2026-02-09 05:34 UTC) - removed ⚡ button from header, API still available
-8. ~~**Remove filter bar background**~~ ✅ Done (2026-02-09 05:34 UTC) - removed dark bg from expanded filter row
-9. ~~**Quick-add label chips**~~ ✅ Done (2026-02-09 05:34 UTC) - top 8 labels shown as toggleable chips below labels input in create modal
-10. ~~**Priority filter fix**~~ ✅ Done (2026-02-09 05:55 UTC) - filter values were 1-4 but backend uses 0-3; fixed values and added critical (>=3) handling
-11. ~~**Full screen close collapses column**~~ ✅ Done (2026-02-09 05:55 UTC) - menu click events were bubbling to column header toggle; added stopPropagation on menu container
-12. ~~**Button/dropdown/toggle height consistency**~~ ✅ Done (2026-02-09 05:55 UTC) - all buttons, dropdowns, and toggles standardized to 32px height with flex alignment
-13. ~~**Unused space at bottom on tablet**~~ ✅ Done (2026-02-09 05:55 UTC) - columns now stretch to fill container (alignItems:stretch + maxHeight:100% instead of hardcoded calc)
-14. ~~**Settings button height mismatch**~~ ✅ Done (2026-02-09 06:14 UTC) - settings button now uses btn('secondary') matching + Task button
-15. ~~**Activity feed / since last visit**~~ ✅ Done (2026-02-09 06:14 UTC) - GET /activity endpoint + ActivityPanel with since-last-visit tracking, unread badge, event timeline
-16. ~~**Search input height**~~ ✅ Done (2026-02-09 06:18 UTC) - search field now 32px matching other controls
+1. **Public boards UX** - three tiers: private (unlisted), public (listed), manage URL
+2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
+3. **Better question tracking** - improve workflow for question-type tasks
 
-*Last updated: 2026-02-09 06:18 UTC — Board archive UI, activity feed with since-last-visit, settings button height fix, search input height fix. Tests: 47 HTTP + 8 unit/integration = 55 total.*
+### Completed (2026-02-09 Daytime)
+
+- ~~**Task modal above fullscreen**~~ ✅ Done (06:21 UTC) - z-index 1100 > fullscreen's 1000. Commit: 3d7c5fe
+- ~~**Hamburger menu SVG icon**~~ ✅ Done (06:23 UTC) - animated SVG hamburger→X, 34×34px, clean styling. Commit: 4fef1bc
+- ~~**Label normalization**~~ ✅ Done (06:26 UTC) - frontend + backend normalize labels to lowercase+dashes. 2 unit tests. Commit: e38f3d1
+- ~~**Quick labels by frequency**~~ ✅ Done (06:26 UTC) - chips sorted by most-used. Commit: e38f3d1
+- ~~**Activity tracker completeness**~~ ✅ Done (06:29 UTC) - archive/unarchive/delete now logged; move events include column names. Commit: 28a7260
+- ~~**Label filter exact match**~~ ✅ Done (06:30 UTC) - was using .includes(), now exact ===. Commit: d2398df
+- ~~**Process fix: tasks → Review**~~ ✅ Done - all completed tasks now go to Review (assigned Jordan) instead of straight to Done
+- ~~**Board stale task cleanup**~~ ✅ Done - moved 3 already-completed tasks from Backlog to Review
+- ~~**Drop-down styling**~~ ✅ Done (05:34 UTC)
+- ~~**Code cleanup**~~ ✅ Done (05:34 UTC)
+- ~~**Board archiving UI**~~ ✅ Done (06:14 UTC)
+- ~~**Remove webhook button**~~ ✅ Done (05:34 UTC)
+- ~~**Remove filter bar background**~~ ✅ Done (05:34 UTC)
+- ~~**Quick-add label chips**~~ ✅ Done (05:34 UTC)
+- ~~**Priority filter fix**~~ ✅ Done (05:55 UTC)
+- ~~**Full screen close collapses column**~~ ✅ Done (05:55 UTC)
+- ~~**Button/dropdown/toggle height consistency**~~ ✅ Done (05:55 UTC)
+- ~~**Unused space at bottom on tablet**~~ ✅ Done (05:55 UTC)
+- ~~**Settings button height mismatch**~~ ✅ Done (06:14 UTC)
+- ~~**Activity feed / since last visit**~~ ✅ Done (06:14 UTC)
+- ~~**Search input height**~~ ✅ Done (06:18 UTC)
+
+*Last updated: 2026-02-09 06:31 UTC — 6 fixes/features this session. Tests: 47 HTTP + 8 unit/integration = 55 total.*
