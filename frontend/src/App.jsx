@@ -455,10 +455,18 @@ function MoveTaskDropdown({ boardId, task, columns, onMoved, onCancel }) {
 
 const TASKS_PER_PAGE = 20;
 
-function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns, collapsed: externalCollapsed, onToggleCollapse }) {
+function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns, collapsed: externalCollapsed, onToggleCollapse, tasksLoaded }) {
   const [dragOver, setDragOver] = useState(false);
   const colTaskCount = tasks.filter(t => t.column_id === column.id).length;
-  const [internalCollapsed, setInternalCollapsed] = useState(isMobile && colTaskCount === 0);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  // Auto-collapse empty columns on mobile only after tasks are loaded
+  const [autoCollapseApplied, setAutoCollapseApplied] = useState(false);
+  useEffect(() => {
+    if (isMobile && tasksLoaded && !autoCollapseApplied) {
+      setAutoCollapseApplied(true);
+      if (colTaskCount === 0) setInternalCollapsed(true);
+    }
+  }, [isMobile, tasksLoaded, colTaskCount, autoCollapseApplied]);
   const collapsed = isMobile ? internalCollapsed : (externalCollapsed || false);
   const toggleCollapse = isMobile ? () => setInternalCollapsed(c => !c) : onToggleCollapse;
   const [renaming, setRenaming] = useState(false);
@@ -1548,9 +1556,15 @@ function SharePopover({ boardId, canEdit, onClose }) {
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={onClose} />
       <div style={{
-        position: 'absolute', top: '100%', right: 0, marginTop: '6px', zIndex: 300,
+        position: window.innerWidth < 640 ? 'fixed' : 'absolute',
+        top: window.innerWidth < 640 ? '50%' : '100%',
+        left: window.innerWidth < 640 ? '50%' : 'auto',
+        right: window.innerWidth < 640 ? 'auto' : 0,
+        transform: window.innerWidth < 640 ? 'translate(-50%, -50%)' : 'none',
+        marginTop: window.innerWidth < 640 ? 0 : '6px',
+        zIndex: 300,
         background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
-        padding: '12px', width: '320px', maxWidth: '90vw',
+        padding: '16px', width: '320px', maxWidth: '90vw',
         boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
       }}>
         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1651,6 +1665,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [showFilters, setShowFilters] = useState(false);
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState({});
+  const [tasksLoaded, setTasksLoaded] = useState(false);
   const toggleColumnCollapse = useCallback((colId) => {
     setCollapsedColumns(prev => ({ ...prev, [colId]: !prev[colId] }));
   }, []);
@@ -1660,6 +1675,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
       const params = showArchivedTasks ? 'archived=true' : '';
       const { data } = await api.listTasks(board.id, params);
       setTasks(data.tasks || data || []);
+      setTasksLoaded(true);
     } catch (err) {
       console.error('Failed to load tasks:', err);
     }
@@ -1826,6 +1842,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
             allColumns={columns}
             collapsed={collapsedColumns[col.id]}
             onToggleCollapse={() => toggleColumnCollapse(col.id)}
+            tasksLoaded={tasksLoaded}
           />
         ))}
         {canEdit && !archived && (

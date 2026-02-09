@@ -89,6 +89,14 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 16. ~~**Task archiving**~~ ✅ Done (2026-02-09 02:45 UTC) - archived_at column with migration, POST archive/unarchive endpoints, default list hides archived, filter toggle in UI, archive button in task detail modal, 2 new tests (46 total).
 17. ~~**Pagination/performance in human UI**~~ ✅ Done (2026-02-09 02:55 UTC) - per-column "Show more" button, displays first 20 tasks with incremental loading in batches of 20.
 
+### What's Next (Priority Order) - New Items (2026-02-09)
+
+1. **Fix mobile collapse logic** - Empty columns should ONLY collapse when task count is zero (Jordan clarification). Current implementation may collapse too eagerly.
+2. **Share links popout mobile fix** - Share link popover doesn't fit on mobile screens, goes off-screen. Needs responsive positioning.
+3. **Comment auto-scroll** - After adding comment, container should scroll to bottom (may already be done, verify).
+4. **Full Screen Category View** - Desktop/tablet: full-screen button per column that expands to fill viewport with multi-column task grid. Reduces scrolling for large columns like Backlog.
+5. **Task workflow states** - Build crons should use In Progress → Review → Done flow instead of Backlog → Done (process improvement).
+
 **New Kanban Board:**
 - Board ID: `9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360`
 - Manage key: `kb_e40d165d8fc245dd8b33d3a1962e1316`
@@ -122,4 +130,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-09 02:55 UTC — Per-column task pagination with "Show more" button (20 tasks per page). 46 tests passing. Deployed to staging.*
+*Last updated: 2026-02-09 03:10 UTC — Kanban monitor: 2 new tasks (share popout mobile fix, full-screen category view), Jordan clarified collapse=zero-tasks-only.*
