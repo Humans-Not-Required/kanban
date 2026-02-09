@@ -96,10 +96,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 3. ~~**Comment auto-scroll**~~ ✅ Already done (verified in code: commentsEndRef.scrollIntoView on comment add).
 4. ~~**Full Screen Category View**~~ ✅ Done (2026-02-09 03:36 UTC) - desktop/tablet: ⚙️ menu → "Full Screen" expands column to viewport overlay with responsive multi-column task grid (auto-fill 300px). Esc or click outside to close.
 5. **Task workflow states** - Build crons should use In Progress → Review → Done flow instead of Backlog → Done (process improvement).
-6. **Move "New Task" button to right side of button bar** - Jordan requested (kanban board task). Currently on left, should be on right side.
-7. **Consolidate access/share buttons** - remove duplicate placement (keep header bar as the primary location).
-8. **Modal viewport utilization** - modals should use more of the viewport (esp. tasks with many comments) to reduce scrolling.
+6. ~~**Move "New Task" button to right side of button bar**~~ ✅ Done (2026-02-09 05:25 UTC) - settings/webhooks icons on left, + Task button on right.
+7. ~~**Consolidate access/share buttons**~~ ✅ Done (2026-02-09 05:25 UTC) - removed duplicate AccessIndicator from BoardView, now only in App header.
+8. ~~**Modal viewport utilization**~~ ✅ Done (2026-02-09 05:25 UTC) - wider task detail modal (560→680px), taller max (80→90vh), less top padding (8→4vh), comments area expanded to 40vh.
 9. **Task archiving UI** - ✅ Done (2026-02-09 02:45 UTC). Board archiving UI still API-only.
+10. ~~**Remove live indicator**~~ ✅ Done (2026-02-09 05:25 UTC) - removed LiveIndicator component entirely, SSE still active for real-time sync.
+11. ~~**Archived toggle styled as button**~~ ✅ Done (2026-02-09 05:30 UTC) - replaced checkbox with styled toggle button matching filter dropdowns.
 
 **HNR Projects Kanban Board (current):**
 - Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
@@ -135,4 +137,13 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-09 05:12 UTC — Updated current board IDs/keys and captured Jordan feedback (remove live indicator, consolidate share/access buttons, improve modal viewport usage).*
+### What's Next (Remaining)
+
+1. **Task workflow states** - process improvement for build cron columns
+2. **Public boards UX** - three tiers: private (unlisted), public (listed), manage URL
+3. **Drop-down styling** - make filter dropdowns match the dark theme better
+4. **Code cleanup** - review for dead code (e.g. unused sseStatus state now that LiveIndicator removed)
+5. **Activity tracker completeness** - ensure all event types tracked
+6. **Board archiving UI** - frontend for board-level archive/unarchive
+
+*Last updated: 2026-02-09 05:30 UTC — Completed 5 UI tasks: removed live indicator, moved +Task right, consolidated share buttons, improved modal viewport, styled archived toggle.*
