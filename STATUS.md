@@ -143,7 +143,13 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 3. **Better question tracking** - improve workflow for question-type tasks
 
-### Completed (2026-02-09 Daytime)
+### Completed (2026-02-09 Daytime, Session 2 — 06:49 UTC)
+
+- ~~**Share button broken on desktop**~~ ✅ Done (06:55 UTC) - headerRight had overflow:hidden clipping the popover. Commit: 9172e9c
+- ~~**Layered escape key handling**~~ ✅ Done (06:55 UTC) - Escape now only closes topmost modal (uses a stack). Fixes issue when task detail + fullscreen both open.
+- ~~**Assignee quick-select chips**~~ ✅ Done (06:55 UTC) - green-tinted toggle chips for Assigned To in create + edit modals, matching label chip pattern. Commit: 9172e9c
+
+### Completed (2026-02-09 Daytime, Session 1)
 
 - ~~**Task modal above fullscreen**~~ ✅ Done (06:21 UTC) - z-index 1100 > fullscreen's 1000. Commit: 3d7c5fe
 - ~~**Hamburger menu SVG icon**~~ ✅ Done (06:23 UTC) - animated SVG hamburger→X, 34×34px, clean styling. Commit: 4fef1bc
@@ -167,4 +173,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - ~~**Activity feed / since last visit**~~ ✅ Done (06:14 UTC)
 - ~~**Search input height**~~ ✅ Done (06:18 UTC)
 
-*Last updated: 2026-02-09 06:31 UTC — 6 fixes/features this session. Tests: 47 HTTP + 8 unit/integration = 55 total.*
+*Last updated: 2026-02-09 06:55 UTC — 3 fixes this session (share button, escape layering, assignee chips). Tests: 47 backend (33 HTTP + 14 integration) all passing.*
