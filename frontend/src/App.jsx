@@ -188,7 +188,8 @@ const styles = {
     padding: mobile ? '12px' : '16px 20px',
     overflowX: mobile ? 'hidden' : 'auto',
     overflowY: mobile ? 'auto' : 'hidden',
-    alignItems: mobile ? 'stretch' : 'flex-start',
+    alignItems: mobile ? 'stretch' : 'stretch',
+    minHeight: 0,
   }),
   column: (isDragOver, mobile) => ({
     ...(mobile ? {
@@ -199,7 +200,7 @@ const styles = {
     background: isDragOver ? '#1e293b' : '#1a2332', borderRadius: '8px',
     border: isDragOver ? '2px dashed #6366f1' : '1px solid #334155',
     display: 'flex', flexDirection: 'column',
-    maxHeight: mobile ? 'none' : 'calc(100vh - 200px)',
+    maxHeight: mobile ? 'none' : '100%',
   }),
   columnHeader: {
     padding: '12px 14px', fontWeight: 600, fontSize: '0.9rem',
@@ -238,10 +239,12 @@ const styles = {
     borderRadius: '4px', cursor: 'pointer',
     fontSize: mobile ? '0.85rem' : '0.8rem', fontWeight: 500,
     whiteSpace: 'nowrap',
+    height: '32px', lineHeight: '1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   }),
   btnSmall: {
     background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
     padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem',
+    height: '32px', lineHeight: '1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   },
   modal: (mobile) => ({
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -549,7 +552,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
           width: '40px', minWidth: '40px', flex: '0 0 40px',
           background: '#1a2332', borderRadius: '8px', border: '1px solid #334155',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          cursor: 'pointer', maxHeight: 'calc(100vh - 200px)', overflow: 'hidden',
+          cursor: 'pointer', maxHeight: '100%', overflow: 'hidden',
           padding: '8px 0',
         }}
         onClick={toggleCollapse}
@@ -561,7 +564,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
           writingMode: 'vertical-rl', textOrientation: 'mixed',
           fontSize: '0.8rem', fontWeight: 600, color: '#e2e8f0',
           letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          maxHeight: 'calc(100vh - 260px)',
+          maxHeight: 'calc(100% - 40px)',
         }}>{column.name}</span>
       </div>
     );
@@ -611,7 +614,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
             position: 'absolute', top: '100%', right: 0, zIndex: 50,
             background: '#1e293b', border: '1px solid #334155', borderRadius: '6px',
             padding: '4px 0', minWidth: '140px', boxShadow: '0 4px 12px rgba(0,0,0,.4)',
-          }}>
+          }} onClick={e => e.stopPropagation()}>
             {!isMobile && onFullScreen && (
               <button
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '0.8rem' }}
@@ -1797,7 +1800,10 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
 
   // Apply filters
   const displayTasks = baseTasks.filter(t => {
-    if (filterPriority && String(t.priority) !== filterPriority) return false;
+    if (filterPriority) {
+      if (filterPriority === '3') { if ((t.priority || 0) < 3) return false; }
+      else if (String(t.priority) !== filterPriority) return false;
+    }
     if (filterLabel && !(Array.isArray(t.labels) ? t.labels.join(',') : (t.labels || '')).toLowerCase().includes(filterLabel.toLowerCase())) return false;
     if (filterAssignee && t.assigned_to !== filterAssignee && t.claimed_by !== filterAssignee) return false;
     return true;
@@ -1867,18 +1873,18 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
       </div>
       {showFilters && (
         <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #1e293b' }}>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
-            <option value="1">🔴 Critical</option>
+            <option value="3">🔴 Critical</option>
             <option value="2">🟠 High</option>
-            <option value="3">🟡 Medium</option>
-            <option value="4">🟢 Low</option>
+            <option value="1">🟡 Medium</option>
+            <option value="0">🟢 Low</option>
           </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
             <option value="">Any Label</option>
             {allLabels.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
             <option value="">Any Assignee</option>
             {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
@@ -1891,6 +1897,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
               color: showArchivedTasks ? '#a5b4fc' : '#94a3b8',
               border: `1px solid ${showArchivedTasks ? '#6366f155' : '#334155'}`,
               borderRadius: '4px', fontSize: '0.78rem',
+              height: '32px', lineHeight: '1',
             }}
           >
             📦 Archived {showArchivedTasks ? '✓' : ''}
