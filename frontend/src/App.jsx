@@ -1865,10 +1865,19 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
             <option value="">Any Assignee</option>
             {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#94a3b8', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            <input type="checkbox" checked={showArchivedTasks} onChange={e => setShowArchivedTasks(e.target.checked)} style={{ accentColor: '#6366f1' }} />
-            📦 Archived
-          </label>
+          <button
+            onClick={() => setShowArchivedTasks(v => !v)}
+            style={{
+              ...styles.select, marginBottom: 0, flex: 'none',
+              padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
+              background: showArchivedTasks ? '#6366f133' : '#0f172a',
+              color: showArchivedTasks ? '#a5b4fc' : '#94a3b8',
+              border: `1px solid ${showArchivedTasks ? '#6366f155' : '#334155'}`,
+              borderRadius: '4px', fontSize: '0.78rem',
+            }}
+          >
+            📦 Archived {showArchivedTasks ? '✓' : ''}
+          </button>
           {(hasActiveFilters || showArchivedTasks) && (
             <button style={styles.btnSmall} onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); setShowArchivedTasks(false); }}>Clear Filters</button>
           )}
