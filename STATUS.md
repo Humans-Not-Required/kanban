@@ -148,5 +148,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 7. ~~**Remove webhook button**~~ ✅ Done (2026-02-09 05:34 UTC) - removed ⚡ button from header, API still available
 8. ~~**Remove filter bar background**~~ ✅ Done (2026-02-09 05:34 UTC) - removed dark bg from expanded filter row
 9. ~~**Quick-add label chips**~~ ✅ Done (2026-02-09 05:34 UTC) - top 8 labels shown as toggleable chips below labels input in create modal
+10. ~~**Priority filter fix**~~ ✅ Done (2026-02-09 05:55 UTC) - filter values were 1-4 but backend uses 0-3; fixed values and added critical (>=3) handling
+11. ~~**Full screen close collapses column**~~ ✅ Done (2026-02-09 05:55 UTC) - menu click events were bubbling to column header toggle; added stopPropagation on menu container
+12. ~~**Button/dropdown/toggle height consistency**~~ ✅ Done (2026-02-09 05:55 UTC) - all buttons, dropdowns, and toggles standardized to 32px height with flex alignment
+13. ~~**Unused space at bottom on tablet**~~ ✅ Done (2026-02-09 05:55 UTC) - columns now stretch to fill container (alignItems:stretch + maxHeight:100% instead of hardcoded calc)
 
-*Last updated: 2026-02-09 05:34 UTC — Cleanup + UX: removed webhook button, dead code, filter bar bg; improved dropdown styling; added quick-add label chips.*
+*Last updated: 2026-02-09 05:55 UTC — Fixed 4 Jordan-reported bugs: priority filter values, fullscreen-close collapse, button height consistency, column bottom spacing.*
