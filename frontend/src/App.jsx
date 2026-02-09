@@ -133,7 +133,7 @@ function useBreakpoint() {
 
 // ---- Styles ----
 const styles = {
-  app: { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  app: { height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   header: (mobile) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: mobile ? '8px 10px' : '12px 20px', background: '#1e293b',
@@ -265,11 +265,13 @@ const styles = {
     fontSize: mobile ? '0.85rem' : '0.8rem', fontWeight: 500,
     whiteSpace: 'nowrap',
     height: '32px', lineHeight: '1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    boxSizing: 'border-box',
   }),
   btnSmall: {
     background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
     padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem',
     height: '32px', lineHeight: '1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    boxSizing: 'border-box',
   },
   modal: (mobile) => ({
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -303,7 +305,7 @@ const styles = {
   select: {
     background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
     padding: '8px', borderRadius: '4px', fontSize: '16px', marginBottom: '10px',
-    flex: 1,
+    flex: 1, boxSizing: 'border-box',
   },
   empty: {
     textAlign: 'center', color: '#475569', padding: '40px 20px', fontSize: '0.9rem',
@@ -436,7 +438,7 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, is
       draggable={draggable}
       onDragStart={draggable ? (e) => { setDragging(true); e.dataTransfer.setData('taskId', task.id); } : undefined}
       onDragEnd={draggable ? () => setDragging(false) : undefined}
-      onClick={() => { if (!dragging) onClickTask(task); }}
+      onClick={(e) => { e.stopPropagation(); if (!dragging) onClickTask(task); }}
     >
       <div style={styles.cardTitle}>{task.title}</div>
       <div style={styles.cardMeta}>
@@ -761,7 +763,7 @@ function FullScreenColumnView({ column, tasks, boardId, canEdit, onRefresh, onCl
             key={t.id}
             task={t}
             boardId={boardId}
-            canEdit={canEdit}
+            canEdit={false}
             onRefresh={onRefresh}
             archived={archived}
             onClickTask={onClickTask}
