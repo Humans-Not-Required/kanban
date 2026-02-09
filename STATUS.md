@@ -141,9 +141,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 1. **Task workflow states** - process improvement for build cron columns
 2. **Public boards UX** - three tiers: private (unlisted), public (listed), manage URL
-3. **Drop-down styling** - make filter dropdowns match the dark theme better
-4. **Code cleanup** - review for dead code (e.g. unused sseStatus state now that LiveIndicator removed)
+3. ~~**Drop-down styling**~~ ✅ Done (2026-02-09 05:34 UTC) - smaller text, active state blue highlight on filter dropdowns
+4. ~~**Code cleanup**~~ ✅ Done (2026-02-09 05:34 UTC) - removed dead sseStatus/showWebhooks state
 5. **Activity tracker completeness** - ensure all event types tracked
 6. **Board archiving UI** - frontend for board-level archive/unarchive
+7. ~~**Remove webhook button**~~ ✅ Done (2026-02-09 05:34 UTC) - removed ⚡ button from header, API still available
+8. ~~**Remove filter bar background**~~ ✅ Done (2026-02-09 05:34 UTC) - removed dark bg from expanded filter row
+9. ~~**Quick-add label chips**~~ ✅ Done (2026-02-09 05:34 UTC) - top 8 labels shown as toggleable chips below labels input in create modal
 
-*Last updated: 2026-02-09 05:30 UTC — Completed 5 UI tasks: removed live indicator, moved +Task right, consolidated share buttons, improved modal viewport, styled archived toggle.*
+*Last updated: 2026-02-09 05:34 UTC — Cleanup + UX: removed webhook button, dead code, filter bar bg; improved dropdown styling; added quick-add label chips.*
