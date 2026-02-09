@@ -1,6 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api';
 
+// ---- UTC timestamp parsing ----
+// API returns timestamps like "2026-02-09 16:42:27" (UTC, no timezone marker).
+// Ensure they're always parsed as UTC so the browser displays in local timezone.
+function parseUTC(ts) {
+  if (!ts) return new Date(NaN);
+  let s = String(ts).trim();
+  // Replace space separator with 'T' for ISO 8601 compliance
+  if (/^\d{4}-\d{2}-\d{2} /.test(s)) s = s.replace(' ', 'T');
+  // Append 'Z' if no timezone info present
+  if (!s.includes('Z') && !s.includes('+') && !/T\d{2}:\d{2}(:\d{2})?[-+]/.test(s)) s += 'Z';
+  return new Date(s);
+}
+
 // ---- Label normalization ----
 // Lowercase, trim, collapse multiple spaces, replace spaces with dashes
 function normalizeLabel(label) {
@@ -452,7 +465,7 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, is
         <span style={{ color: priorityColor(task.priority) }}>{priorityLabel(task.priority)}</span>
         {task.assigned_to && <span>→ {task.assigned_to}</span>}
         {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
-        {task.due_at && <span>📅 {new Date(task.due_at).toLocaleDateString()}</span>}
+        {task.due_at && <span>📅 {parseUTC(task.due_at).toLocaleDateString()}</span>}
         {task.completed_at && <span>✅</span>}
         {task.archived_at && <span>📦</span>}
         {task.comment_count > 0 && <span>💬 {task.comment_count}</span>}
@@ -1074,7 +1087,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
 
   const formatTime = (ts) => {
     try {
-      const d = new Date(ts);
+      const d = parseUTC(ts);
       return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch { return ts; }
   };
@@ -1627,7 +1640,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
 
         <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '16px' }}>
           <div>Board ID: <code style={{ color: '#94a3b8' }}>{board.id}</code></div>
-          <div>Created: {new Date(board.created_at).toLocaleString()}</div>
+          <div>Created: {parseUTC(board.created_at).toLocaleString()}</div>
           {isArchived && <div style={{ color: '#f59e0b', marginTop: '4px' }}>📦 This board is archived</div>}
         </div>
 
@@ -1718,7 +1731,7 @@ function formatEventDescription(event) {
 
 function formatTimeAgo(dateStr) {
   const now = new Date();
-  const d = new Date(dateStr + (dateStr.includes('Z') || dateStr.includes('+') ? '' : 'Z'));
+  const d = parseUTC(dateStr);
   const diff = Math.floor((now - d) / 1000);
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
@@ -1771,7 +1784,7 @@ function ActivityPanel({ boardId, onClose, isMobile }) {
 
   const newCount = lastVisit
     ? activity.filter(e => {
-        const t = new Date(e.created_at + (e.created_at.includes('Z') ? '' : 'Z'));
+        const t = parseUTC(e.created_at);
         return t > new Date(lastVisit);
       }).length
     : 0;
