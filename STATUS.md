@@ -87,7 +87,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 14. ~~**Sidebar footer aesthetics**~~ ✅ Done (2026-02-08 09:10 UTC) - cleaner spacing, removed "Open by ID" label, accent-colored checkbox.
 15. **Public boards UX** - awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
 16. ~~**Task archiving**~~ ✅ Done (2026-02-09 02:45 UTC) - archived_at column with migration, POST archive/unarchive endpoints, default list hides archived, filter toggle in UI, archive button in task detail modal, 2 new tests (46 total).
-17. **Pagination/performance in human UI** (Jordan 2026-02-09) - UI currently loads all tasks; add per-column infinite scroll/virtualized list (backend already paginates via limit/offset).
+17. ~~**Pagination/performance in human UI**~~ ✅ Done (2026-02-09 02:55 UTC) - per-column "Show more" button, displays first 20 tasks with incremental loading in batches of 20.
 
 **New Kanban Board:**
 - Board ID: `9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360`
@@ -122,4 +122,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-09 02:45 UTC — Task-level archiving: archived_at column + migration, POST archive/unarchive endpoints, default listing hides archived, filter bar toggle, archive button in task detail modal. 46 tests passing. Deploying to staging.*
+*Last updated: 2026-02-09 02:55 UTC — Per-column task pagination with "Show more" button (20 tasks per page). 46 tests passing. Deployed to staging.*
