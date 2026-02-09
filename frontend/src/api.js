@@ -280,6 +280,38 @@ const getBoardActivity = (boardId, { since, limit } = {}) => {
   return request(`/boards/${boardId}/activity${qs ? '?' + qs : ''}`);
 };
 
+// ---- My Boards (localStorage) ----
+
+const MY_BOARDS_KEY = 'kanban_my_boards';
+
+/** Get the user's board list from localStorage: [{id, name, lastAccessed}] */
+function getMyBoards() {
+  try {
+    return JSON.parse(localStorage.getItem(MY_BOARDS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+/** Add or update a board in the user's list */
+function addMyBoard(id, name) {
+  const boards = getMyBoards();
+  const idx = boards.findIndex(b => b.id === id);
+  const entry = { id, name: name || 'Untitled Board', lastAccessed: new Date().toISOString() };
+  if (idx >= 0) {
+    boards[idx] = { ...boards[idx], ...entry };
+  } else {
+    boards.unshift(entry);
+  }
+  localStorage.setItem(MY_BOARDS_KEY, JSON.stringify(boards));
+}
+
+/** Remove a board from the user's list */
+function removeMyBoard(id) {
+  const boards = getMyBoards().filter(b => b.id !== id);
+  localStorage.setItem(MY_BOARDS_KEY, JSON.stringify(boards));
+}
+
 // ---- Health ----
 
 const health = () => request('/health');
@@ -288,6 +320,7 @@ export {
   getBoardKey, setBoardKey, removeBoardKey, hasBoardKey,
   getDisplayName, setDisplayName,
   extractKeyFromUrl, cleanKeyFromUrl,
+  getMyBoards, addMyBoard, removeMyBoard,
   listBoards, getBoard, createBoard, updateBoard, archiveBoard, unarchiveBoard,
   addColumn, updateColumn, deleteColumn, reorderColumns,
   listTasks, getTask, createTask, updateTask, deleteTask, archiveTask, unarchiveTask, moveTask, claimTask, releaseTask,

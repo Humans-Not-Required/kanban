@@ -2394,12 +2394,16 @@ function App() {
   const { isMobile, isCompact } = useBreakpoint();
   const collapseSidebar = isCompact; // collapse sidebar on mobile + tablet
   const [boards, setBoards] = useState([]);
+  const [myBoards, setMyBoards] = useState(() => api.getMyBoards());
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [boardDetail, setBoardDetail] = useState(null);
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showPublicBoards, setShowPublicBoards] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const refreshMyBoards = useCallback(() => setMyBoards(api.getMyBoards()), []);
 
   useEffect(() => {
     const { boardId, key } = api.extractKeyFromUrl();
@@ -2430,12 +2434,15 @@ function App() {
     try {
       const { data } = await api.getBoard(id);
       setBoardDetail(data);
+      // Auto-add to My Boards when successfully loaded
+      api.addMyBoard(id, data.name || 'Untitled Board');
+      refreshMyBoards();
     } catch (err) {
       console.error('Failed to load board:', err);
       setLoadError(err.status === 404 ? 'Board not found.' : 'Failed to load board.');
       setBoardDetail(null);
     }
-  }, [selectedBoardId]);
+  }, [selectedBoardId, refreshMyBoards]);
 
   useEffect(() => {
     if (!selectedBoardId) { setBoardDetail(null); setLoadError(null); return; }
@@ -2457,6 +2464,16 @@ function App() {
   const handleSelectBoard = (boardId) => {
     setSelectedBoardId(boardId);
     if (collapseSidebar) setSidebarOpen(false);
+  };
+
+  const handleRemoveMyBoard = (e, boardId) => {
+    e.stopPropagation();
+    api.removeMyBoard(boardId);
+    refreshMyBoards();
+    if (selectedBoardId === boardId) {
+      setSelectedBoardId(null);
+      setBoardDetail(null);
+    }
   };
 
   return (
@@ -2510,27 +2527,101 @@ function App() {
 
         <div style={styles.sidebar(collapseSidebar, sidebarOpen)}>
           <div style={styles.sidebarHeader}>
-            <span>Public Boards</span>
+            <span>My Boards</span>
             <button style={styles.btnSmall} onClick={() => { setShowCreateBoard(true); setSidebarOpen(false); }}>+ New</button>
           </div>
-          {boards.map(b => (
-            <div
-              key={b.id}
-              style={styles.boardItem(selectedBoardId === b.id)}
-              onClick={() => handleSelectBoard(b.id)}
-            >
-              <span>{b.name}</span>
-              {b.archived_at && <span style={styles.archivedBadge}>📦</span>}
-            </div>
-          ))}
-          {boards.length === 0 && (
+          {myBoards.map(b => {
+            const hasKey = api.hasBoardKey(b.id);
+            return (
+              <div
+                key={b.id}
+                style={{
+                  ...styles.boardItem(selectedBoardId === b.id),
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+                onClick={() => handleSelectBoard(b.id)}
+              >
+                <span title={hasKey ? 'Full access' : 'View only'} style={{ fontSize: '0.7rem', flexShrink: 0, opacity: 0.7 }}>
+                  {hasKey ? '✏️' : '👁'}
+                </span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
+                <button
+                  onClick={(e) => handleRemoveMyBoard(e, b.id)}
+                  title="Remove from My Boards"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748b',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    fontSize: '0.7rem',
+                    flexShrink: 0,
+                    lineHeight: 1,
+                    opacity: 0.5,
+                    transition: 'opacity 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+          {myBoards.length === 0 && (
             <div style={{ ...styles.empty, padding: '20px 16px', fontSize: '0.8rem' }}>
-              No public boards yet.
+              No boards yet. Create one or open by ID.
             </div>
           )}
 
           <div style={{ borderTop: '1px solid #334155', marginTop: 'auto', padding: '12px' }}>
             <DirectBoardInput onOpen={handleOpenDirect} />
+            <button
+              onClick={() => { setShowPublicBoards(v => !v); if (!showPublicBoards) loadBoards(); }}
+              style={{
+                background: showPublicBoards ? '#6366f133' : 'transparent',
+                color: showPublicBoards ? '#a5b4fc' : '#64748b',
+                border: `1px solid ${showPublicBoards ? '#6366f155' : '#334155'}`,
+                borderRadius: '4px',
+                padding: '5px 10px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                width: '100%',
+                marginTop: '8px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              🌐 Public Boards {showPublicBoards ? '▲' : '▼'}
+            </button>
+            {showPublicBoards && (
+              <div style={{ marginTop: '4px' }}>
+                {boards.map(b => (
+                  <div
+                    key={b.id}
+                    style={{
+                      ...styles.boardItem(selectedBoardId === b.id),
+                      fontSize: '0.8rem',
+                      padding: '6px 8px',
+                    }}
+                    onClick={() => handleSelectBoard(b.id)}
+                  >
+                    <span>{b.name}</span>
+                    {b.archived_at && <span style={styles.archivedBadge}>📦</span>}
+                  </div>
+                ))}
+                {boards.length === 0 && (
+                  <div style={{ color: '#64748b', fontSize: '0.75rem', padding: '8px', textAlign: 'center' }}>
+                    No public boards.
+                  </div>
+                )}
+              </div>
+            )}
             <button
               onClick={() => setShowArchived(v => !v)}
               style={{
@@ -2570,7 +2661,7 @@ function App() {
               <p style={{ fontSize: '1.5rem', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><img src="/logo.svg" alt="" style={{ width: '28px', height: '28px' }} /> Kanban</p>
               <p style={{ color: '#94a3b8', marginBottom: '4px' }}>Humans Not Required</p>
               <p style={{ fontSize: '0.85rem', maxWidth: '400px', lineHeight: '1.5' }}>
-                {collapseSidebar ? 'Tap the menu to browse boards, or create a new one.' : 'Select a public board, open one by ID, or create a new one.'}
+                {collapseSidebar ? 'Tap the menu to browse your boards, or create a new one.' : 'Open a board from your list, enter an ID, or create a new one.'}
                 <br />
                 <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
                   No signup required.
