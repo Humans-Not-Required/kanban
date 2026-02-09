@@ -2263,8 +2263,9 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             )}
           </div>
           <button style={styles.btnSmall} onClick={doSearch}>Search</button>
-          <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : '#1e293b', color: hasActiveFilters ? '#3b82f6' : '#94a3b8', border: `1px solid ${hasActiveFilters ? '#3b82f644' : '#334155'}` }} onClick={() => setShowFilters(f => !f)}>
-            {showFilters ? '▲' : '▼'} Filter{hasActiveFilters ? ' ●' : ''}
+          <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : '#1e293b', color: hasActiveFilters ? '#3b82f6' : '#94a3b8', border: `1px solid ${hasActiveFilters ? '#3b82f644' : '#334155'}`, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filter{hasActiveFilters ? ' ●' : ''}
           </button>
         </div>
       )}
