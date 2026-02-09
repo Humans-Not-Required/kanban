@@ -47,6 +47,12 @@
 - POST /api/v1/boards/{id}/tasks/{task_id}/comment — add comment (auth required, body: {"message": "...", "actor_name": "..."})
 - GET /api/v1/boards/{id}/tasks/{task_id}/events — get task activity log (public)
 
+### Board Activity (Recommended for Polling)
+- GET /api/v1/boards/{id}/activity — all board events (created, moved, archived, commented, updated)
+  - Supports ?since={ISO-8601 or "YYYY-MM-DD HH:MM:SS"} to get only events after a timestamp
+  - Supports ?limit={n} to cap results
+  - **Best practice for agents:** Store the last-checked timestamp and poll with ?since= to get only new activity. This is far more efficient than fetching all tasks + per-task events individually.
+
 ### Real-Time
 - GET /api/v1/boards/{id}/events/stream — SSE event stream (public)
 
