@@ -1334,13 +1334,16 @@ const WEBHOOK_EVENTS = [
   'task.moved', 'task.claimed', 'task.released', 'task.comment',
 ];
 
-function BoardSettingsModal({ board, canEdit, onClose, onRefresh, isMobile }) {
+function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRefresh, isMobile }) {
   useEscapeKey(onClose);
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || '');
   const [isPublic, setIsPublic] = useState(board.is_public || false);
   const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState('');
+  const isArchived = !!board.archived_at;
 
   const handleSave = async () => {
     setError('');
@@ -1358,6 +1361,30 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, isMobile }) {
       setError(err.error || 'Failed to update board');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!isArchived && !confirmArchive) {
+      setConfirmArchive(true);
+      return;
+    }
+    setArchiving(true);
+    setError('');
+    try {
+      if (isArchived) {
+        await api.unarchiveBoard(board.id);
+      } else {
+        await api.archiveBoard(board.id);
+      }
+      onRefresh();
+      if (onBoardListRefresh) onBoardListRefresh();
+      onClose();
+    } catch (err) {
+      setError(err.error || `Failed to ${isArchived ? 'unarchive' : 'archive'} board`);
+    } finally {
+      setArchiving(false);
+      setConfirmArchive(false);
     }
   };
 
@@ -1404,16 +1431,49 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, isMobile }) {
         <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '16px' }}>
           <div>Board ID: <code style={{ color: '#94a3b8' }}>{board.id}</code></div>
           <div>Created: {new Date(board.created_at).toLocaleString()}</div>
+          {isArchived && <div style={{ color: '#f59e0b', marginTop: '4px' }}>📦 This board is archived</div>}
         </div>
 
         {canEdit && (
-          <button
-            style={styles.btn('primary', isMobile)}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              style={styles.btn('primary', isMobile)}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+            {confirmArchive ? (
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>Archive this board?</span>
+                <button
+                  style={{ ...styles.btn('danger', isMobile), fontSize: '0.75rem', padding: '4px 10px' }}
+                  onClick={handleArchiveToggle}
+                  disabled={archiving}
+                >
+                  {archiving ? '...' : 'Yes, archive'}
+                </button>
+                <button
+                  style={{ ...styles.btn('secondary', isMobile), fontSize: '0.75rem', padding: '4px 10px' }}
+                  onClick={() => setConfirmArchive(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                style={{
+                  ...styles.btn(isArchived ? 'primary' : 'secondary', isMobile),
+                  fontSize: '0.75rem',
+                  ...(isArchived ? {} : { color: '#f59e0b', borderColor: '#f59e0b44' }),
+                }}
+                onClick={handleArchiveToggle}
+                disabled={archiving}
+              >
+                {archiving ? '...' : isArchived ? '📤 Unarchive Board' : '📦 Archive Board'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -1722,7 +1782,7 @@ function AccessIndicator({ boardId, canEdit, isMobile }) {
   );
 }
 
-function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
+function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefresh, isMobile }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
@@ -1823,7 +1883,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
         </div>
         <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <button style={styles.btnSmall} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
+            <button style={styles.btn('secondary', isMobile)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
           </div>
           {canEdit && !archived && (
             <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
@@ -2023,6 +2083,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           canEdit={canEdit}
           onClose={() => setShowSettings(false)}
           onRefresh={onBoardRefresh}
+          onBoardListRefresh={onBoardListRefresh}
           isMobile={isMobile}
         />
       )}
@@ -2177,20 +2238,32 @@ function App() {
 
           <div style={{ borderTop: '1px solid #334155', marginTop: 'auto', padding: '12px' }}>
             <DirectBoardInput onOpen={handleOpenDirect} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', padding: '8px 4px 0' }}>
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={e => setShowArchived(e.target.checked)}
-                style={{ accentColor: '#6366f1' }}
-              />
-              Show archived boards
-            </label>
+            <button
+              onClick={() => setShowArchived(v => !v)}
+              style={{
+                background: showArchived ? '#6366f133' : 'transparent',
+                color: showArchived ? '#a5b4fc' : '#64748b',
+                border: `1px solid ${showArchived ? '#6366f155' : '#334155'}`,
+                borderRadius: '4px',
+                padding: '5px 10px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                width: '100%',
+                marginTop: '8px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              📦 Archived Boards {showArchived ? '✓' : ''}
+            </button>
           </div>
         </div>
 
         {boardDetail ? (
-          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} isMobile={isMobile} />
+          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={loadBoards} isMobile={isMobile} />
         ) : loadError ? (
           <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>
