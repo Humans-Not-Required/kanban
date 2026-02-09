@@ -108,7 +108,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 15. ~~**Filter button: swap to funnel/cone SVG icon**~~ ✅ Done (2026-02-09 19:37 UTC) - replaced ▼/▲ caret with classic funnel SVG icon (Lucide-style polygon). Flexbox alignment with gap for icon+text. Commit: (see git log)
 16. ~~**Center title in tablet view**~~ ✅ Done (2026-02-09 19:57 UTC) - 3-section header on tablet: hamburger + identity badge (left), centered logo (center), access indicator (right). Desktop layout unchanged.
 
-17. **Enrich activity endpoint for created and comment events** — PRIORITY (Jordan 2026-02-09). `GET /activity` should include `task` snapshot (full task object) on `created` and `comment` events, plus `recent_comments` (last 5-10) on `comment` events. `moved`/`archived`/`updated` stay lean. This eliminates follow-up API calls for the kanban monitor cron. Also update llms.txt.
+17. ~~**Enrich activity endpoint for created and comment events**~~ ✅ Done (2026-02-09 22:50 UTC) — `created` and `comment` events now include full `task` snapshot. `comment` events also include `recent_comments` (last 10, newest first). `moved`/`archived`/`updated` stay lean. Batch-fetched for efficiency. llms.txt updated. Test extended. Commit: cdb2ecc
 
 **HNR Projects Kanban Board (current):**
 - Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
@@ -216,7 +216,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
-*Last updated: 2026-02-09 21:57 UTC — UTC timestamp fix + view mode unlock. Tests: 49 backend (35 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-09 22:50 UTC — Enriched activity endpoint. Tests: 49 backend (35 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 
