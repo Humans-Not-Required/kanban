@@ -147,6 +147,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
+### Completed (2026-02-09 Daytime, Session 4 — 21:20 UTC)
+
+- **Simplified board creation** ✅ Done — removed columns field from UI, backend defaults to 5 columns (Backlog, Up Next, In Progress, Review, Done). API still accepts custom columns. Commit: cb31635
+- **Quick-done button** ✅ Done — green ✓ button in task detail header, moves to configurable column (default: last). Board settings: target column dropdown + auto-archive toggle. Column validation in backend. 1 new HTTP test (54 total). Commit: 801d433
+- **Board housekeeping** — moved 2 already-completed tasks (mobile search collapse, share button fix) to Review.
+
 ### Completed (2026-02-09 Daytime, Session 3 — 07:10 UTC)
 
 - ~~**My Boards sidebar**~~ ✅ Done (07:09 UTC) — sidebar now shows "My Boards" (localStorage-based) instead of public boards. Auto-adds boards when opened. ✏️/👁 icons for edit/view access. ✕ remove button. Public boards in expandable section at bottom. Commit: 8992d62
@@ -193,7 +199,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
-*Last updated: 2026-02-09 13:25 UTC — fullscreen task click reliability + control sizing consistency. Tests: 53 backend (6 unit + 33 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-09 21:20 UTC — board creation defaults + quick-done button. Tests: 54 backend (6 unit + 34 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 
