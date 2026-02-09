@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api';
 
 // ---- Escape key hook ----
@@ -454,7 +454,8 @@ function MoveTaskDropdown({ boardId, task, columns, onMoved, onCancel }) {
 
 function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns, collapsed: externalCollapsed, onToggleCollapse }) {
   const [dragOver, setDragOver] = useState(false);
-  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const colTaskCount = tasks.filter(t => t.column_id === column.id).length;
+  const [internalCollapsed, setInternalCollapsed] = useState(isMobile && colTaskCount === 0);
   const collapsed = isMobile ? internalCollapsed : (externalCollapsed || false);
   const toggleCollapse = isMobile ? () => setInternalCollapsed(c => !c) : onToggleCollapse;
   const [renaming, setRenaming] = useState(false);
@@ -734,6 +735,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   const [comment, setComment] = useState('');
   const [actorName, setActorName] = useState(() => api.getDisplayName());
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const commentsEndRef = useRef(null);
   const [posting, setPosting] = useState(false);
   const [showMove, setShowMove] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -816,6 +818,13 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
 
   const comments = events.filter(e => e.event_type === 'comment');
   const activity = events.filter(e => e.event_type !== 'comment');
+
+  // Auto-scroll comments to bottom when new comments are added
+  useEffect(() => {
+    if (commentsEndRef.current) {
+      commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [comments.length]);
 
   const formatTime = (ts) => {
     try {
@@ -990,6 +999,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                   </div>
                 </div>
               ))}
+              <div ref={commentsEndRef} />
             </div>
           )}
 
