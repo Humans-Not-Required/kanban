@@ -811,6 +811,27 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
             </select>
           </div>
           <AutocompleteInput style={styles.input} placeholder="Labels (comma-separated)" value={labels} onChange={setLabels} suggestions={allLabels || []} isCommaList />
+          {(allLabels || []).length > 0 && (
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '-6px', marginBottom: '6px' }}>
+              {(allLabels || []).slice(0, 8).map(l => {
+                const current = labels.split(',').map(s => s.trim()).filter(Boolean);
+                const isActive = current.includes(l);
+                return (
+                  <button key={l} type="button" onClick={() => {
+                    if (isActive) {
+                      setLabels(current.filter(c => c !== l).join(', '));
+                    } else {
+                      setLabels(current.length ? [...current, l].join(', ') : l);
+                    }
+                  }} style={{
+                    padding: '2px 8px', fontSize: '0.7rem', borderRadius: '10px', cursor: 'pointer',
+                    background: isActive ? '#3b82f633' : '#1e293b', color: isActive ? '#93c5fd' : '#64748b',
+                    border: `1px solid ${isActive ? '#3b82f644' : '#334155'}`, whiteSpace: 'nowrap',
+                  }}>{l}</button>
+                );
+              })}
+            </div>
+          )}
           <AutocompleteInput style={styles.input} placeholder="Assigned to (optional)" value={assignedTo} onChange={setAssignedTo} suggestions={allAssignees || []} />
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
             <button type="button" style={styles.btn('secondary', isMobile)} onClick={onClose}>Cancel</button>
@@ -1704,10 +1725,10 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
-  const [sseStatus, setSseStatus] = useState('connecting');
+  // sseStatus state removed — LiveIndicator was removed, nothing reads this
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
-  const [showWebhooks, setShowWebhooks] = useState(false);
+  // showWebhooks state removed — webhook button removed from UI per Jordan's request
   const [showSettings, setShowSettings] = useState(false);
   const [filterPriority, setFilterPriority] = useState('');
   const [filterLabel, setFilterLabel] = useState('');
@@ -1736,7 +1757,6 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
 
   // SSE: subscribe to real-time board events (debounced refresh)
   useEffect(() => {
-    setSseStatus('connecting');
     let debounceTimer = null;
     const debouncedRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -1750,7 +1770,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           debouncedRefresh();
         }
       },
-      (status) => setSseStatus(status),
+      null, // status callback removed (LiveIndicator gone)
     );
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -1798,9 +1818,6 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
         <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <button style={styles.btnSmall} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
-            {canEdit && !archived && (
-              <button style={styles.btnSmall} onClick={() => setShowWebhooks(true)} title="Webhooks">⚡</button>
-            )}
           </div>
           {canEdit && !archived && (
             <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
@@ -1849,19 +1866,19 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
         </button>
       </div>
       {showFilters && (
-        <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', background: '#1a2332', borderBottom: '1px solid #1e293b' }}>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+        <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #1e293b' }}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
             <option value="1">🔴 Critical</option>
             <option value="2">🟠 High</option>
             <option value="3">🟡 Medium</option>
             <option value="4">🟢 Low</option>
           </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
             <option value="">Any Label</option>
             {allLabels.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
             <option value="">Any Assignee</option>
             {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
@@ -2003,13 +2020,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
         />
       )}
 
-      {showWebhooks && (
-        <WebhookManagerModal
-          boardId={board.id}
-          onClose={() => setShowWebhooks(false)}
-          isMobile={isMobile}
-        />
-      )}
+      {/* Webhook management removed from UI (Jordan request). API still available. */}
     </div>
   );
 }
