@@ -77,7 +77,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 5. ~~**Filter button icon**~~ ✅ Done (2026-02-08 06:15 UTC) - ▼/▲ toggle arrow replaces emoji.
 5b. ~~**Live indicator simplified**~~ ✅ Done (2026-02-08 06:15 UTC) - dot-only when connected (hover for tooltip), text only on error/reconnecting.
 6. ~~**Replace header emoji with real logo**~~ ✅ Done (2026-02-08 07:10 UTC) - SVG kanban board logo in header and welcome screen, replaced all 📋 emoji references.
-7. **Live indicator decision** - Jordan questions its purpose. SSE connection status; may remove or simplify.
+7. **Remove live indicator** - Jordan confirmed: remove it entirely (2026-02-09). SSE connection can stay for real-time updates but the visible indicator adds noise.
 8. ~~**Hamburger menu aesthetics**~~ ✅ Done (2026-02-08 07:10 UTC) - improved border contrast (#475569), lighter text (#cbd5e1), larger padding, rounded corners (6px), smooth transition.
 9. ~~**Esc key closes modals**~~ ✅ Done (2026-02-08 08:05 UTC) - useEscapeKey hook on all 5 modals.
 10. ~~**Autocomplete/dropdowns for Labels + Assigned To**~~ ✅ Done (2026-02-08 08:32 UTC) - AutocompleteInput component with per-token suggestions for comma-separated labels, arrow keys + Tab/Enter selection, applied to both create and edit modals.
@@ -96,12 +96,17 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 3. ~~**Comment auto-scroll**~~ ✅ Already done (verified in code: commentsEndRef.scrollIntoView on comment add).
 4. ~~**Full Screen Category View**~~ ✅ Done (2026-02-09 03:36 UTC) - desktop/tablet: ⚙️ menu → "Full Screen" expands column to viewport overlay with responsive multi-column task grid (auto-fill 300px). Esc or click outside to close.
 5. **Task workflow states** - Build crons should use In Progress → Review → Done flow instead of Backlog → Done (process improvement).
+6. **Move "New Task" button to right side of button bar** - Jordan requested (kanban board task). Currently on left, should be on right side.
+7. **Consolidate access/share buttons** - remove duplicate placement (keep header bar as the primary location).
+8. **Modal viewport utilization** - modals should use more of the viewport (esp. tasks with many comments) to reduce scrolling.
+9. **Task archiving UI** - ✅ Done (2026-02-09 02:45 UTC). Board archiving UI still API-only.
 
-**New Kanban Board:**
-- Board ID: `9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360`
-- Manage key: `kb_e40d165d8fc245dd8b33d3a1962e1316`
-- View URL: https://kanban.ckbdev.com/board/9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360
-- Manage URL: https://kanban.ckbdev.com/board/9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360?key=kb_e40d165d8fc245dd8b33d3a1962e1316
+**HNR Projects Kanban Board (current):**
+- Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
+- Manage key: `kb_699c1b40639841cd8aabdea9e7bb7872`
+- View URL: https://kanban.ckbdev.com/board/1ab5804f-3f1b-4486-b7ae-03cb9616d4c2
+- Manage URL: https://kanban.ckbdev.com/board/1ab5804f-3f1b-4486-b7ae-03cb9616d4c2?key=kb_699c1b40639841cd8aabdea9e7bb7872
+- Column IDs: Backlog=`4cfdc374`, Up Next=`e8fd737c`, In Progress=`f3890313`, Review=`338c5c05`, Done=`5518f00d`
 
 ### ⚠️ Gotchas
 
@@ -130,4 +135,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-09 03:36 UTC — Added full-screen column view. 54 tests passing (4 rate limit unit + 4 rate limit lib + 32 HTTP + 14 integration).*
+*Last updated: 2026-02-09 05:12 UTC — Updated current board IDs/keys and captured Jordan feedback (remove live indicator, consolidate share/access buttons, improve modal viewport usage).*

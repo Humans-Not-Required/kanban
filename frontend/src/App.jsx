@@ -247,19 +247,19 @@ const styles = {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
     display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', zIndex: 100,
     padding: mobile ? '0' : '12px',
-    paddingTop: mobile ? '0' : '8vh',
+    paddingTop: mobile ? '0' : '4vh',
   }),
   modalContent: (mobile) => ({
     background: '#1e293b', border: mobile ? 'none' : '1px solid #334155', borderRadius: mobile ? '0' : '8px',
     padding: mobile ? '16px' : '24px',
     width: mobile ? '100%' : '480px', maxWidth: '100%',
-    maxHeight: mobile ? '100vh' : '80vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
+    maxHeight: mobile ? '100vh' : '90vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
   }),
   modalContentWide: (mobile) => ({
     background: '#1e293b', border: mobile ? 'none' : '1px solid #334155', borderRadius: mobile ? '0' : '8px',
     padding: mobile ? '16px' : '24px',
-    width: mobile ? '100%' : '560px', maxWidth: '100%',
-    maxHeight: mobile ? '100vh' : '80vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
+    width: mobile ? '100%' : '680px', maxWidth: '100%',
+    maxHeight: mobile ? '100vh' : '90vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
   }),
   input: {
     width: '100%', background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
@@ -1109,7 +1109,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
           ) : comments.length === 0 ? (
             <div style={{ color: '#475569', fontSize: '0.8rem', padding: '10px 0' }}>No comments yet.</div>
           ) : (
-            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '12px' }}>
+            <div style={{ maxHeight: '40vh', overflowY: 'auto', marginBottom: '12px' }}>
               {comments.map(evt => (
                 <div key={evt.id} style={{ marginBottom: '10px', padding: '8px 10px', background: '#0f172a', borderRadius: '6px', border: '1px solid #334155' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -1585,23 +1585,7 @@ function WebhookManagerModal({ boardId, onClose, isMobile }) {
   );
 }
 
-function LiveIndicator({ status }) {
-  const color = status === 'connected' ? '#22c55e' : status === 'disconnected' ? '#ef4444' : '#eab308';
-  const title = status === 'connected' ? 'Live — real-time sync active' : status === 'disconnected' ? 'Reconnecting…' : 'Connecting…';
-  return (
-    <span title={title} style={{
-      display: 'inline-flex', alignItems: 'center', gap: '4px',
-      fontSize: '0.65rem', color: status === 'connected' ? '#64748b' : color, fontWeight: 500,
-      padding: '2px 6px', borderRadius: '10px', cursor: 'default',
-    }}>
-      <span style={{
-        width: '6px', height: '6px', borderRadius: '50%', background: color,
-        ...(status === 'connected' ? { animation: 'pulse 2s ease-in-out infinite' } : {}),
-      }} />
-      {status !== 'connected' && title}
-    </span>
-  );
-}
+// LiveIndicator removed per Jordan's request (2026-02-09). SSE stays active for real-time sync.
 
 // ---- Share / Access Popover ----
 function SharePopover({ boardId, canEdit, onClose }) {
@@ -1812,17 +1796,15 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           )}
         </div>
         <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-          {canEdit && !archived && (
-            <button style={{ ...styles.btn('primary', isMobile), order: isMobile ? -1 : 0 }} onClick={() => setShowCreate(true)}>+ Task</button>
-          )}
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <LiveIndicator status={sseStatus} />
-            <AccessIndicator boardId={board.id} canEdit={canEdit} isMobile={isMobile} />
             <button style={styles.btnSmall} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
             {canEdit && !archived && (
               <button style={styles.btnSmall} onClick={() => setShowWebhooks(true)} title="Webhooks">⚡</button>
             )}
           </div>
+          {canEdit && !archived && (
+            <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
+          )}
         </div>
       </div>
 
