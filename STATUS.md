@@ -147,6 +147,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
+### Completed (2026-02-09 Daytime, Session 7 — 21:57 UTC)
+
+- **Timestamp timezone fix** ✅ Done — Added `parseUTC()` helper that normalizes API timestamps (space-separated, no TZ marker) to ISO 8601 with 'Z' suffix. Applied to `formatTime`, `formatTimeAgo`, `due_at`, board `created_at`, and activity feed comparisons. All timestamps now correctly display in the user's local timezone. Commit: cc7b9c0
+- **View mode button unlock** ✅ Done — "View Only" access indicator now shows a manage key input field. Users can paste a key, it gets validated server-side via no-op PATCH, and if valid the UI instantly upgrades to Full Access mode. Invalid keys show error. Added `api.validateKey()`. Commit: ca652dd
+- **My Boards task cleanup** — moved already-completed "My Boards / Public Boards" task to Review.
+
 ### Completed (2026-02-09 Daytime, Session 6 — 21:34 UTC)
 
 - **Square close buttons** ✅ Done — dedicated `btnClose` style (32×32px) applied to task detail, board settings, activity, and webhooks modal close buttons. Standardized × character. Commit: 219fdb5
@@ -208,7 +214,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
-*Last updated: 2026-02-09 21:45 UTC — square close buttons + actor attribution. Tests: 49 backend (35 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-09 21:57 UTC — UTC timestamp fix + view mode unlock. Tests: 49 backend (35 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 
