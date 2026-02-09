@@ -189,3 +189,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
 *Last updated: 2026-02-09 08:32 UTC — mobile comment button fix. Tests: 53 backend (6 unit + 33 HTTP + 14 integration) all passing.*
+
+### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
+
+- ~~**DB backup automation**~~ ✅ Done — backup script deployed to staging (192.168.0.79). Backs up all 4 SQLite DBs (kanban, qr-service, blog, app-directory) using sqlite3 .backup for WAL-safe copies. Gzip compression. Cron runs every 6 hours. 7-day retention. App directory backed up via docker cp (no sqlite3 in container). Task moved to Review for Jordan.
