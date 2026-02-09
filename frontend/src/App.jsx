@@ -2753,7 +2753,7 @@ function App() {
   return (
     <div style={styles.app}>
       <div style={styles.header(isMobile)}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: isCompact ? '1 1 0' : undefined }}>
           {collapseSidebar && (
             <button
               style={styles.menuBtn}
@@ -2778,13 +2778,28 @@ function App() {
               </svg>
             </button>
           )}
-          <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
+          {/* On tablet: identity badge next to hamburger (left side) */}
+          {isCompact && !isMobile && selectedBoardId && canEdit && (
+            <IdentityBadge isMobile={isMobile} />
+          )}
+          {/* On desktop (non-compact): logo stays left */}
+          {!isCompact && (
+            <div style={styles.logo} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
+              <img src="/logo.svg" alt="" style={styles.logoImg} />
+              Kanban
+            </div>
+          )}
+        </div>
+        {/* On tablet: logo centered */}
+        {isCompact && (
+          <div style={{ ...styles.logo, flex: '0 0 auto' }} onClick={() => { setSelectedBoardId(null); setBoardDetail(null); }}>
             <img src="/logo.svg" alt="" style={styles.logoImg} />
             Kanban
           </div>
-        </div>
-        <div style={styles.headerRight}>
-          {selectedBoardId && canEdit && (
+        )}
+        <div style={{ ...styles.headerRight, flex: isCompact ? '1 1 0' : undefined, justifyContent: isCompact ? 'flex-end' : undefined }}>
+          {/* On desktop: identity badge stays on right */}
+          {!isCompact && selectedBoardId && canEdit && (
             <IdentityBadge isMobile={isMobile} />
           )}
           {selectedBoardId && (
