@@ -312,6 +312,25 @@ function removeMyBoard(id) {
   localStorage.setItem(MY_BOARDS_KEY, JSON.stringify(boards));
 }
 
+// ---- Key validation ----
+
+// Try a no-op PATCH to verify a manage key is valid for a board
+const validateKey = async (boardId, key) => {
+  try {
+    const res = await fetch(`${BASE}/boards/${boardId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 // ---- Health ----
 
 const health = () => request('/health');
@@ -329,5 +348,6 @@ export {
   getBoardActivity,
   subscribeToBoardEvents,
   listWebhooks, createWebhook, updateWebhook, deleteWebhook,
+  validateKey,
   health,
 };

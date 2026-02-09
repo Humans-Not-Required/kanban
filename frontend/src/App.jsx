@@ -2128,13 +2128,38 @@ function SharePopover({ boardId, canEdit, onClose }) {
 }
 
 // ---- Access Mode Indicator + Share ----
-function AccessIndicator({ boardId, canEdit, isMobile }) {
+function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
   const [showShare, setShowShare] = useState(false);
   const [showModeInfo, setShowModeInfo] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [keyError, setKeyError] = useState('');
+  const [validating, setValidating] = useState(false);
+
+  const handleUnlock = async () => {
+    const key = keyInput.trim();
+    if (!key) return;
+    setKeyError('');
+    setValidating(true);
+    try {
+      const valid = await api.validateKey(boardId, key);
+      if (valid) {
+        api.setBoardKey(boardId, key);
+        setShowModeInfo(false);
+        setKeyInput('');
+        if (onKeyUpgraded) onKeyUpgraded();
+      } else {
+        setKeyError('Invalid key — please check and try again.');
+      }
+    } catch {
+      setKeyError('Could not validate key. Try again.');
+    }
+    setValidating(false);
+  };
+
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
       <button
-        onClick={() => setShowModeInfo(v => !v)}
+        onClick={() => { setShowModeInfo(v => !v); setKeyError(''); setKeyInput(''); }}
         style={{
           fontSize: '0.7rem', fontWeight: 600,
           padding: '3px 8px', borderRadius: '12px 0 0 12px',
@@ -2144,7 +2169,7 @@ function AccessIndicator({ boardId, canEdit, isMobile }) {
           borderRight: 'none', whiteSpace: 'nowrap',
           cursor: 'pointer',
         }}
-        title="What does this mean?"
+        title={canEdit ? 'Full access mode' : 'Click to enter manage key'}
       >
         {canEdit ? (isMobile ? '✏️' : '✏️ Full Access') : (isMobile ? '👁️' : '👁️ View Only')}
       </button>
@@ -2152,9 +2177,14 @@ function AccessIndicator({ boardId, canEdit, isMobile }) {
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            position: 'absolute', top: '100%', left: 0, marginTop: '6px',
+            position: isMobile ? 'fixed' : 'absolute',
+            top: isMobile ? '50%' : '100%',
+            left: isMobile ? '50%' : 'auto',
+            right: isMobile ? 'auto' : 0,
+            transform: isMobile ? 'translate(-50%, -50%)' : 'none',
+            marginTop: isMobile ? 0 : '6px',
             background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
-            padding: '12px', width: isMobile ? '260px' : '300px', zIndex: 2000,
+            padding: '12px', width: isMobile ? '300px' : '320px', zIndex: 2000,
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
             fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.5',
           }}
@@ -2176,13 +2206,50 @@ function AccessIndicator({ boardId, canEdit, isMobile }) {
             </div>
           ) : (
             <div>
-              <p style={{ margin: '0 0 6px' }}>You're viewing this board in <strong style={{ color: '#94a3b8' }}>read-only</strong> mode. You can:</p>
-              <ul style={{ margin: '0 0 6px', paddingLeft: '16px' }}>
-                <li>View all tasks and columns</li>
-                <li>Search and filter</li>
-                <li>View comments and activity</li>
-              </ul>
-              <p style={{ margin: 0, fontSize: '0.72rem', color: '#94a3b8' }}>Need edit access? Ask the board owner for the <strong>Manage URL</strong> (contains the <code style={{ background: '#0f172a', padding: '1px 4px', borderRadius: '3px' }}>?key=</code> parameter).</p>
+              <p style={{ margin: '0 0 6px' }}>You're viewing this board in <strong style={{ color: '#94a3b8' }}>read-only</strong> mode.</p>
+              <div style={{
+                marginTop: '10px', padding: '10px', background: '#0f172a',
+                borderRadius: '6px', border: '1px solid #334155',
+              }}>
+                <div style={{ fontWeight: 600, color: '#f1f5f9', marginBottom: '6px', fontSize: '0.75rem' }}>
+                  🔑 Have a manage key?
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    value={keyInput}
+                    onChange={e => { setKeyInput(e.target.value); setKeyError(''); }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleUnlock(); }}
+                    placeholder="Paste manage key..."
+                    style={{
+                      flex: 1, padding: '5px 8px', fontSize: '0.75rem',
+                      background: '#1e293b', color: '#f1f5f9',
+                      border: `1px solid ${keyError ? '#ef4444' : '#475569'}`,
+                      borderRadius: '4px', outline: 'none',
+                    }}
+                    disabled={validating}
+                  />
+                  <button
+                    onClick={handleUnlock}
+                    disabled={validating || !keyInput.trim()}
+                    style={{
+                      padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600,
+                      background: validating ? '#475569' : '#3b82f6',
+                      color: '#fff', border: 'none', borderRadius: '4px',
+                      cursor: validating ? 'wait' : 'pointer',
+                      opacity: !keyInput.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    {validating ? '...' : 'Unlock'}
+                  </button>
+                </div>
+                {keyError && (
+                  <div style={{ color: '#ef4444', fontSize: '0.7rem', marginTop: '4px' }}>{keyError}</div>
+                )}
+                <p style={{ margin: '6px 0 0', fontSize: '0.68rem', color: '#64748b' }}>
+                  Or open the <strong>Manage URL</strong> (contains <code style={{ background: '#1e293b', padding: '1px 3px', borderRadius: '2px' }}>?key=</code>) from the board owner.
+                </p>
+              </div>
             </div>
           )}
           <button
@@ -2870,7 +2937,16 @@ function App() {
     loadBoardDetail(selectedBoardId);
   }, [selectedBoardId, loadBoardDetail]);
 
+  // keyVersion bumps when a manage key is added/removed, forcing canEdit re-derive
+  const [keyVersion, setKeyVersion] = useState(0);
   const canEdit = selectedBoardId ? api.hasBoardKey(selectedBoardId) : false;
+  // eslint-disable-next-line no-unused-vars
+  void keyVersion; // Referenced to ensure React includes it in dependency tracking
+
+  const handleKeyUpgraded = useCallback(() => {
+    setKeyVersion(v => v + 1);
+    if (selectedBoardId) loadBoardDetail(selectedBoardId);
+  }, [selectedBoardId, loadBoardDetail]);
 
   const handleBoardCreated = (newBoardId) => {
     loadBoards();
@@ -2950,7 +3026,7 @@ function App() {
             <IdentityBadge isMobile={isMobile} />
           )}
           {selectedBoardId && (
-            <AccessIndicator boardId={selectedBoardId} canEdit={canEdit} isMobile={isMobile} />
+            <AccessIndicator boardId={selectedBoardId} canEdit={canEdit} isMobile={isMobile} onKeyUpgraded={handleKeyUpgraded} />
           )}
         </div>
       </div>
