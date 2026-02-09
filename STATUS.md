@@ -102,6 +102,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 9. **Task archiving UI** - ✅ Done (2026-02-09 02:45 UTC). Board archiving UI still API-only.
 10. ~~**Remove live indicator**~~ ✅ Done (2026-02-09 05:25 UTC) - removed LiveIndicator component entirely, SSE still active for real-time sync.
 11. ~~**Archived toggle styled as button**~~ ✅ Done (2026-02-09 05:30 UTC) - replaced checkbox with styled toggle button matching filter dropdowns.
+12. ~~**Collapse search and filter on mobile**~~ ✅ Done (2026-02-09 18:08 UTC) - search bar and filter row hidden by default on mobile, toggle via 🔍 button in header. Desktop unchanged.
+13. ~~**Shift+Enter submits comment**~~ ✅ Done (2026-02-09 18:08 UTC) - onKeyDown handler on comment textarea, same pattern as new task modal.
+14. ~~**Clickable access mode indicator**~~ ✅ Done (2026-02-09 18:08 UTC) - "Full Access" / "View Only" button now shows info popover explaining permissions and how to get edit access.
 
 **HNR Projects Kanban Board (current):**
 - Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
