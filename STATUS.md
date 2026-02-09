@@ -91,9 +91,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Priority Order) - New Items (2026-02-09)
 
-1. **Fix mobile collapse logic** - Empty columns should ONLY collapse when task count is zero (Jordan clarification). Current implementation may collapse too eagerly.
-2. **Share links popout mobile fix** - Share link popover doesn't fit on mobile screens, goes off-screen. Needs responsive positioning.
-3. **Comment auto-scroll** - After adding comment, container should scroll to bottom (may already be done, verify).
+1. ~~**Fix mobile collapse logic**~~ ✅ Done (2026-02-09 03:22 UTC) - collapse now waits for tasksLoaded flag before auto-collapsing empty columns, preventing false collapse on initial render.
+2. ~~**Share links popout mobile fix**~~ ✅ Done (2026-02-09 03:22 UTC) - share popover uses fixed centering on mobile (<640px) instead of absolute positioning.
+3. ~~**Comment auto-scroll**~~ ✅ Already done (verified in code: commentsEndRef.scrollIntoView on comment add).
 4. **Full Screen Category View** - Desktop/tablet: full-screen button per column that expands to fill viewport with multi-column task grid. Reduces scrolling for large columns like Backlog.
 5. **Task workflow states** - Build crons should use In Progress → Review → Done flow instead of Backlog → Done (process improvement).
 
@@ -130,4 +130,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-09 03:10 UTC — Kanban monitor: 2 new tasks (share popout mobile fix, full-screen category view), Jordan clarified collapse=zero-tasks-only.*
+*Last updated: 2026-02-09 03:22 UTC — Fixed mobile collapse (waits for tasks to load) and share popover (centered on mobile). 46 tests passing.*
