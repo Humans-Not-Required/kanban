@@ -1136,6 +1136,15 @@ pub fn delete_task(
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
 
+    // Capture task title before deleting for activity feed
+    let task_title: Option<String> = conn
+        .query_row(
+            "SELECT title FROM tasks WHERE id = ?1 AND board_id = ?2",
+            rusqlite::params![task_id, board_id],
+            |row| row.get(0),
+        )
+        .ok();
+
     let affected = conn
         .execute(
             "DELETE FROM tasks WHERE id = ?1 AND board_id = ?2",
@@ -1144,10 +1153,13 @@ pub fn delete_task(
         .unwrap_or(0);
 
     if affected > 0 {
+        let event_data = serde_json::json!({"task_id": task_id, "title": task_title});
+        log_event(&conn, task_id, "deleted", "anonymous", &event_data);
+
         bus.emit(crate::events::BoardEvent {
             event: "task.deleted".to_string(),
             board_id: board_id.to_string(),
-            data: serde_json::json!({"task_id": task_id}),
+            data: event_data,
         });
         Ok(Json(serde_json::json!({"deleted": true, "id": task_id})))
     } else {
@@ -1180,10 +1192,13 @@ pub fn archive_task(
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
+    let event_data = serde_json::json!({"task_id": task_id});
+    log_event(&conn, task_id, "archived", "anonymous", &event_data);
+
     bus.emit(crate::events::BoardEvent {
         event: "task.archived".to_string(),
         board_id: board_id.to_string(),
-        data: serde_json::json!({"task_id": task_id}),
+        data: event_data,
     });
 
     load_task_response(&conn, task_id)
@@ -1211,10 +1226,13 @@ pub fn unarchive_task(
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
+    let event_data = serde_json::json!({"task_id": task_id});
+    log_event(&conn, task_id, "unarchived", "anonymous", &event_data);
+
     bus.emit(crate::events::BoardEvent {
         event: "task.unarchived".to_string(),
         board_id: board_id.to_string(),
-        data: serde_json::json!({"task_id": task_id}),
+        data: event_data,
     });
 
     load_task_response(&conn, task_id)
@@ -1378,7 +1396,15 @@ pub fn move_task(
         .map_err(|e| db_error(&e.to_string()))?;
     }
 
-    let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": target_column_id});
+    // Resolve column names for activity display
+    let from_col_name: String = conn
+        .query_row("SELECT name FROM columns WHERE id = ?1", rusqlite::params![from_col], |row| row.get(0))
+        .unwrap_or_else(|_| from_col.clone());
+    let to_col_name: String = conn
+        .query_row("SELECT name FROM columns WHERE id = ?1", rusqlite::params![target_column_id], |row| row.get(0))
+        .unwrap_or_else(|_| target_column_id.to_string());
+
+    let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": target_column_id, "from_column": from_col_name, "to_column": to_col_name});
     log_event(&conn, task_id, "moved", "anonymous", &event_data);
 
     bus.emit(crate::events::BoardEvent {
@@ -1715,7 +1741,13 @@ fn batch_move(
 
         if rows > 0 {
             affected += 1;
-            let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": column_id, "batch": true});
+            let from_col_name: String = conn
+                .query_row("SELECT name FROM columns WHERE id = ?1", rusqlite::params![from_col], |row| row.get(0))
+                .unwrap_or_else(|_| from_col.clone());
+            let to_col_name: String = conn
+                .query_row("SELECT name FROM columns WHERE id = ?1", rusqlite::params![column_id], |row| row.get(0))
+                .unwrap_or_else(|_| column_id.to_string());
+            let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": column_id, "from_column": from_col_name, "to_column": to_col_name, "batch": true});
             log_event(conn, task_id, "moved", "batch", &event_data);
             bus.emit(crate::events::BoardEvent {
                 event: "task.moved".to_string(),
@@ -2052,6 +2084,8 @@ pub fn create_webhook(
         "task.moved",
         "task.reordered",
         "task.comment",
+        "task.archived",
+        "task.unarchived",
         "task.dependency.added",
         "task.dependency.removed",
     ];
