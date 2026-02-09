@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api';
 
+// ---- Label normalization ----
+// Lowercase, trim, collapse multiple spaces, replace spaces with dashes
+function normalizeLabel(label) {
+  return label.toLowerCase().trim().replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+function normalizeLabels(labelsStr) {
+  if (!labelsStr || !labelsStr.trim()) return [];
+  return labelsStr.split(',').map(l => normalizeLabel(l)).filter(Boolean);
+}
+
 // ---- Escape key hook ----
 function useEscapeKey(onClose) {
   useEffect(() => {
@@ -774,7 +784,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
         description: desc.trim() || '',
         priority: Number(priority),
         column_id: columnId,
-        labels: labels.trim() ? labels.split(',').map(l => l.trim()).filter(Boolean) : [],
+        labels: normalizeLabels(labels),
         assigned_to: assignedTo.trim() || null,
       });
       onCreated();
@@ -925,7 +935,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
       if (editTitle.trim() !== task.title) updates.title = editTitle.trim();
       if (editDesc.trim() !== (task.description || '')) updates.description = editDesc.trim();
       if (editPriority !== task.priority) updates.priority = editPriority;
-      const newLabels = editLabels.trim() ? editLabels.split(',').map(l => l.trim()).filter(Boolean) : [];
+      const newLabels = normalizeLabels(editLabels);
       const oldLabels = task.labels || [];
       if (JSON.stringify(newLabels) !== JSON.stringify(oldLabels)) updates.labels = newLabels;
       if ((editAssigned.trim() || null) !== (task.assigned_to || null)) updates.assigned_to = editAssigned.trim() || null;
@@ -2040,7 +2050,15 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const baseTasks = searchResults !== null ? searchResults : tasks;
 
   // Collect unique labels and assignees for filter dropdowns
-  const allLabels = [...new Set(baseTasks.flatMap(t => (Array.isArray(t.labels) ? t.labels : (t.labels || '').split(',').map(l => l.trim())).filter(Boolean)))].sort();
+  const allLabels = (() => {
+    const counts = {};
+    baseTasks.forEach(t => {
+      (Array.isArray(t.labels) ? t.labels : (t.labels || '').split(',').map(l => l.trim())).filter(Boolean).forEach(l => {
+        counts[l] = (counts[l] || 0) + 1;
+      });
+    });
+    return Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  })();
   const allAssignees = [...new Set(baseTasks.map(t => t.assigned_to || t.claimed_by).filter(Boolean))].sort();
 
   // Apply filters

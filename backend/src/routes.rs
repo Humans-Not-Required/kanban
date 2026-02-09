@@ -14,6 +14,24 @@ use crate::events::EventBus;
 use crate::models::*;
 use crate::rate_limit::{ClientIp, RateLimiter};
 
+// ============ Label Normalization ============
+
+/// Normalize a label: lowercase, trim, collapse whitespace → single dash, strip leading/trailing dashes.
+fn normalize_label(label: &str) -> String {
+    let s: String = label.trim().to_lowercase()
+        .split_whitespace().collect::<Vec<_>>().join("-");
+    // Collapse multiple dashes, strip leading/trailing dashes
+    let s = s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
+    s
+}
+
+fn normalize_labels(labels: &[String]) -> Vec<String> {
+    labels.iter()
+        .map(|l| normalize_label(l))
+        .filter(|l| !l.is_empty())
+        .collect()
+}
+
 // ============ Health & OpenAPI ============
 
 #[get("/health")]
@@ -728,7 +746,8 @@ pub fn create_task(
     } else {
         req.actor_name.clone()
     };
-    let labels_json = serde_json::to_string(&req.labels).unwrap_or_else(|_| "[]".to_string());
+    let normalized_labels = normalize_labels(&req.labels);
+    let labels_json = serde_json::to_string(&normalized_labels).unwrap_or_else(|_| "[]".to_string());
     let metadata_json = serde_json::to_string(&req.metadata).unwrap_or_else(|_| "{}".to_string());
 
     // Determine position
@@ -1057,13 +1076,14 @@ pub fn update_task(
     }
 
     if let Some(ref labels) = req.labels {
-        let labels_json = serde_json::to_string(labels).unwrap_or_else(|_| "[]".to_string());
+        let normalized = normalize_labels(labels);
+        let labels_json = serde_json::to_string(&normalized).unwrap_or_else(|_| "[]".to_string());
         conn.execute(
             "UPDATE tasks SET labels = ?1, updated_at = datetime('now') WHERE id = ?2",
             rusqlite::params![labels_json, task_id],
         )
         .map_err(|e| db_error(&e.to_string()))?;
-        changes.insert("labels".into(), serde_json::json!(labels));
+        changes.insert("labels".into(), serde_json::json!(normalized));
     }
 
     if let Some(ref meta) = req.metadata {
@@ -1751,13 +1771,14 @@ fn batch_update(
         }
 
         if let Some(ref labels) = fields.labels {
-            let labels_json = serde_json::to_string(labels).unwrap_or_else(|_| "[]".to_string());
+            let normalized = normalize_labels(labels);
+            let labels_json = serde_json::to_string(&normalized).unwrap_or_else(|_| "[]".to_string());
             conn.execute(
                 "UPDATE tasks SET labels = ?1, updated_at = datetime('now') WHERE id = ?2",
                 rusqlite::params![labels_json, task_id],
             )
             .ok();
-            changes.insert("labels".into(), serde_json::json!(labels));
+            changes.insert("labels".into(), serde_json::json!(normalized));
         }
 
         if let Some(ref due) = fields.due_at {
@@ -2793,6 +2814,32 @@ fn check_wip_limit(
     }
 
     Ok(())
+}
+
+// ============ Tests ============
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_label() {
+        assert_eq!(normalize_label("Bug Fix"), "bug-fix");
+        assert_eq!(normalize_label("  Feature Request  "), "feature-request");
+        assert_eq!(normalize_label("URGENT"), "urgent");
+        assert_eq!(normalize_label("multi   space"), "multi-space");
+        assert_eq!(normalize_label("already-dashed"), "already-dashed");
+        assert_eq!(normalize_label("  "), "");
+        assert_eq!(normalize_label("--leading--trailing--"), "leading-trailing");
+        assert_eq!(normalize_label("Mixed Case With Spaces"), "mixed-case-with-spaces");
+    }
+
+    #[test]
+    fn test_normalize_labels() {
+        let input = vec!["Bug Fix".to_string(), "  ".to_string(), "FEATURE".to_string()];
+        let result = normalize_labels(&input);
+        assert_eq!(result, vec!["bug-fix", "feature"]);
+    }
 }
 
 // ============ SPA Fallback ============
