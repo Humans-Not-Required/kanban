@@ -453,6 +453,8 @@ function MoveTaskDropdown({ boardId, task, columns, onMoved, onCancel }) {
   );
 }
 
+const TASKS_PER_PAGE = 20;
+
 function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns, collapsed: externalCollapsed, onToggleCollapse }) {
   const [dragOver, setDragOver] = useState(false);
   const colTaskCount = tasks.filter(t => t.column_id === column.id).length;
@@ -462,8 +464,11 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(column.name);
   const [showMenu, setShowMenu] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(TASKS_PER_PAGE);
   const colTasks = tasks.filter(t => t.column_id === column.id)
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
+  const visibleTasks = colTasks.slice(0, visibleCount);
+  const hasMore = colTasks.length > visibleCount;
 
   const handleDrop = async (e) => {
     e.preventDefault();
@@ -638,7 +643,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
               {canEdit && !isMobile ? 'Drop tasks here' : 'No tasks'}
             </div>
           )}
-          {colTasks.map(t => (
+          {visibleTasks.map(t => (
             <TaskCard
               key={t.id}
               task={t}
@@ -650,6 +655,21 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
               isMobile={isMobile}
             />
           ))}
+          {hasMore && (
+            <button
+              onClick={() => setVisibleCount(c => c + TASKS_PER_PAGE)}
+              style={{
+                width: '100%', padding: '8px', margin: '4px 0',
+                background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #334155',
+                borderRadius: '6px', color: '#94a3b8', cursor: 'pointer',
+                fontSize: '0.8rem', textAlign: 'center',
+              }}
+              onMouseEnter={e => { e.target.style.background = 'rgba(59, 130, 246, 0.2)'; e.target.style.color = '#e2e8f0'; }}
+              onMouseLeave={e => { e.target.style.background = 'rgba(59, 130, 246, 0.1)'; e.target.style.color = '#94a3b8'; }}
+            >
+              Show {Math.min(TASKS_PER_PAGE, colTasks.length - visibleCount)} more ({colTasks.length - visibleCount} remaining)
+            </button>
+          )}
         </div>
       )}
     </div>
