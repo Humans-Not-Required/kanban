@@ -279,15 +279,15 @@ const styles = {
   }),
   modalContent: (mobile) => ({
     background: '#1e293b', border: mobile ? 'none' : '1px solid #334155', borderRadius: mobile ? '0' : '8px',
-    padding: mobile ? '16px' : '24px',
+    padding: mobile ? '16px' : '24px', paddingBottom: mobile ? '24px' : '24px',
     width: mobile ? '100%' : '480px', maxWidth: '100%',
-    maxHeight: mobile ? '100vh' : '90vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
+    maxHeight: mobile ? '100dvh' : '90vh', height: mobile ? '100dvh' : 'auto', overflow: 'auto',
   }),
   modalContentWide: (mobile) => ({
     background: '#1e293b', border: mobile ? 'none' : '1px solid #334155', borderRadius: mobile ? '0' : '8px',
-    padding: mobile ? '16px' : '24px',
+    padding: mobile ? '16px' : '24px', paddingBottom: mobile ? '24px' : '24px',
     width: mobile ? '100%' : '680px', maxWidth: '100%',
-    maxHeight: mobile ? '100vh' : '90vh', height: mobile ? '100vh' : 'auto', overflow: 'auto',
+    maxHeight: mobile ? '100dvh' : '90vh', height: mobile ? '100dvh' : 'auto', overflow: 'auto',
   }),
   input: {
     width: '100%', background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
@@ -1190,7 +1190,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
           ) : comments.length === 0 ? (
             <div style={{ color: '#475569', fontSize: '0.8rem', padding: '10px 0' }}>No comments yet.</div>
           ) : (
-            <div style={{ maxHeight: '40vh', overflowY: 'auto', marginBottom: '12px' }}>
+            <div style={{ maxHeight: isMobile ? '30vh' : '40vh', overflowY: 'auto', marginBottom: '12px' }}>
               {comments.map(evt => (
                 <div key={evt.id} style={{ marginBottom: '10px', padding: '8px 10px', background: '#0f172a', borderRadius: '6px', border: '1px solid #334155' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
