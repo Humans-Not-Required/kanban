@@ -120,4 +120,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-08 12:10 UTC — Added /llms.txt endpoint (both /api/v1/llms.txt and /llms.txt root) for LLM API discovery. Plain-text API docs covering auth model, all endpoints, task schema, rate limits. 44 tests passing. Pushed to main, deploy building on staging. Fixed port mapping: docker-compose now maps 3002→8001 (was 8001→8001).*
+*Last updated: 2026-02-09 02:06 UTC — Search field clear button updated to an in-field “×” control with proper touch target + styling (better mobile UX). Backend+frontend builds/tests pass.* 

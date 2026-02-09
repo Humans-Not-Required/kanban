@@ -1694,10 +1694,28 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           />
           {search && (
             <button
+              type="button"
+              aria-label="Clear search"
               onClick={() => { setSearch(''); setSearchResults(null); }}
-              style={{ position: 'absolute', right: '6px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', padding: '2px 4px', lineHeight: 1 }}
+              style={{
+                position: 'absolute',
+                right: '6px',
+                width: '22px',
+                height: '22px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '999px',
+                background: '#0b1220',
+                border: '1px solid #334155',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '14px',
+                padding: 0,
+                lineHeight: 1,
+              }}
               title="Clear search"
-            >✕</button>
+            >×</button>
           )}
         </div>
         <button style={styles.btnSmall} onClick={doSearch}>Search</button>
