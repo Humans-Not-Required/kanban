@@ -147,6 +147,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
+### Completed (2026-02-09 Daytime, Session 5 — 21:35 UTC)
+
+- **Quick-reassign button** ✅ Done — amber ↩ button in task detail header. Board settings: target column dropdown + assignee input. Moves task to configured column and optionally reassigns. Backend: `quick_reassign_column_id` + `quick_reassign_to` columns with column validation. 1 new HTTP test (49 total). Commit: 539daa7
+
 ### Completed (2026-02-09 Daytime, Session 4 — 21:20 UTC)
 
 - **Simplified board creation** ✅ Done — removed columns field from UI, backend defaults to 5 columns (Backlog, Up Next, In Progress, Review, Done). API still accepts custom columns. Commit: cb31635
@@ -199,7 +203,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
-*Last updated: 2026-02-09 21:20 UTC — board creation defaults + quick-done button. Tests: 54 backend (6 unit + 34 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-09 21:35 UTC — quick-reassign button. Tests: 55 backend (6 unit + 35 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 
