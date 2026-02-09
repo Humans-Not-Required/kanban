@@ -273,6 +273,13 @@ const styles = {
     height: '32px', lineHeight: '1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     boxSizing: 'border-box',
   },
+  btnClose: {
+    background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
+    width: '32px', height: '32px', borderRadius: '4px', cursor: 'pointer',
+    fontSize: '1rem', lineHeight: 1, padding: 0,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    boxSizing: 'border-box', flexShrink: 0,
+  },
   modal: (mobile) => ({
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
     display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', zIndex: 1100,
@@ -1145,7 +1152,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               >✏️</button>
             )}
             <button
-              style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '1rem', lineHeight: 1 }}
+              style={styles.btnClose}
               onClick={onClose}
             >×</button>
           </div>
@@ -1534,7 +1541,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
       <div style={styles.modalContent(isMobile)} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>⚙️ Board Settings</h2>
-          <button style={styles.btnSmall} onClick={onClose}>✕</button>
+          <button style={styles.btnClose} onClick={onClose}>×</button>
         </div>
 
         {error && (
@@ -1774,7 +1781,7 @@ function ActivityPanel({ boardId, onClose, isMobile }) {
       <div style={{ ...styles.modalContent(isMobile), width: isMobile ? '100%' : '520px', maxHeight: isMobile ? '100vh' : '85vh' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>📊 Activity</h2>
-          <button style={styles.btnSmall} onClick={handleClose}>✕</button>
+          <button style={styles.btnClose} onClick={handleClose}>×</button>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
@@ -1910,7 +1917,7 @@ function WebhookManagerModal({ boardId, onClose, isMobile }) {
       <div style={styles.modalContentWide(isMobile)} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>⚡ Webhooks</h2>
-          <button style={styles.btnSmall} onClick={onClose}>✕</button>
+          <button style={styles.btnClose} onClick={onClose}>×</button>
         </div>
 
         {error && (
