@@ -1181,11 +1181,12 @@ pub fn update_task(
     load_task_response(&conn, task_id)
 }
 
-/// Delete a task — requires manage key.
-#[delete("/boards/<board_id>/tasks/<task_id>")]
+/// Delete a task — requires manage key. Optional `?actor=` query param for attribution.
+#[delete("/boards/<board_id>/tasks/<task_id>?<actor>")]
 pub fn delete_task(
     board_id: &str,
     task_id: &str,
+    actor: Option<&str>,
     token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
@@ -1211,9 +1212,10 @@ pub fn delete_task(
         )
         .unwrap_or(0);
 
+    let actor = actor.unwrap_or("anonymous");
     if affected > 0 {
         let event_data = serde_json::json!({"task_id": task_id, "title": task_title});
-        log_event(&conn, task_id, "deleted", "anonymous", &event_data);
+        log_event(&conn, task_id, "deleted", actor, &event_data);
 
         bus.emit(crate::events::BoardEvent {
             event: "task.deleted".to_string(),
@@ -1228,15 +1230,17 @@ pub fn delete_task(
 
 // ============ Task Archive / Unarchive ============
 
-/// Archive a task — requires manage key.
-#[post("/boards/<board_id>/tasks/<task_id>/archive")]
+/// Archive a task — requires manage key. Optional `?actor=` query param for attribution.
+#[post("/boards/<board_id>/tasks/<task_id>/archive?<actor>")]
 pub fn archive_task(
     board_id: &str,
     task_id: &str,
+    actor: Option<&str>,
     token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
+    let actor = actor.unwrap_or("anonymous");
     let conn = db.lock().unwrap();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -1252,7 +1256,7 @@ pub fn archive_task(
     .map_err(|e| db_error(&e.to_string()))?;
 
     let event_data = serde_json::json!({"task_id": task_id});
-    log_event(&conn, task_id, "archived", "anonymous", &event_data);
+    log_event(&conn, task_id, "archived", actor, &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.archived".to_string(),
@@ -1263,15 +1267,17 @@ pub fn archive_task(
     load_task_response(&conn, task_id)
 }
 
-/// Unarchive a task — requires manage key.
-#[post("/boards/<board_id>/tasks/<task_id>/unarchive")]
+/// Unarchive a task — requires manage key. Optional `?actor=` query param for attribution.
+#[post("/boards/<board_id>/tasks/<task_id>/unarchive?<actor>")]
 pub fn unarchive_task(
     board_id: &str,
     task_id: &str,
+    actor: Option<&str>,
     token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
+    let actor = actor.unwrap_or("anonymous");
     let conn = db.lock().unwrap();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -1286,7 +1292,7 @@ pub fn unarchive_task(
     .map_err(|e| db_error(&e.to_string()))?;
 
     let event_data = serde_json::json!({"task_id": task_id});
-    log_event(&conn, task_id, "unarchived", "anonymous", &event_data);
+    log_event(&conn, task_id, "unarchived", actor, &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.unarchived".to_string(),
@@ -1356,15 +1362,17 @@ pub fn claim_task(
     load_task_response(&conn, task_id)
 }
 
-/// Release a claimed task — requires manage key.
-#[post("/boards/<board_id>/tasks/<task_id>/release")]
+/// Release a claimed task — requires manage key. Optional `?actor=` query param for attribution.
+#[post("/boards/<board_id>/tasks/<task_id>/release?<actor>")]
 pub fn release_task(
     board_id: &str,
     task_id: &str,
+    actor: Option<&str>,
     token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
+    let actor = actor.unwrap_or("anonymous");
     let conn = db.lock().unwrap();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -1377,7 +1385,7 @@ pub fn release_task(
     .map_err(|e| db_error(&e.to_string()))?;
 
     let event_data = serde_json::json!({"task_id": task_id});
-    log_event(&conn, task_id, "released", "anonymous", &event_data);
+    log_event(&conn, task_id, "released", actor, &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.released".to_string(),
@@ -1389,15 +1397,18 @@ pub fn release_task(
 }
 
 /// Move a task to a different column — requires manage key.
-#[post("/boards/<board_id>/tasks/<task_id>/move/<target_column_id>")]
+/// Accepts optional `?actor=` query param for attribution.
+#[post("/boards/<board_id>/tasks/<task_id>/move/<target_column_id>?<actor>")]
 pub fn move_task(
     board_id: &str,
     task_id: &str,
     target_column_id: &str,
+    actor: Option<&str>,
     token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
+    let actor = actor.unwrap_or("anonymous");
     let conn = db.lock().unwrap();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -1464,7 +1475,7 @@ pub fn move_task(
         .unwrap_or_else(|_| target_column_id.to_string());
 
     let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": target_column_id, "from_column": from_col_name, "to_column": to_col_name});
-    log_event(&conn, task_id, "moved", "anonymous", &event_data);
+    log_event(&conn, task_id, "moved", actor, &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.moved".to_string(),
