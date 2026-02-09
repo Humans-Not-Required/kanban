@@ -1109,3 +1109,56 @@ fn test_http_board_activity_feed() {
     let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
     assert_eq!(activity.len(), 1);
 }
+
+// ============ Quick Reassign Settings ============
+
+#[test]
+fn test_http_quick_reassign_settings() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Quick Reassign Test");
+    let auth = Header::new("Authorization", format!("Bearer {}", key));
+
+    // Get board to find column IDs
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let first_col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Initially null
+    assert!(board["quick_reassign_column_id"].is_null());
+    assert!(board["quick_reassign_to"].is_null());
+
+    // Set quick reassign settings
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"quick_reassign_column_id": "{}", "quick_reassign_to": "Jordan"}}"#, first_col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let board: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(board["quick_reassign_column_id"], first_col_id);
+    assert_eq!(board["quick_reassign_to"], "Jordan");
+
+    // Clear with empty strings
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"quick_reassign_column_id": "", "quick_reassign_to": ""}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let board: serde_json::Value = resp.into_json().unwrap();
+    assert!(board["quick_reassign_column_id"].is_null());
+    assert!(board["quick_reassign_to"].is_null());
+
+    // Invalid column ID should be rejected
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"quick_reassign_column_id": "nonexistent-col"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "INVALID_COLUMN");
+}

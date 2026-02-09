@@ -891,7 +891,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
   );
 }
 
-function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns, allLabels, allAssignees, quickDoneColumnId, quickDoneAutoArchive }) {
+function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns, allLabels, allAssignees, quickDoneColumnId, quickDoneAutoArchive, quickReassignColumnId, quickReassignTo }) {
   useEscapeKey(onClose);
   const [events, setEvents] = useState([]);
   const [comment, setComment] = useState('');
@@ -901,6 +901,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   const [posting, setPosting] = useState(false);
   const [showMove, setShowMove] = useState(false);
   const [markingDone, setMarkingDone] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDesc, setEditDesc] = useState(task.description || '');
@@ -955,6 +956,33 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
       alert(err.error || 'Failed to mark task as done');
     } finally {
       setMarkingDone(false);
+    }
+  };
+
+  // Determine the reassign column: configured or first column
+  const reassignColumn = (() => {
+    if (!allColumns || allColumns.length === 0 || !quickReassignColumnId) return null;
+    return allColumns.find(c => c.id === quickReassignColumnId) || null;
+  })();
+
+  const isAlreadyInReassignCol = reassignColumn && task.column_id === reassignColumn.id;
+
+  const handleQuickReassign = async () => {
+    if (!reassignColumn || isAlreadyInReassignCol) return;
+    setReassigning(true);
+    try {
+      // Move to target column
+      await api.moveTask(boardId, task.id, reassignColumn.id);
+      // Optionally set assigned_to
+      if (quickReassignTo) {
+        await api.updateTask(boardId, task.id, { assigned_to: quickReassignTo });
+      }
+      onRefresh();
+      onClose();
+    } catch (err) {
+      alert(err.error || 'Failed to reassign task');
+    } finally {
+      setReassigning(false);
     }
   };
 
@@ -1085,6 +1113,14 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
             )}
           </div>
           <div style={{ display: 'flex', gap: '4px', marginLeft: '8px', flexShrink: 0 }}>
+            {canEdit && !editing && reassignColumn && !isAlreadyInReassignCol && !isArchived && (
+              <button
+                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
+                onClick={handleQuickReassign}
+                disabled={reassigning}
+                title={`Move to ${reassignColumn.name}${quickReassignTo ? ` → ${quickReassignTo}` : ''}`}
+              >{reassigning ? '⏳' : '↩'}</button>
+            )}
             {canEdit && !editing && doneColumn && !isAlreadyDone && !isArchived && (
               <button
                 style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
@@ -1438,6 +1474,8 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
   const [isPublic, setIsPublic] = useState(board.is_public || false);
   const [quickDoneColumnId, setQuickDoneColumnId] = useState(board.quick_done_column_id || '');
   const [quickDoneAutoArchive, setQuickDoneAutoArchive] = useState(board.quick_done_auto_archive || false);
+  const [quickReassignColumnId, setQuickReassignColumnId] = useState(board.quick_reassign_column_id || '');
+  const [quickReassignTo, setQuickReassignTo] = useState(board.quick_reassign_to || '');
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -1455,6 +1493,8 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
         is_public: isPublic,
         quick_done_column_id: quickDoneColumnId || '',
         quick_done_auto_archive: quickDoneAutoArchive,
+        quick_reassign_column_id: quickReassignColumnId || '',
+        quick_reassign_to: quickReassignTo.trim() || '',
       });
       onRefresh();
       onClose();
@@ -1551,6 +1591,30 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
               />
               Auto-archive task when marked done
             </label>
+          </div>
+        )}
+
+        {canEdit && (
+          <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', marginBottom: '16px' }}>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>↩ Quick Reassign Button</label>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Target column</label>
+            <select
+              style={{ ...styles.input, cursor: 'pointer' }}
+              value={quickReassignColumnId}
+              onChange={e => setQuickReassignColumnId(e.target.value)}
+            >
+              <option value="">Disabled (no button shown)</option>
+              {(board.columns || []).map(col => (
+                <option key={col.id} value={col.id}>{col.name}</option>
+              ))}
+            </select>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Assign to (optional)</label>
+            <input
+              style={styles.input}
+              value={quickReassignTo}
+              onChange={e => setQuickReassignTo(e.target.value)}
+              placeholder="e.g. Jordan, Nanook"
+            />
           </div>
         )}
 
@@ -2473,6 +2537,8 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           allAssignees={allAssignees}
           quickDoneColumnId={board.quick_done_column_id}
           quickDoneAutoArchive={board.quick_done_auto_archive}
+          quickReassignColumnId={board.quick_reassign_column_id}
+          quickReassignTo={board.quick_reassign_to}
         />
       )}
 

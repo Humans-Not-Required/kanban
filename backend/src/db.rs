@@ -155,6 +155,15 @@ pub fn init_db() -> Result<DbPool, String> {
     );
     // (silently ignored if columns already exist)
 
+    // Migration: add quick-reassign settings to boards
+    let _ = conn.execute_batch(
+        "ALTER TABLE boards ADD COLUMN quick_reassign_column_id TEXT;"
+    );
+    let _ = conn.execute_batch(
+        "ALTER TABLE boards ADD COLUMN quick_reassign_to TEXT;"
+    );
+    // (silently ignored if columns already exist)
+
     Ok(Mutex::new(conn))
 }
 
