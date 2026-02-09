@@ -51,7 +51,8 @@
 - GET /api/v1/boards/{id}/activity — all board events (created, moved, archived, commented, updated)
   - Supports ?since={ISO-8601 or "YYYY-MM-DD HH:MM:SS"} to get only events after a timestamp
   - Supports ?limit={n} to cap results
-  - **Best practice for agents:** Store the last-checked timestamp and poll with ?since= to get only new activity. This is far more efficient than fetching all tasks + per-task events individually.
+  - **Enriched events:** `created` and `comment` events include a full `task` snapshot (title, column, priority, labels, assignee, etc.). `comment` events also include `recent_comments` (last 10 comments, newest first, each with id/actor/message/created_at). Other event types (moved, archived, updated) stay lean.
+  - **Best practice for agents:** Store the last-checked timestamp and poll with ?since= to get only new activity. The enriched task snapshots on created/comment events eliminate the need for follow-up API calls.
 
 ### Real-Time
 - GET /api/v1/boards/{id}/events/stream — SSE event stream (public)

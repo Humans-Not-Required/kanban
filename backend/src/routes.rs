@@ -1990,7 +1990,7 @@ pub fn get_board_activity(
 
     let mut stmt = conn.prepare(&sql).map_err(|e| db_error(&e.to_string()))?;
 
-    let items = stmt
+    let mut items: Vec<BoardActivityItem> = stmt
         .query_map(rusqlite::params_from_iter(params.iter()), |row| {
             let data_str: String = row.get(5)?;
             Ok(BoardActivityItem {
@@ -2001,11 +2001,115 @@ pub fn get_board_activity(
                 actor: row.get(4)?,
                 data: serde_json::from_str(&data_str).unwrap_or(serde_json::json!({})),
                 created_at: row.get(6)?,
+                task: None,
+                recent_comments: None,
             })
         })
         .map_err(|e| db_error(&e.to_string()))?
         .filter_map(|r| r.ok())
         .collect();
+
+    // Enrich created/comment events with task snapshot and recent comments.
+    // Collect unique task IDs that need enrichment.
+    let enrich_task_ids: Vec<String> = items
+        .iter()
+        .filter(|i| i.event_type == "created" || i.event_type == "comment")
+        .map(|i| i.task_id.clone())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    if !enrich_task_ids.is_empty() {
+        // Batch-fetch task snapshots
+        let placeholders: String = enrich_task_ids
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let task_sql = format!(
+            "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
+                    t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
+                    t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at, t.archived_at,
+                    t.created_at, t.updated_at,
+                    (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count
+             FROM tasks t
+             JOIN columns c ON t.column_id = c.id
+             WHERE t.id IN ({})",
+            placeholders
+        );
+
+        let task_params: Vec<Box<dyn rusqlite::types::ToSql>> = enrich_task_ids
+            .iter()
+            .map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let task_param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            task_params.iter().map(|p| p.as_ref()).collect();
+
+        let mut task_stmt = conn.prepare(&task_sql).map_err(|e| db_error(&e.to_string()))?;
+        let task_map: std::collections::HashMap<String, TaskResponse> = task_stmt
+            .query_map(task_param_refs.as_slice(), row_to_task)
+            .map_err(|e| db_error(&e.to_string()))?
+            .filter_map(|r| r.ok())
+            .map(|t| (t.id.clone(), t))
+            .collect();
+
+        // Batch-fetch recent comments for comment-event task IDs
+        let comment_task_ids: Vec<String> = items
+            .iter()
+            .filter(|i| i.event_type == "comment")
+            .map(|i| i.task_id.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let mut comments_map: std::collections::HashMap<String, Vec<CommentSnapshot>> =
+            std::collections::HashMap::new();
+
+        for tid in &comment_task_ids {
+            let mut cmt_stmt = conn
+                .prepare(
+                    "SELECT id, actor, data, created_at FROM task_events
+                     WHERE task_id = ?1 AND event_type = 'comment'
+                     ORDER BY created_at DESC LIMIT 10",
+                )
+                .map_err(|e| db_error(&e.to_string()))?;
+
+            let cmts: Vec<CommentSnapshot> = cmt_stmt
+                .query_map(rusqlite::params![tid], |row| {
+                    let data_str: String = row.get(2)?;
+                    let data_val: serde_json::Value =
+                        serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
+                    let message = data_val
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    Ok(CommentSnapshot {
+                        id: row.get(0)?,
+                        actor: row.get(1)?,
+                        message,
+                        created_at: row.get(3)?,
+                    })
+                })
+                .map_err(|e| db_error(&e.to_string()))?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            comments_map.insert(tid.clone(), cmts);
+        }
+
+        // Apply enrichment to items
+        for item in &mut items {
+            if item.event_type == "created" || item.event_type == "comment" {
+                item.task = task_map.get(&item.task_id).cloned();
+            }
+            if item.event_type == "comment" {
+                item.recent_comments = comments_map.remove(&item.task_id).or(Some(vec![]));
+            }
+        }
+    }
 
     Ok(Json(items))
 }

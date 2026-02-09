@@ -108,6 +108,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 15. ~~**Filter button: swap to funnel/cone SVG icon**~~ ✅ Done (2026-02-09 19:37 UTC) - replaced ▼/▲ caret with classic funnel SVG icon (Lucide-style polygon). Flexbox alignment with gap for icon+text. Commit: (see git log)
 16. ~~**Center title in tablet view**~~ ✅ Done (2026-02-09 19:57 UTC) - 3-section header on tablet: hamburger + identity badge (left), centered logo (center), access indicator (right). Desktop layout unchanged.
 
+17. **Enrich activity endpoint for created and comment events** — PRIORITY (Jordan 2026-02-09). `GET /activity` should include `task` snapshot (full task object) on `created` and `comment` events, plus `recent_comments` (last 5-10) on `comment` events. `moved`/`archived`/`updated` stay lean. This eliminates follow-up API calls for the kanban monitor cron. Also update llms.txt.
+
 **HNR Projects Kanban Board (current):**
 - Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
 - Manage key: `kb_699c1b40639841cd8aabdea9e7bb7872`

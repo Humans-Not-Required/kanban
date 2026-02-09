@@ -176,7 +176,7 @@ pub struct ReorderTaskRequest {
     pub column_id: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct TaskResponse {
     pub id: String,
     pub board_id: String,
@@ -217,6 +217,21 @@ pub struct BoardActivityItem {
     pub event_type: String,
     pub actor: String,
     pub data: serde_json::Value,
+    pub created_at: String,
+    /// Full task snapshot — included on `created` and `comment` events only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task: Option<TaskResponse>,
+    /// Recent comments (newest first, up to 10) — included on `comment` events only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recent_comments: Option<Vec<CommentSnapshot>>,
+}
+
+/// Lightweight comment representation for activity feed enrichment.
+#[derive(Debug, Serialize, Clone)]
+pub struct CommentSnapshot {
+    pub id: String,
+    pub actor: String,
+    pub message: String,
     pub created_at: String,
 }
 

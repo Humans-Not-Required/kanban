@@ -1093,6 +1093,44 @@ fn test_http_board_activity_feed() {
         assert!(!event["task_id"].as_str().unwrap().is_empty());
     }
 
+    // --- Enrichment checks ---
+    // Created events should have a task snapshot
+    let created_event = activity.iter().find(|e| e["event_type"] == "created").unwrap();
+    assert!(created_event.get("task").is_some(), "Created event should have task snapshot");
+    let task_snapshot = &created_event["task"];
+    assert_eq!(task_snapshot["title"], "Activity Task");
+    assert_eq!(task_snapshot["id"], task_id);
+    assert!(!task_snapshot["column_id"].as_str().unwrap().is_empty());
+    // Created events should NOT have recent_comments
+    assert!(created_event.get("recent_comments").is_none(), "Created event should not have recent_comments");
+
+    // Comment events should have both task snapshot and recent_comments
+    let comment_event = activity.iter().find(|e| e["event_type"] == "comment").unwrap();
+    assert!(comment_event.get("task").is_some(), "Comment event should have task snapshot");
+    assert_eq!(comment_event["task"]["title"], "Activity Task");
+    let recent = comment_event["recent_comments"].as_array().unwrap();
+    assert!(!recent.is_empty(), "Comment event should have recent_comments");
+    assert_eq!(recent[0]["message"], "Test comment");
+    assert_eq!(recent[0]["actor"], "TestBot");
+
+    // Move the task (generates a moved event) — should NOT be enriched
+    let second_col_id = board["columns"][1]["id"].as_str().unwrap();
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}", board_id, task_id, second_col_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Re-fetch activity — moved events should stay lean
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
+    let moved_event = activity.iter().find(|e| e["event_type"] == "moved").unwrap();
+    assert!(moved_event.get("task").is_none(), "Moved event should NOT have task snapshot");
+    assert!(moved_event.get("recent_comments").is_none(), "Moved event should NOT have recent_comments");
+
     // Test since filter — use a future timestamp to get 0 results
     let resp = client
         .get(format!("/api/v1/boards/{}/activity?since=2099-01-01T00:00:00", board_id))
