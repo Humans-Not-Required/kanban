@@ -149,6 +149,7 @@ pub fn create_board(
     let columns = if req.columns.is_empty() {
         vec![
             "Backlog".to_string(),
+            "Up Next".to_string(),
             "In Progress".to_string(),
             "Review".to_string(),
             "Done".to_string(),

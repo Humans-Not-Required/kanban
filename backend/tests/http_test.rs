@@ -156,8 +156,8 @@ fn test_http_create_board_default_columns() {
 
     assert_eq!(resp.status(), Status::Ok);
     let body: serde_json::Value = resp.into_json().unwrap();
-    // When columns is empty, defaults to Backlog/In Progress/Review/Done
-    assert_eq!(body["columns"].as_array().unwrap().len(), 4);
+    // When columns is empty, defaults to Backlog/Up Next/In Progress/Review/Done
+    assert_eq!(body["columns"].as_array().unwrap().len(), 5);
 }
 
 #[test]

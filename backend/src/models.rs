@@ -36,7 +36,7 @@ pub struct CreateBoardRequest {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    /// Optional initial columns. If omitted, creates default: Backlog, In Progress, Review, Done
+    /// Optional initial columns. If omitted, creates default: Backlog, Up Next, In Progress, Review, Done
     #[serde(default)]
     pub columns: Vec<String>,
     /// Optional: make the board publicly listed (default: false = unlisted)

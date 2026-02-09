@@ -1269,7 +1269,6 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
   useEscapeKey(onClose);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
-  const [columns, setColumns] = useState('To Do, In Progress, Done');
   const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -1280,16 +1279,10 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
     if (!name.trim()) return;
     setLoading(true);
     try {
-      const cols = columns.split(',').map(c => c.trim()).filter(Boolean);
       const { data } = await api.createBoard({
         name: name.trim(),
         description: desc.trim() || undefined,
         is_public: isPublic,
-        columns: cols.map((n, i) => ({
-          name: n,
-          position: i,
-          is_done_column: i === cols.length - 1,
-        })),
       });
       setResult(data);
     } catch (err) {
@@ -1375,9 +1368,8 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
         <form onSubmit={submit}>
           <input style={styles.input} placeholder="Board Name" value={name} onChange={e => setName(e.target.value)} autoFocus />
           <textarea style={styles.textarea} placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} />
-          <input style={styles.input} placeholder="Columns (comma-separated)" value={columns} onChange={e => setColumns(e.target.value)} />
           <p style={{ fontSize: '0.73rem', color: '#64748b', marginBottom: '12px' }}>
-            Last column is automatically marked as "done" column.
+            Boards are created with default columns: Backlog, Up Next, In Progress, Review, Done.
           </p>
           <label style={{ fontSize: '0.85rem', color: '#94a3b8', cursor: 'pointer', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} />
