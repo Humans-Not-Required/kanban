@@ -64,6 +64,7 @@ pub fn init_db() -> Result<DbPool, String> {
             metadata TEXT NOT NULL DEFAULT '{}',
             due_at TEXT,
             completed_at TEXT,
+            archived_at TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
@@ -126,6 +127,12 @@ pub fn init_db() -> Result<DbPool, String> {
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))?;
+
+    // Migration: add archived_at column to existing databases
+    let _ = conn.execute_batch(
+        "ALTER TABLE tasks ADD COLUMN archived_at TEXT;"
+    );
+    // (silently ignored if column already exists)
 
     Ok(Mutex::new(conn))
 }

@@ -49,6 +49,8 @@ fn test_client() -> Client {
                 kanban::routes::get_task,
                 kanban::routes::update_task,
                 kanban::routes::delete_task,
+                kanban::routes::archive_task,
+                kanban::routes::unarchive_task,
                 kanban::routes::batch_tasks,
                 kanban::routes::claim_task,
                 kanban::routes::release_task,
@@ -896,6 +898,97 @@ fn test_http_update_board_no_auth() {
         .patch(format!("/api/v1/boards/{}", board_id))
         .header(ContentType::JSON)
         .body(r#"{"name": "Hacked"}"#)
+        .dispatch();
+    assert!(resp.status() == Status::Unauthorized || resp.status() == Status::Forbidden);
+}
+
+// ============ Task Archive / Unarchive ============
+
+#[test]
+fn test_http_task_archive_unarchive() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Archive Test");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Get first column
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create a task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(serde_json::json!({"title": "Archivable", "column_id": col_id}).to_string())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+    assert!(task["archived_at"].is_null());
+
+    // Archive it
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/archive", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let archived: serde_json::Value = resp.into_json().unwrap();
+    assert!(archived["archived_at"].is_string());
+
+    // Archived tasks should be hidden from default list
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert!(tasks.iter().all(|t| t["id"] != task_id));
+
+    // But visible with archived=true
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?archived=true", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert!(tasks.iter().any(|t| t["id"] == task_id));
+
+    // Unarchive it
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/unarchive", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let unarchived: serde_json::Value = resp.into_json().unwrap();
+    assert!(unarchived["archived_at"].is_null());
+
+    // Now visible in default list again
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert!(tasks.iter().any(|t| t["id"] == task_id));
+}
+
+#[test]
+fn test_http_task_archive_no_auth() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Archive NoAuth");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(serde_json::json!({"title": "NoAuth Archive", "column_id": col_id}).to_string())
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Try archive without auth
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/archive", board_id, task_id))
         .dispatch();
     assert!(resp.status() == Status::Unauthorized || resp.status() == Status::Forbidden);
 }

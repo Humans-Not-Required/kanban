@@ -784,7 +784,7 @@ pub fn create_task(
 /// Search tasks — public, no auth required.
 #[allow(clippy::too_many_arguments)]
 #[get(
-    "/boards/<board_id>/tasks/search?<q>&<column>&<assigned>&<priority>&<label>&<limit>&<offset>"
+    "/boards/<board_id>/tasks/search?<q>&<column>&<assigned>&<priority>&<label>&<archived>&<limit>&<offset>"
 )]
 pub fn search_tasks(
     board_id: &str,
@@ -793,6 +793,7 @@ pub fn search_tasks(
     assigned: Option<&str>,
     priority: Option<i32>,
     label: Option<&str>,
+    archived: Option<bool>,
     limit: Option<i64>,
     offset: Option<i64>,
     db: &State<DbPool>,
@@ -819,7 +820,7 @@ pub fn search_tasks(
     let mut sql = String::from(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
-                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
+                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at, t.archived_at,
                 t.created_at, t.updated_at,
                 (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count
          FROM tasks t
@@ -849,11 +850,17 @@ pub fn search_tasks(
         sql.push_str(&format!(" AND t.labels LIKE ?{}", params.len()));
     }
 
+    // archived filter: default false (hide archived tasks)
+    match archived {
+        Some(true) => sql.push_str(" AND t.archived_at IS NOT NULL"),
+        _ => sql.push_str(" AND t.archived_at IS NULL"),
+    }
+
     // Count total matches
     let count_sql = sql.replace(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
-                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
+                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at, t.archived_at,
                 t.created_at, t.updated_at,
                 (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count",
         "SELECT COUNT(*)",
@@ -894,7 +901,7 @@ pub fn search_tasks(
 
 /// List tasks — public, no auth required.
 #[allow(clippy::too_many_arguments)]
-#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>&<limit>&<offset>")]
+#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>&<archived>&<limit>&<offset>")]
 pub fn list_tasks(
     board_id: &str,
     column: Option<&str>,
@@ -902,6 +909,7 @@ pub fn list_tasks(
     claimed: Option<&str>,
     priority: Option<i32>,
     label: Option<&str>,
+    archived: Option<bool>,
     limit: Option<i64>,
     offset: Option<i64>,
     db: &State<DbPool>,
@@ -912,7 +920,7 @@ pub fn list_tasks(
     let mut sql = String::from(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
-                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
+                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at, t.archived_at,
                 t.created_at, t.updated_at,
                 (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count
          FROM tasks t
@@ -940,6 +948,12 @@ pub fn list_tasks(
     if let Some(l) = label {
         params.push(Box::new(format!("%\"{}\"%", l)));
         sql.push_str(&format!(" AND t.labels LIKE ?{}", params.len()));
+    }
+
+    // archived filter: default false (hide archived tasks)
+    match archived {
+        Some(true) => sql.push_str(" AND t.archived_at IS NOT NULL"),
+        _ => sql.push_str(" AND t.archived_at IS NULL"),
     }
 
     sql.push_str(" ORDER BY c.position ASC, t.priority DESC, t.position ASC");
@@ -1119,6 +1133,71 @@ pub fn delete_task(
     } else {
         Err(not_found("Task"))
     }
+}
+
+// ============ Task Archive / Unarchive ============
+
+/// Archive a task — requires manage key.
+#[post("/boards/<board_id>/tasks/<task_id>/archive")]
+pub fn archive_task(
+    board_id: &str,
+    task_id: &str,
+    token: BoardToken,
+    db: &State<DbPool>,
+    bus: &State<EventBus>,
+) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
+
+    // Check task exists
+    let _existing = load_task_response(&conn, task_id)?;
+
+    conn.execute(
+        "UPDATE tasks SET archived_at = datetime('now'), updated_at = datetime('now') WHERE id = ?1 AND board_id = ?2",
+        rusqlite::params![task_id, board_id],
+    )
+    .map_err(|e| db_error(&e.to_string()))?;
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.archived".to_string(),
+        board_id: board_id.to_string(),
+        data: serde_json::json!({"task_id": task_id}),
+    });
+
+    load_task_response(&conn, task_id)
+}
+
+/// Unarchive a task — requires manage key.
+#[post("/boards/<board_id>/tasks/<task_id>/unarchive")]
+pub fn unarchive_task(
+    board_id: &str,
+    task_id: &str,
+    token: BoardToken,
+    db: &State<DbPool>,
+    bus: &State<EventBus>,
+) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    let token_hash = hash_key(&token.0);
+    access::require_manage_key(&conn, board_id, &token_hash)?;
+    access::require_not_archived(&conn, board_id)?;
+
+    let _existing = load_task_response(&conn, task_id)?;
+
+    conn.execute(
+        "UPDATE tasks SET archived_at = NULL, updated_at = datetime('now') WHERE id = ?1 AND board_id = ?2",
+        rusqlite::params![task_id, board_id],
+    )
+    .map_err(|e| db_error(&e.to_string()))?;
+
+    bus.emit(crate::events::BoardEvent {
+        event: "task.unarchived".to_string(),
+        board_id: board_id.to_string(),
+        data: serde_json::json!({"task_id": task_id}),
+    });
+
+    load_task_response(&conn, task_id)
 }
 
 // ============ Agent-First: Claim / Release ============
@@ -2523,7 +2602,7 @@ fn load_task_response(
     conn.query_row(
         "SELECT t.id, t.board_id, t.column_id, c.name, t.title, t.description,
                 t.priority, t.position, t.created_by, t.assigned_to, t.claimed_by,
-                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at,
+                t.claimed_at, t.labels, t.metadata, t.due_at, t.completed_at, t.archived_at,
                 t.created_at, t.updated_at,
                 (SELECT COUNT(*) FROM task_events te WHERE te.task_id = t.id AND te.event_type = 'comment') as comment_count
          FROM tasks t
@@ -2557,9 +2636,10 @@ fn row_to_task(row: &rusqlite::Row) -> Result<TaskResponse, rusqlite::Error> {
         metadata: serde_json::from_str(&meta_str).unwrap_or(serde_json::json!({})),
         due_at: row.get(14)?,
         completed_at: row.get(15)?,
-        created_at: row.get(16)?,
-        updated_at: row.get(17)?,
-        comment_count: row.get(18).unwrap_or(0),
+        archived_at: row.get(16)?,
+        created_at: row.get(17)?,
+        updated_at: row.get(18)?,
+        comment_count: row.get(19).unwrap_or(0),
     })
 }
 

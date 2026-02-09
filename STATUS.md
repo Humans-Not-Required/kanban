@@ -86,6 +86,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 13. ~~**Mobile button bar aesthetics**~~ ✅ Done (2026-02-08 09:10 UTC) - + Task button first on mobile, icon buttons grouped compactly.
 14. ~~**Sidebar footer aesthetics**~~ ✅ Done (2026-02-08 09:10 UTC) - cleaner spacing, removed "Open by ID" label, accent-colored checkbox.
 15. **Public boards UX** - awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
+16. **Task archiving** (Jordan 2026-02-09) - add task-level archive flag + UI filter; optional auto-archive Done tasks older than N days (retention).
+17. **Pagination/performance in human UI** (Jordan 2026-02-09) - UI currently loads all tasks; add per-column infinite scroll/virtualized list (backend already paginates via limit/offset).
 
 **New Kanban Board:**
 - Board ID: `9ea5c232-6bdb-4c3b-82cf-91f8a0f1b360`

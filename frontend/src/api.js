@@ -150,6 +150,12 @@ const updateTask = (boardId, taskId, body) => {
 const deleteTask = (boardId, taskId) =>
   request(`/boards/${boardId}/tasks/${taskId}`, { method: 'DELETE', boardId });
 
+const archiveTask = (boardId, taskId) =>
+  request(`/boards/${boardId}/tasks/${taskId}/archive`, { method: 'POST', boardId });
+
+const unarchiveTask = (boardId, taskId) =>
+  request(`/boards/${boardId}/tasks/${taskId}/unarchive`, { method: 'POST', boardId });
+
 const moveTask = (boardId, taskId, columnId) =>
   request(`/boards/${boardId}/tasks/${taskId}/move/${columnId}`, { method: 'POST', boardId });
 
@@ -274,7 +280,7 @@ export {
   extractKeyFromUrl, cleanKeyFromUrl,
   listBoards, getBoard, createBoard, updateBoard, archiveBoard, unarchiveBoard,
   addColumn, updateColumn, deleteColumn, reorderColumns,
-  listTasks, getTask, createTask, updateTask, deleteTask, moveTask, claimTask, releaseTask,
+  listTasks, getTask, createTask, updateTask, deleteTask, archiveTask, unarchiveTask, moveTask, claimTask, releaseTask,
   searchTasks,
   getTaskEvents, commentOnTask,
   subscribeToBoardEvents,

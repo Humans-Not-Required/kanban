@@ -186,6 +186,7 @@ pub struct TaskResponse {
     pub metadata: serde_json::Value,
     pub due_at: Option<String>,
     pub completed_at: Option<String>,
+    pub archived_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub comment_count: i64,

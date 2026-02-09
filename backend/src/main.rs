@@ -79,6 +79,8 @@ fn rocket() -> _ {
                 routes::get_task,
                 routes::update_task,
                 routes::delete_task,
+                routes::archive_task,
+                routes::unarchive_task,
                 // Batch operations (manage key required)
                 routes::batch_tasks,
                 // Agent-first: claim/release/move/reorder (manage key required)

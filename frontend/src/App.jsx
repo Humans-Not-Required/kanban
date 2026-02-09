@@ -417,6 +417,7 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, is
         {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
         {task.due_at && <span>📅 {new Date(task.due_at).toLocaleDateString()}</span>}
         {task.completed_at && <span>✅</span>}
+        {task.archived_at && <span>📦</span>}
         {task.comment_count > 0 && <span>💬 {task.comment_count}</span>}
       </div>
       {task.labels && task.labels.length > 0 && (
@@ -746,6 +747,25 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   const [editAssigned, setEditAssigned] = useState(task.assigned_to || '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const isArchived = !!task.archived_at;
+
+  const handleArchiveToggle = async () => {
+    setArchiving(true);
+    try {
+      if (isArchived) {
+        await api.unarchiveTask(boardId, task.id);
+      } else {
+        await api.archiveTask(boardId, task.id);
+      }
+      onRefresh();
+      onClose();
+    } catch (err) {
+      alert(err.error || 'Failed to archive/unarchive task');
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   const loadEvents = useCallback(async () => {
     try {
@@ -874,6 +894,14 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
             )}
           </div>
           <div style={{ display: 'flex', gap: '4px', marginLeft: '8px', flexShrink: 0 }}>
+            {canEdit && !editing && (
+              <button
+                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                onClick={handleArchiveToggle}
+                disabled={archiving}
+                title={isArchived ? 'Unarchive task' : 'Archive task'}
+              >{archiving ? '⏳' : isArchived ? '📤' : '📦'}</button>
+            )}
             {canEdit && !editing && (
               <button
                 style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
@@ -1601,6 +1629,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [filterLabel, setFilterLabel] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const toggleColumnCollapse = useCallback((colId) => {
     setCollapsedColumns(prev => ({ ...prev, [colId]: !prev[colId] }));
@@ -1608,12 +1637,13 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
 
   const loadTasks = useCallback(async () => {
     try {
-      const { data } = await api.listTasks(board.id);
+      const params = showArchivedTasks ? 'archived=true' : '';
+      const { data } = await api.listTasks(board.id, params);
       setTasks(data.tasks || data || []);
     } catch (err) {
       console.error('Failed to load tasks:', err);
     }
-  }, [board.id]);
+  }, [board.id, showArchivedTasks]);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
@@ -1665,7 +1695,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
     if (filterAssignee && t.assigned_to !== filterAssignee && t.claimed_by !== filterAssignee) return false;
     return true;
   });
-  const hasActiveFilters = filterPriority || filterLabel || filterAssignee;
+  const hasActiveFilters = filterPriority || filterLabel || filterAssignee || showArchivedTasks;
   const archived = !!board.archived_at;
 
   return (
@@ -1750,8 +1780,12 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
             <option value="">Any Assignee</option>
             {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          {hasActiveFilters && (
-            <button style={styles.btnSmall} onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); }}>Clear Filters</button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#94a3b8', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={showArchivedTasks} onChange={e => setShowArchivedTasks(e.target.checked)} style={{ accentColor: '#6366f1' }} />
+            📦 Archived
+          </label>
+          {(hasActiveFilters || showArchivedTasks) && (
+            <button style={styles.btnSmall} onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); setShowArchivedTasks(false); }}>Clear Filters</button>
           )}
         </div>
       )}
