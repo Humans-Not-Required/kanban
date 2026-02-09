@@ -86,7 +86,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 13. ~~**Mobile button bar aesthetics**~~ ✅ Done (2026-02-08 09:10 UTC) - + Task button first on mobile, icon buttons grouped compactly.
 14. ~~**Sidebar footer aesthetics**~~ ✅ Done (2026-02-08 09:10 UTC) - cleaner spacing, removed "Open by ID" label, accent-colored checkbox.
 15. **Public boards UX** - awaiting Jordan's input. Three tiers: private (unlisted), public (listed), manage URL (full access).
-16. **Task archiving** (Jordan 2026-02-09) - add task-level archive flag + UI filter; optional auto-archive Done tasks older than N days (retention).
+16. ~~**Task archiving**~~ ✅ Done (2026-02-09 02:45 UTC) - archived_at column with migration, POST archive/unarchive endpoints, default list hides archived, filter toggle in UI, archive button in task detail modal, 2 new tests (46 total).
 17. **Pagination/performance in human UI** (Jordan 2026-02-09) - UI currently loads all tasks; add per-column infinite scroll/virtualized list (backend already paginates via limit/offset).
 
 **New Kanban Board:**
@@ -122,4 +122,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ---
 
-*Last updated: 2026-02-09 02:21 UTC — Two UX fixes: (1) Comments container auto-scrolls to bottom after adding a comment (useRef + useEffect with smooth scroll). (2) Empty columns on mobile start collapsed (initial state based on task count). Both deployed to staging.*
+*Last updated: 2026-02-09 02:45 UTC — Task-level archiving: archived_at column + migration, POST archive/unarchive endpoints, default listing hides archived, filter bar toggle, archive button in task detail modal. 46 tests passing. Deploying to staging.*
