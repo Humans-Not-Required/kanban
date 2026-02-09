@@ -2093,7 +2093,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
       <div style={styles.searchBar(isMobile)}>
         <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
           <input
-            style={{ ...styles.input, marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined }}
+            style={{ ...styles.input, marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined, height: '32px', padding: '4px 10px', fontSize: '0.8rem' }}
             placeholder="Search tasks..."
             value={search}
             onChange={e => setSearch(e.target.value)}
