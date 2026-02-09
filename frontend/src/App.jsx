@@ -455,7 +455,7 @@ function MoveTaskDropdown({ boardId, task, columns, onMoved, onCancel }) {
 
 const TASKS_PER_PAGE = 20;
 
-function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns, collapsed: externalCollapsed, onToggleCollapse, tasksLoaded }) {
+function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, archived, onClickTask, isMobile, allColumns, collapsed: externalCollapsed, onToggleCollapse, tasksLoaded, onFullScreen }) {
   const [dragOver, setDragOver] = useState(false);
   const colTaskCount = tasks.filter(t => t.column_id === column.id).length;
   const [internalCollapsed, setInternalCollapsed] = useState(false);
@@ -612,6 +612,14 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
             background: '#1e293b', border: '1px solid #334155', borderRadius: '6px',
             padding: '4px 0', minWidth: '140px', boxShadow: '0 4px 12px rgba(0,0,0,.4)',
           }}>
+            {!isMobile && onFullScreen && (
+              <button
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '0.8rem' }}
+                onClick={() => { onFullScreen(); setShowMenu(false); }}
+                onMouseEnter={e => e.target.style.background = '#334155'}
+                onMouseLeave={e => e.target.style.background = 'none'}
+              >⛶ Full Screen</button>
+            )}
             <button
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '0.8rem' }}
               onClick={() => { setRenameValue(column.name); setRenaming(true); setShowMenu(false); }}
@@ -680,6 +688,64 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function FullScreenColumnView({ column, tasks, boardId, canEdit, onRefresh, onClose, onClickTask, archived }) {
+  useEscapeKey(onClose);
+  const colTasks = tasks.filter(t => t.column_id === column.id)
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0) || a.title.localeCompare(b.title));
+
+  // Responsive grid: up to 3 columns on wide screens
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.85)', zIndex: 1000,
+      display: 'flex', flexDirection: 'column',
+      padding: '20px',
+    }} onClick={onClose}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: '16px', flexShrink: 0,
+      }} onClick={e => e.stopPropagation()}>
+        <h2 style={{ margin: 0, color: '#e2e8f0', fontSize: '1.3rem' }}>
+          {column.name} <span style={{ color: '#64748b', fontWeight: 400, fontSize: '1rem' }}>({colTasks.length} tasks)</span>
+        </h2>
+        <button
+          onClick={onClose}
+          style={{
+            background: '#334155', border: 'none', color: '#e2e8f0',
+            padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem',
+          }}
+          onMouseEnter={e => e.target.style.background = '#475569'}
+          onMouseLeave={e => e.target.style.background = '#334155'}
+        >✕ Close</button>
+      </div>
+      <div style={{
+        flex: 1, overflowY: 'auto',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gap: '10px', alignContent: 'start',
+      }} onClick={e => e.stopPropagation()}>
+        {colTasks.map(t => (
+          <TaskCard
+            key={t.id}
+            task={t}
+            boardId={boardId}
+            canEdit={canEdit}
+            onRefresh={onRefresh}
+            archived={archived}
+            onClickTask={onClickTask}
+            isMobile={false}
+          />
+        ))}
+        {colTasks.length === 0 && (
+          <div style={{ color: '#64748b', padding: '40px', textAlign: 'center', gridColumn: '1 / -1' }}>
+            No tasks in this column.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1666,6 +1732,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const [tasksLoaded, setTasksLoaded] = useState(false);
+  const [fullScreenColumnId, setFullScreenColumnId] = useState(null);
   const toggleColumnCollapse = useCallback((colId) => {
     setCollapsedColumns(prev => ({ ...prev, [colId]: !prev[colId] }));
   }, []);
@@ -1843,6 +1910,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
             collapsed={collapsedColumns[col.id]}
             onToggleCollapse={() => toggleColumnCollapse(col.id)}
             tasksLoaded={tasksLoaded}
+            onFullScreen={() => setFullScreenColumnId(col.id)}
           />
         ))}
         {canEdit && !archived && (
@@ -1891,6 +1959,22 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, isMobile }) {
           <div style={styles.empty}>No columns yet.</div>
         )}
       </div>
+
+      {fullScreenColumnId && (() => {
+        const fsCol = columns.find(c => c.id === fullScreenColumnId);
+        return fsCol ? (
+          <FullScreenColumnView
+            column={fsCol}
+            tasks={displayTasks}
+            boardId={board.id}
+            canEdit={canEdit}
+            onRefresh={loadTasks}
+            onClose={() => setFullScreenColumnId(null)}
+            onClickTask={setSelectedTask}
+            archived={archived}
+          />
+        ) : null;
+      })()}
 
       {showCreate && (
         <CreateTaskModal
