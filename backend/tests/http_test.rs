@@ -56,6 +56,7 @@ fn test_client() -> Client {
                 kanban::routes::release_task,
                 kanban::routes::move_task,
                 kanban::routes::reorder_task,
+                kanban::routes::get_board_activity,
                 kanban::routes::get_task_events,
                 kanban::routes::comment_on_task,
                 kanban::routes::board_event_stream,
@@ -991,4 +992,70 @@ fn test_http_task_archive_no_auth() {
         .post(format!("/api/v1/boards/{}/tasks/{}/archive", board_id, task_id))
         .dispatch();
     assert!(resp.status() == Status::Unauthorized || resp.status() == Status::Forbidden);
+}
+
+#[test]
+fn test_http_board_activity_feed() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Activity Feed Test");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create a task (generates a task.created event)
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(serde_json::json!({"title": "Activity Task", "column_id": col_id, "actor_name": "TestBot"}).to_string())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Add a comment (generates a task.comment event)
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(serde_json::json!({"message": "Test comment", "actor_name": "TestBot"}).to_string())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Fetch activity feed — should have at least 2 events
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert!(activity.len() >= 2, "Expected at least 2 events, got {}", activity.len());
+
+    // Should contain both event types
+    let types: Vec<&str> = activity.iter().map(|e| e["event_type"].as_str().unwrap()).collect();
+    assert!(types.contains(&"comment"), "Should have comment event");
+    assert!(types.contains(&"created"), "Should have created event");
+
+    // All events should reference our task
+    for event in &activity {
+        assert_eq!(event["task_title"], "Activity Task");
+        assert!(!event["task_id"].as_str().unwrap().is_empty());
+    }
+
+    // Test since filter — use a future timestamp to get 0 results
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?since=2099-01-01T00:00:00", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(activity.len(), 0);
+
+    // Test limit parameter
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=1", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(activity.len(), 1);
 }

@@ -1480,6 +1480,175 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
   );
 }
 
+// ---- Activity Panel ----
+
+const LAST_VISIT_KEY = (boardId) => `kanban_last_visit_${boardId}`;
+
+function getLastVisit(boardId) {
+  try { return localStorage.getItem(LAST_VISIT_KEY(boardId)); } catch { return null; }
+}
+
+function setLastVisit(boardId) {
+  try { localStorage.setItem(LAST_VISIT_KEY(boardId), new Date().toISOString()); } catch {}
+}
+
+function formatEventDescription(event) {
+  const { event_type, actor, data, task_title } = event;
+  const who = actor || 'Someone';
+  const title = task_title || '(unknown task)';
+  const truncTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
+
+  switch (event_type) {
+    case 'created': return `${who} created "${truncTitle}"`;
+    case 'updated': return `${who} updated "${truncTitle}"`;
+    case 'comment': {
+      const msg = data?.message || '';
+      const preview = msg.length > 60 ? msg.slice(0, 57) + '...' : msg;
+      return `${who} commented on "${truncTitle}": ${preview}`;
+    }
+    case 'moved': {
+      const to = data?.to_column || '';
+      return `${who} moved "${truncTitle}"${to ? ` → ${to}` : ''}`;
+    }
+    case 'claimed': return `${who} claimed "${truncTitle}"`;
+    case 'released': return `${who} released "${truncTitle}"`;
+    case 'deleted': return `${who} deleted "${truncTitle}"`;
+    case 'archived': return `${who} archived "${truncTitle}"`;
+    case 'unarchived': return `${who} unarchived "${truncTitle}"`;
+    default: return `${who} ${event_type} "${truncTitle}"`;
+  }
+}
+
+function formatTimeAgo(dateStr) {
+  const now = new Date();
+  const d = new Date(dateStr + (dateStr.includes('Z') || dateStr.includes('+') ? '' : 'Z'));
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString();
+}
+
+function eventIcon(type) {
+  switch (type) {
+    case 'created': return '✨';
+    case 'updated': return '✏️';
+    case 'comment': return '💬';
+    case 'moved': return '➡️';
+    case 'claimed': return '🙋';
+    case 'released': return '🔓';
+    case 'deleted': return '🗑️';
+    case 'archived': return '📦';
+    case 'unarchived': return '📤';
+    default: return '📌';
+  }
+}
+
+function ActivityPanel({ boardId, onClose, isMobile }) {
+  useEscapeKey(onClose);
+  const [activity, setActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showSince, setShowSince] = useState(true);
+  const lastVisit = getLastVisit(boardId);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const opts = showSince && lastVisit ? { since: lastVisit, limit: 100 } : { limit: 50 };
+        const { data } = await api.getBoardActivity(boardId, opts);
+        setActivity(data || []);
+      } catch (err) {
+        console.error('Failed to load activity:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [boardId, showSince, lastVisit]);
+
+  // Update last visit when panel closes
+  const handleClose = () => {
+    setLastVisit(boardId);
+    onClose();
+  };
+
+  const newCount = lastVisit
+    ? activity.filter(e => {
+        const t = new Date(e.created_at + (e.created_at.includes('Z') ? '' : 'Z'));
+        return t > new Date(lastVisit);
+      }).length
+    : 0;
+
+  return (
+    <div style={styles.modal(isMobile)} onClick={handleClose}>
+      <div style={{ ...styles.modalContent(isMobile), width: isMobile ? '100%' : '520px', maxHeight: isMobile ? '100vh' : '85vh' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>📊 Activity</h2>
+          <button style={styles.btnSmall} onClick={handleClose}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+          {lastVisit && (
+            <button
+              onClick={() => setShowSince(v => !v)}
+              style={{
+                background: showSince ? '#6366f133' : 'transparent',
+                color: showSince ? '#a5b4fc' : '#94a3b8',
+                border: `1px solid ${showSince ? '#6366f155' : '#334155'}`,
+                borderRadius: '4px',
+                padding: '4px 10px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                height: '28px',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              {showSince ? `Since last visit (${newCount})` : 'All recent'}
+            </button>
+          )}
+          {lastVisit && (
+            <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
+              Last visit: {formatTimeAgo(lastVisit)}
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Loading...</div>
+        ) : activity.length === 0 ? (
+          <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
+            {showSince && lastVisit ? 'No new activity since your last visit.' : 'No activity yet.'}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'auto', maxHeight: isMobile ? 'calc(100vh - 140px)' : '60vh' }}>
+            {activity.map(event => (
+              <div key={event.id} style={{
+                padding: '8px 10px',
+                borderRadius: '4px',
+                background: '#1e293b',
+                border: '1px solid #1e293b',
+                fontSize: '0.8rem',
+                lineHeight: '1.4',
+              }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                  <span style={{ flexShrink: 0 }}>{eventIcon(event.event_type)}</span>
+                  <span style={{ color: '#e2e8f0', flex: 1 }}>
+                    {formatEventDescription(event)}
+                  </span>
+                  <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    {formatTimeAgo(event.created_at)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function WebhookManagerModal({ boardId, onClose, isMobile }) {
   useEscapeKey(onClose);
   const [webhooks, setWebhooks] = useState([]);
@@ -1793,6 +1962,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const [newColumnName, setNewColumnName] = useState('');
   // showWebhooks state removed — webhook button removed from UI per Jordan's request
   const [showSettings, setShowSettings] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
   const [filterPriority, setFilterPriority] = useState('');
   const [filterLabel, setFilterLabel] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
@@ -1800,6 +1970,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const [tasksLoaded, setTasksLoaded] = useState(false);
+  const [newActivityCount, setNewActivityCount] = useState(0);
   const [fullScreenColumnId, setFullScreenColumnId] = useState(null);
   const toggleColumnCollapse = useCallback((colId) => {
     setCollapsedColumns(prev => ({ ...prev, [colId]: !prev[colId] }));
@@ -1817,6 +1988,18 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   }, [board.id, showArchivedTasks]);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  // Load new activity count for the badge
+  useEffect(() => {
+    const lv = getLastVisit(board.id);
+    if (!lv) { setNewActivityCount(0); return; }
+    (async () => {
+      try {
+        const { data } = await api.getBoardActivity(board.id, { since: lv, limit: 100 });
+        setNewActivityCount((data || []).length);
+      } catch { setNewActivityCount(0); }
+    })();
+  }, [board.id, showActivity]);
 
   // SSE: subscribe to real-time board events (debounced refresh)
   useEffect(() => {
@@ -1883,6 +2066,22 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         </div>
         <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <button style={{ ...styles.btn('secondary', isMobile), position: 'relative' }} onClick={() => setShowActivity(true)} title="Activity Feed">
+              📊
+              {newActivityCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-4px', right: '-4px',
+                  background: '#6366f1', color: '#fff',
+                  fontSize: '0.6rem', fontWeight: 700,
+                  width: '16px', height: '16px',
+                  borderRadius: '50%', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1,
+                }}>
+                  {newActivityCount > 99 ? '99+' : newActivityCount}
+                </span>
+              )}
+            </button>
             <button style={styles.btn('secondary', isMobile)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
           </div>
           {canEdit && !archived && (
@@ -2084,6 +2283,14 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           onClose={() => setShowSettings(false)}
           onRefresh={onBoardRefresh}
           onBoardListRefresh={onBoardListRefresh}
+          isMobile={isMobile}
+        />
+      )}
+
+      {showActivity && (
+        <ActivityPanel
+          boardId={board.id}
+          onClose={() => setShowActivity(false)}
           isMobile={isMobile}
         />
       )}

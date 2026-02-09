@@ -201,6 +201,17 @@ pub struct TaskEventResponse {
     pub created_at: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct BoardActivityItem {
+    pub id: String,
+    pub task_id: String,
+    pub task_title: String,
+    pub event_type: String,
+    pub actor: String,
+    pub data: serde_json::Value,
+    pub created_at: String,
+}
+
 // ============ Search ============
 
 #[derive(Debug, Serialize)]

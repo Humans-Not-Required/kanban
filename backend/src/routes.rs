@@ -1817,6 +1817,76 @@ fn batch_delete(
     Ok(affected)
 }
 
+// ============ Board Activity ============
+
+/// Get board-level activity feed — all events across all tasks, public, no auth required.
+#[get("/boards/<board_id>/activity?<since>&<limit>")]
+pub fn get_board_activity(
+    board_id: &str,
+    since: Option<&str>,
+    limit: Option<u32>,
+    db: &State<DbPool>,
+) -> Result<Json<Vec<BoardActivityItem>>, (Status, Json<ApiError>)> {
+    let conn = db.lock().unwrap();
+    access::require_board_exists(&conn, board_id)?;
+
+    let limit = limit.unwrap_or(50).min(200);
+
+    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(since_ts) = since {
+        (
+            format!(
+                "SELECT te.id, te.task_id, COALESCE(t.title, '(deleted)'), te.event_type, te.actor, te.data, te.created_at
+                 FROM task_events te
+                 LEFT JOIN tasks t ON t.id = te.task_id
+                 WHERE t.board_id = ?1 AND te.created_at > ?2
+                 ORDER BY te.created_at DESC
+                 LIMIT ?3"
+            ),
+            vec![
+                Box::new(board_id.to_string()),
+                Box::new(since_ts.to_string()),
+                Box::new(limit),
+            ],
+        )
+    } else {
+        (
+            format!(
+                "SELECT te.id, te.task_id, COALESCE(t.title, '(deleted)'), te.event_type, te.actor, te.data, te.created_at
+                 FROM task_events te
+                 LEFT JOIN tasks t ON t.id = te.task_id
+                 WHERE t.board_id = ?1
+                 ORDER BY te.created_at DESC
+                 LIMIT ?2"
+            ),
+            vec![
+                Box::new(board_id.to_string()),
+                Box::new(limit),
+            ],
+        )
+    };
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| db_error(&e.to_string()))?;
+
+    let items = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            let data_str: String = row.get(5)?;
+            Ok(BoardActivityItem {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                task_title: row.get(2)?,
+                event_type: row.get(3)?,
+                actor: row.get(4)?,
+                data: serde_json::from_str(&data_str).unwrap_or(serde_json::json!({})),
+                created_at: row.get(6)?,
+            })
+        })
+        .map_err(|e| db_error(&e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(Json(items))
+}
+
 // ============ Task Events ============
 
 /// Get task events — public, no auth required.

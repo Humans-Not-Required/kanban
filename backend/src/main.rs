@@ -88,6 +88,8 @@ fn rocket() -> _ {
                 routes::release_task,
                 routes::move_task,
                 routes::reorder_task,
+                // Board activity feed (public)
+                routes::get_board_activity,
                 // Task events (read = public) & comments (manage key required)
                 routes::get_task_events,
                 routes::comment_on_task,

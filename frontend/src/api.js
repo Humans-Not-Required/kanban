@@ -270,6 +270,16 @@ const updateWebhook = (boardId, webhookId, body) =>
 const deleteWebhook = (boardId, webhookId) =>
   request(`/boards/${boardId}/webhooks/${webhookId}`, { method: 'DELETE', boardId });
 
+// ---- Activity ----
+
+const getBoardActivity = (boardId, { since, limit } = {}) => {
+  const params = new URLSearchParams();
+  if (since) params.set('since', since);
+  if (limit) params.set('limit', String(limit));
+  const qs = params.toString();
+  return request(`/boards/${boardId}/activity${qs ? '?' + qs : ''}`);
+};
+
 // ---- Health ----
 
 const health = () => request('/health');
@@ -283,6 +293,7 @@ export {
   listTasks, getTask, createTask, updateTask, deleteTask, archiveTask, unarchiveTask, moveTask, claimTask, releaseTask,
   searchTasks,
   getTaskEvents, commentOnTask,
+  getBoardActivity,
   subscribeToBoardEvents,
   listWebhooks, createWebhook, updateWebhook, deleteWebhook,
   health,
