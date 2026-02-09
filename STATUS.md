@@ -180,8 +180,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - ~~**Activity feed / since last visit**~~ ✅ Done (06:14 UTC)
 - ~~**Search input height**~~ ✅ Done (06:18 UTC)
 
+### Completed (2026-02-09 Overnight, Session 2 — 08:32 UTC)
+
+- ~~**Comment submit button below bottom of screen on mobile**~~ ✅ Done — modals now use `100dvh` instead of `100vh` on mobile (accounts for browser URL bar/chrome), comments area reduced to 30vh on mobile, explicit bottom padding. Commit: fd71ab2
+
 ### Completed (2026-02-09 Overnight, Session 1 — 08:06 UTC)
 
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
-*Last updated: 2026-02-09 08:06 UTC — public boards discovery page. Tests: 47 backend (33 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-09 08:32 UTC — mobile comment button fix. Tests: 53 backend (6 unit + 33 HTTP + 14 integration) all passing.*
