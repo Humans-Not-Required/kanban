@@ -1,6 +1,8 @@
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 pub type DbPool = Mutex<Connection>;
 pub type WebhookDb = Arc<Mutex<Connection>>;
@@ -17,8 +19,18 @@ pub fn init_db() -> Result<DbPool, String> {
     let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
     // Enable WAL mode for better concurrent read performance
-    conn.execute_batch("PRAGMA journal_mode=WAL;")
-        .map_err(|e| format!("Failed to set WAL mode: {}", e))?;
+    // Retry a few times to handle transient locks during test initialization
+    let mut attempts = 0;
+    loop {
+        match conn.execute_batch("PRAGMA journal_mode=WAL;") {
+            Ok(_) => break,
+            Err(e) if attempts < 3 => {
+                attempts += 1;
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(e) => return Err(format!("Failed to set WAL mode: {}", e)),
+        }
+    }
 
     conn.execute_batch(
         "
@@ -145,8 +157,18 @@ pub fn init_webhook_db() -> Result<WebhookDb, String> {
     let conn = Connection::open(&db_path)
         .map_err(|e| format!("Failed to open webhook database: {}", e))?;
 
-    conn.execute_batch("PRAGMA journal_mode=WAL;")
-        .map_err(|e| format!("Failed to set WAL mode for webhook db: {}", e))?;
+    // Retry a few times to handle transient locks during test initialization
+    let mut attempts = 0;
+    loop {
+        match conn.execute_batch("PRAGMA journal_mode=WAL;") {
+            Ok(_) => break,
+            Err(e) if attempts < 3 => {
+                attempts += 1;
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(e) => return Err(format!("Failed to set WAL mode for webhook db: {}", e)),
+        }
+    }
 
     Ok(Arc::new(Mutex::new(conn)))
 }
