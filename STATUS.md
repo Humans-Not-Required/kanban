@@ -139,7 +139,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### What's Next (Remaining)
 
-1. **Public boards discovery UX** — welcome page as discovery hub (search, categories, featured). Sidebar is now "My Boards" only.
+1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
 ### Completed (2026-02-09 Daytime, Session 3 — 07:10 UTC)
@@ -180,4 +180,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - ~~**Activity feed / since last visit**~~ ✅ Done (06:14 UTC)
 - ~~**Search input height**~~ ✅ Done (06:18 UTC)
 
-*Last updated: 2026-02-09 06:55 UTC — 3 fixes this session (share button, escape layering, assignee chips). Tests: 47 backend (33 HTTP + 14 integration) all passing.*
+### Completed (2026-02-09 Overnight, Session 1 — 08:06 UTC)
+
+- ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
+
+*Last updated: 2026-02-09 08:06 UTC — public boards discovery page. Tests: 47 backend (33 HTTP + 14 integration) all passing.*
