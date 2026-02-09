@@ -2067,7 +2067,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
       if (filterPriority === '3') { if ((t.priority || 0) < 3) return false; }
       else if (String(t.priority) !== filterPriority) return false;
     }
-    if (filterLabel && !(Array.isArray(t.labels) ? t.labels.join(',') : (t.labels || '')).toLowerCase().includes(filterLabel.toLowerCase())) return false;
+    if (filterLabel && !(Array.isArray(t.labels) ? t.labels : (t.labels || '').split(',').map(l => l.trim())).some(l => l.toLowerCase() === filterLabel.toLowerCase())) return false;
     if (filterAssignee && t.assigned_to !== filterAssignee && t.claimed_by !== filterAssignee) return false;
     return true;
   });
