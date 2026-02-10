@@ -2767,8 +2767,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               <button
                 style={{
                   ...styles.btn('secondary', isMobile),
-                  background: showSearchBar ? '#3b82f622' : undefined,
-                  borderColor: showSearchBar ? '#3b82f644' : undefined,
+                  border: showSearchBar ? '1px solid #6366f1' : undefined,
                 }}
                 onClick={() => setShowSearchBar(v => !v)}
                 title="Search & Filter"
@@ -2818,7 +2817,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             )}
           </div>
           <button style={styles.btnSmall} onClick={doSearch}>Search</button>
-          <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : undefined, color: hasActiveFilters ? '#3b82f6' : undefined, border: hasActiveFilters ? '1px solid #3b82f644' : undefined, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
+          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : undefined, color: hasActiveFilters ? '#a5b4fc' : undefined, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Filter{hasActiveFilters ? ' ●' : ''}
           </button>
