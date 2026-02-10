@@ -244,9 +244,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **@mention support in comments** ✅ Done — Backend: `extract_mentions()` parses `@Name` and `@"Quoted Name"` from comment text. Mentions stored in comment data JSON (no migration needed). Activity endpoint: `?mentioned=<name>` filter. `BoardActivityItem` includes top-level `mentions` field on comment events. Frontend: @mentions highlighted purple (gold for self-mentions). My Items tab uses structured mentions for reliable filtering. 2 new HTTP tests (52 total: 38 HTTP + 14 integration). Commit: be4de71
 - **Board housekeeping** — moved "Enrich activity endpoint" and "DB backup automation" tasks from Up Next to Review (already completed).
 
-### Regression Fix Needed (2026-02-10)
+### Completed (2026-02-10 Daytime, Session 5 — 17:35 UTC)
 
-- **Search button color still wrong** — Jordan confirmed the search button background is still different from other toolbar buttons. Previous fix (commit a68dad7) didn't fully resolve it. Task 7164b9d5 moved back from Review → Backlog, priority bumped to 2. **Must match exact same dark background as all other toolbar buttons.**
+- **Button color consistency (take 2)** ✅ Done — Root cause: search toggle (mobile) and filter button were using translucent `#3b82f622`/`#3b82f633` backgrounds when active, making them appear lighter than the solid `#334155` on 📊/⚙️ buttons. Fix: removed all translucent background overrides; active state now indicated by solid indigo border (`#6366f1`) only. All toolbar buttons now have identical dark background. Commit: 92ce8ec. Task: 7164b9d5 → Review.
 
 ### Completed (2026-02-10 Overnight, Session 3 — 08:50 UTC)
 
