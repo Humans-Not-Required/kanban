@@ -237,7 +237,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
-*Last updated: 2026-02-10 08:07 UTC — Activity panel overhaul (two tabs). Tests: 50 backend (36 HTTP + 14 integration) all passing.*
+### Completed (2026-02-10 Overnight, Session 1 — 08:17 UTC)
+
+- **@mention support in comments** ✅ Done — Backend: `extract_mentions()` parses `@Name` and `@"Quoted Name"` from comment text. Mentions stored in comment data JSON (no migration needed). Activity endpoint: `?mentioned=<name>` filter. `BoardActivityItem` includes top-level `mentions` field on comment events. Frontend: @mentions highlighted purple (gold for self-mentions). My Items tab uses structured mentions for reliable filtering. 2 new HTTP tests (52 total: 38 HTTP + 14 integration). Commit: be4de71
+- **Board housekeeping** — moved "Enrich activity endpoint" and "DB backup automation" tasks from Up Next to Review (already completed).
+
+*Last updated: 2026-02-10 08:25 UTC — @mention support. Tests: 52 backend (38 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 
