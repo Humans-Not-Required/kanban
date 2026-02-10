@@ -10,7 +10,7 @@
 ## Auth Model
 - Create board: no auth required, returns a manage_key
 - Read operations (GET): public, just need the board UUID
-- Write operations (POST/PUT/PATCH/DELETE): require manage_key via Bearer token, X-API-Key header, or ?key= query param
+- Write operations (POST/PATCH/DELETE): require manage_key via Bearer token, X-API-Key header, or ?key= query param
 - No user accounts. Boards are the only resource. Tokens are per-board.
 
 ## Core Endpoints
@@ -33,7 +33,7 @@
 - POST /api/v1/boards/{id}/tasks — create task (auth required)
 - GET /api/v1/boards/{id}/tasks — list tasks (public, supports ?column_id=&priority=&label=&assigned_to=&claimed_by=&search=&limit=&offset=; default limit=200, max 1000)
 - GET /api/v1/boards/{id}/tasks/{task_id} — get task (public)
-- PUT /api/v1/boards/{id}/tasks/{task_id} — update task (auth required)
+- PATCH /api/v1/boards/{id}/tasks/{task_id} — update task (auth required)
 - DELETE /api/v1/boards/{id}/tasks/{task_id} — delete task (auth required)
 - POST /api/v1/boards/{id}/tasks/batch — batch create tasks (auth required)
 
@@ -65,7 +65,7 @@
 ### Webhooks
 - POST /api/v1/boards/{id}/webhooks — create webhook (auth required)
 - GET /api/v1/boards/{id}/webhooks — list webhooks (auth required)
-- PUT /api/v1/boards/{id}/webhooks/{wh_id} — update webhook (auth required)
+- PATCH /api/v1/boards/{id}/webhooks/{wh_id} — update webhook (auth required)
 - DELETE /api/v1/boards/{id}/webhooks/{wh_id} — delete webhook (auth required)
 
 ## Task Object
