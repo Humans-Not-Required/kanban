@@ -149,6 +149,13 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
+### Completed (2026-02-10 Daytime, Session 2 — 07:04 UTC)
+
+- **Sidebar: My Boards only** ✅ Done — Removed Public Boards expandable list and Archived Boards toggle from sidebar. Added "Browse Public Boards" link that navigates to welcome/discovery page. Sidebar is now My Boards only. Cleaned up dead state vars. Commit: eaec899
+- **Webhook button → Board Settings** ✅ Done — Moved webhook management into Board Settings modal. Edit-mode users see "⚡ Manage Webhooks" button that opens the webhook manager. Commit: b4f13e2
+- **Require display name setting** ✅ Done — New `require_display_name` boolean on boards. When enabled, task creation and commenting reject empty/anonymous actor names (DISPLAY_NAME_REQUIRED error). Toggle in Board Settings. DB migration auto-adds column. 1 new HTTP test (62 total). Commit: e39f671
+- **Deploy pipeline verified** ✅ — CI passing, Watchtower pulling images, health checks OK.
+
 ### Completed (2026-02-10 Daytime, Session 1 — 06:07 UTC)
 
 - **Edit box problems** ✅ Done — Two fixes: (1) Edit textarea now starts at 140px (was 60px) and auto-grows with content as user types, fixing the too-small edit box on iPhone SE. (2) `selectedTask` now syncs with refreshed tasks data via useEffect, so task detail view updates immediately after save without close/reopen. Commit: 1a10aec
