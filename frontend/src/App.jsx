@@ -1502,6 +1502,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
   const [quickReassignColumnId, setQuickReassignColumnId] = useState(board.quick_reassign_column_id || '');
   const [quickReassignTo, setQuickReassignTo] = useState(board.quick_reassign_to || '');
   const [saving, setSaving] = useState(false);
+  const [showWebhooks, setShowWebhooks] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState('');
@@ -1643,6 +1644,24 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
           </div>
         )}
 
+        {canEdit && (
+          <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', marginBottom: '16px' }}>
+            <button
+              onClick={() => setShowWebhooks(true)}
+              style={{
+                ...styles.btn('secondary', isMobile),
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              ⚡ Manage Webhooks
+            </button>
+          </div>
+        )}
+
         <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '16px' }}>
           <div>Board ID: <code style={{ color: '#94a3b8' }}>{board.id}</code></div>
           <div>Created: {parseUTC(board.created_at).toLocaleString()}</div>
@@ -1691,6 +1710,14 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
           </div>
         )}
       </div>
+
+      {showWebhooks && (
+        <WebhookManagerModal
+          boardId={board.id}
+          onClose={() => setShowWebhooks(false)}
+          isMobile={isMobile}
+        />
+      )}
     </div>
   );
 }
