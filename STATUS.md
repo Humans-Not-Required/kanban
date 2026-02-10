@@ -242,11 +242,17 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **@mention support in comments** ✅ Done — Backend: `extract_mentions()` parses `@Name` and `@"Quoted Name"` from comment text. Mentions stored in comment data JSON (no migration needed). Activity endpoint: `?mentioned=<name>` filter. `BoardActivityItem` includes top-level `mentions` field on comment events. Frontend: @mentions highlighted purple (gold for self-mentions). My Items tab uses structured mentions for reliable filtering. 2 new HTTP tests (52 total: 38 HTTP + 14 integration). Commit: be4de71
 - **Board housekeeping** — moved "Enrich activity endpoint" and "DB backup automation" tasks from Up Next to Review (already completed).
 
+### Completed (2026-02-10 Overnight, Session 3 — 08:50 UTC)
+
+- **Button color consistency** ✅ Done — `btnSmall` background changed from transparent to `#334155` (matching secondary buttons). Border `#475569`, text `#cbd5e1`. Filter button inherits from base instead of separate overrides. All toolbar buttons now visually consistent. Commit: a68dad7. Kanban task: 7164b9d5 → Review.
+- **Mobile task detail button layout** ✅ Done — 2-row layout on mobile: row 1 = title + close button (max space for title), row 2 = action buttons right-aligned (↩ reassign, ✓ done, 📦 archive, ✏️ edit). Reassign button now visible on mobile. Desktop layout unchanged. Commit: a68dad7. Kanban task: 27bdec0f → Review.
+- **Task sweep** ✅ Done — reviewed all non-archived tasks. Moved "Rethink Public Boards" to Review (already addressed). 5 backlog items remain (new projects + ideas). 59 tasks in Review awaiting Jordan. No stuck or missed items. Kanban task: 7fad1f80 → Review.
+
 ### Completed (2026-02-10 Overnight, Session 2 — 08:37 UTC)
 
 - **Consistent chip-style selectors everywhere** ✅ Done — Filter bar: replaced `<select>` dropdowns for label and assignee with clickable chip buttons (blue for labels, green for assignees). Edit task modal: added missing label chips. All three locations (create, edit, filter) now use identical chip styling with consistent colors. Priority filter kept as `<select>` (fixed set of values). Overflow indicator (+N) for large sets. Commit: 20a7be3
 
-*Last updated: 2026-02-10 08:37 UTC — chip consistency sweep. Tests: 52 backend (38 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-10 08:50 UTC — button consistency + mobile layout + task sweep. Tests: 52 backend (38 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 
