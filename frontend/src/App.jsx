@@ -293,6 +293,13 @@ const styles = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     boxSizing: 'border-box', flexShrink: 0,
   },
+  btnIcon: {
+    background: '#334155', border: '1px solid #475569', color: '#cbd5e1',
+    width: '32px', height: '32px', borderRadius: '4px', cursor: 'pointer',
+    fontSize: '0.8rem', lineHeight: 1, padding: 0,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    boxSizing: 'border-box', flexShrink: 0,
+  },
   modal: (mobile) => ({
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
     display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', zIndex: 1100,
@@ -1172,7 +1179,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               <div style={{ display: 'flex', gap: '4px', marginLeft: '8px', flexShrink: 0 }}>
                 {canEdit && !editing && reassignColumn && !isAlreadyInReassignCol && !isArchived && (
                   <button
-                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
+                    style={{ ...styles.btnIcon, background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
                     onClick={handleQuickReassign}
                     disabled={reassigning}
                     title={`Move to ${reassignColumn.name}${quickReassignTo ? ` → ${quickReassignTo}` : ''}`}
@@ -1180,7 +1187,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 )}
                 {canEdit && !editing && doneColumn && !isAlreadyDone && !isArchived && (
                   <button
-                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
+                    style={{ ...styles.btnIcon, background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
                     onClick={handleMarkDone}
                     disabled={markingDone}
                     title={`Mark done${quickDoneAutoArchive ? ' & archive' : ''} → ${doneColumn.name}`}
@@ -1188,7 +1195,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 )}
                 {canEdit && !editing && (
                   <button
-                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                    style={styles.btnIcon}
                     onClick={handleArchiveToggle}
                     disabled={archiving}
                     title={isArchived ? 'Unarchive task' : 'Archive task'}
@@ -1196,7 +1203,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 )}
                 {canEdit && !editing && (
                   <button
-                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                    style={styles.btnIcon}
                     onClick={() => setEditing(true)}
                     title="Edit task"
                   >✏️</button>
@@ -1212,7 +1219,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '10px', flexWrap: 'wrap' }}>
               {reassignColumn && !isAlreadyInReassignCol && !isArchived && (
                 <button
-                  style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
+                  style={{ ...styles.btnIcon, background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
                   onClick={handleQuickReassign}
                   disabled={reassigning}
                   title={`Move to ${reassignColumn.name}${quickReassignTo ? ` → ${quickReassignTo}` : ''}`}
@@ -1220,20 +1227,20 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               )}
               {doneColumn && !isAlreadyDone && !isArchived && (
                 <button
-                  style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
+                  style={{ ...styles.btnIcon, background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
                   onClick={handleMarkDone}
                   disabled={markingDone}
                   title={`Mark done${quickDoneAutoArchive ? ' & archive' : ''} → ${doneColumn.name}`}
                 >{markingDone ? '⏳' : '✓'}</button>
               )}
               <button
-                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                style={styles.btnIcon}
                 onClick={handleArchiveToggle}
                 disabled={archiving}
                 title={isArchived ? 'Unarchive task' : 'Archive task'}
               >{archiving ? '⏳' : isArchived ? '📤' : '📦'}</button>
               <button
-                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                style={styles.btnIcon}
                 onClick={() => setEditing(true)}
                 title="Edit task"
               >✏️</button>
