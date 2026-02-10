@@ -1951,10 +1951,12 @@ fn batch_delete(
 // ============ Board Activity ============
 
 /// Get board-level activity feed — all events across all tasks, public, no auth required.
-#[get("/boards/<board_id>/activity?<since>&<limit>")]
+/// Supports cursor pagination via `?after=<seq>` (preferred) or timestamp via `?since=<ISO-8601>` (backward compat).
+#[get("/boards/<board_id>/activity?<since>&<after>&<limit>")]
 pub fn get_board_activity(
     board_id: &str,
     since: Option<&str>,
+    after: Option<i64>,
     limit: Option<u32>,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<BoardActivityItem>>, (Status, Json<ApiError>)> {
@@ -1963,10 +1965,27 @@ pub fn get_board_activity(
 
     let limit = limit.unwrap_or(50).min(200);
 
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(since_ts) = since {
+    // Prefer `after` (seq cursor) over `since` (timestamp) when both provided
+    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(after_seq) = after {
         (
             format!(
-                "SELECT te.id, te.task_id, COALESCE(t.title, '(deleted)'), te.event_type, te.actor, te.data, te.created_at
+                "SELECT te.id, te.task_id, COALESCE(t.title, '(deleted)'), te.event_type, te.actor, te.data, te.created_at, COALESCE(te.seq, 0)
+                 FROM task_events te
+                 LEFT JOIN tasks t ON t.id = te.task_id
+                 WHERE t.board_id = ?1 AND te.seq > ?2
+                 ORDER BY te.seq ASC
+                 LIMIT ?3"
+            ),
+            vec![
+                Box::new(board_id.to_string()),
+                Box::new(after_seq),
+                Box::new(limit),
+            ],
+        )
+    } else if let Some(since_ts) = since {
+        (
+            format!(
+                "SELECT te.id, te.task_id, COALESCE(t.title, '(deleted)'), te.event_type, te.actor, te.data, te.created_at, COALESCE(te.seq, 0)
                  FROM task_events te
                  LEFT JOIN tasks t ON t.id = te.task_id
                  WHERE t.board_id = ?1 AND te.created_at > ?2
@@ -1982,7 +2001,7 @@ pub fn get_board_activity(
     } else {
         (
             format!(
-                "SELECT te.id, te.task_id, COALESCE(t.title, '(deleted)'), te.event_type, te.actor, te.data, te.created_at
+                "SELECT te.id, te.task_id, COALESCE(t.title, '(deleted)'), te.event_type, te.actor, te.data, te.created_at, COALESCE(te.seq, 0)
                  FROM task_events te
                  LEFT JOIN tasks t ON t.id = te.task_id
                  WHERE t.board_id = ?1
@@ -2009,6 +2028,7 @@ pub fn get_board_activity(
                 actor: row.get(4)?,
                 data: serde_json::from_str(&data_str).unwrap_or(serde_json::json!({})),
                 created_at: row.get(6)?,
+                seq: row.get(7)?,
                 task: None,
                 recent_comments: None,
             })
@@ -2203,10 +2223,11 @@ pub fn comment_on_task(
     let event_id = uuid::Uuid::new_v4().to_string();
     let data = serde_json::json!({"message": message, "actor": actor});
     let data_str = serde_json::to_string(&data).unwrap();
+    let seq = next_event_seq(&conn);
 
     conn.execute(
-        "INSERT INTO task_events (id, task_id, event_type, actor, data) VALUES (?1, ?2, 'comment', ?3, ?4)",
-        rusqlite::params![event_id, task_id, actor, data_str],
+        "INSERT INTO task_events (id, task_id, event_type, actor, data, seq) VALUES (?1, ?2, 'comment', ?3, ?4, ?5)",
+        rusqlite::params![event_id, task_id, actor, data_str, seq],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
@@ -2828,6 +2849,16 @@ fn load_dependency_response(
     .map_err(|_| not_found("Dependency"))
 }
 
+/// Compute the next monotonic seq value for task_events.
+fn next_event_seq(conn: &Connection) -> i64 {
+    conn.query_row(
+        "SELECT COALESCE(MAX(seq), 0) + 1 FROM task_events",
+        [],
+        |row| row.get(0),
+    )
+    .unwrap_or(1)
+}
+
 fn log_event(
     conn: &Connection,
     task_id: &str,
@@ -2837,9 +2868,10 @@ fn log_event(
 ) {
     let id = uuid::Uuid::new_v4().to_string();
     let data_str = serde_json::to_string(data).unwrap_or_else(|_| "{}".to_string());
+    let seq = next_event_seq(conn);
     let _ = conn.execute(
-        "INSERT INTO task_events (id, task_id, event_type, actor, data) VALUES (?1, ?2, ?3, ?4, ?5)",
-        rusqlite::params![id, task_id, event_type, actor, data_str],
+        "INSERT INTO task_events (id, task_id, event_type, actor, data, seq) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![id, task_id, event_type, actor, data_str, seq],
     );
 }
 

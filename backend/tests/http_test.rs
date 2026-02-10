@@ -1146,6 +1146,52 @@ fn test_http_board_activity_feed() {
     assert_eq!(resp.status(), Status::Ok);
     let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
     assert_eq!(activity.len(), 1);
+
+    // --- Seq cursor pagination tests ---
+    // All events should have a seq field (monotonic integer)
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
+    for event in &activity {
+        assert!(event.get("seq").is_some(), "Event should have seq field");
+        assert!(event["seq"].as_i64().unwrap() > 0, "seq should be positive");
+    }
+
+    // Test after= cursor — use seq 0 to get all events
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?after=0", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let all_after_0: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(all_after_0.len(), activity.len(), "after=0 should return all events");
+
+    // after= results should be ordered by seq ASC (oldest first)
+    let seqs: Vec<i64> = all_after_0.iter().map(|e| e["seq"].as_i64().unwrap()).collect();
+    for i in 1..seqs.len() {
+        assert!(seqs[i] > seqs[i-1], "after= results should be ordered by seq ASC, got {:?}", seqs);
+    }
+
+    // Test after= with a specific seq — should return only events after that seq
+    let mid_seq = seqs[seqs.len() / 2];
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?after={}", board_id, mid_seq))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let partial: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert!(partial.len() < all_after_0.len(), "after=mid should return fewer events");
+    for event in &partial {
+        assert!(event["seq"].as_i64().unwrap() > mid_seq, "All events should have seq > {}", mid_seq);
+    }
+
+    // Test after= with a very high seq — should return 0 events
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?after=999999", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let empty: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(empty.len(), 0, "after=999999 should return no events");
 }
 
 // ============ Quick Reassign Settings ============

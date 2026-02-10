@@ -223,6 +223,8 @@ pub struct BoardActivityItem {
     pub actor: String,
     pub data: serde_json::Value,
     pub created_at: String,
+    /// Monotonic sequence number for cursor-based pagination (use `?after=<seq>`)
+    pub seq: i64,
     /// Full task snapshot — included on `created` and `comment` events only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task: Option<TaskResponse>,

@@ -170,6 +170,30 @@ pub fn init_db() -> Result<DbPool, String> {
     );
     // (silently ignored if column already exists)
 
+    // Migration: add monotonic seq column to task_events for cursor pagination
+    let _ = conn.execute_batch(
+        "ALTER TABLE task_events ADD COLUMN seq INTEGER;"
+    );
+    // Backfill seq for existing events (ordered by rowid, which is insertion order)
+    let needs_backfill: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM task_events WHERE seq IS NULL LIMIT 1)",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+    if needs_backfill {
+        let _ = conn.execute_batch(
+            "UPDATE task_events SET seq = (
+                SELECT COUNT(*) FROM task_events te2 WHERE te2.rowid <= task_events.rowid
+            ) WHERE seq IS NULL;"
+        );
+    }
+    // Create index for efficient after= queries
+    let _ = conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_events_seq ON task_events(seq);"
+    );
+
     Ok(Mutex::new(conn))
 }
 
