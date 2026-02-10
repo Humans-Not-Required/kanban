@@ -1707,7 +1707,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
 
         {canEdit && (
           <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', marginBottom: '16px' }}>
-            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>✓ Quick Done Button</label>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Quick Done Button <span style={{ color: '#22c55e' }}>✓</span></label>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Target column</label>
             <select
               style={{ ...styles.input, cursor: 'pointer' }}
@@ -1732,7 +1732,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
 
         {canEdit && (
           <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', marginBottom: '16px' }}>
-            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>↩ Quick Reassign Button</label>
+            <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Quick Reassign Button <span style={{ color: '#f59e0b' }}>↩</span></label>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Target column</label>
             <select
               style={{ ...styles.input, cursor: 'pointer' }}
