@@ -1175,10 +1175,15 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
         {editing && (
           <div style={{ marginBottom: '16px', padding: '12px', background: '#0f172a', borderRadius: '6px', border: '1px solid #6366f133' }}>
             <textarea
-              style={{ ...styles.textarea, minHeight: '60px' }}
+              ref={el => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(140, el.scrollHeight) + 'px'; } }}
+              style={{ ...styles.textarea, minHeight: '140px', overflow: 'hidden' }}
               placeholder="Description (optional)"
               value={editDesc}
-              onChange={e => setEditDesc(e.target.value)}
+              onChange={e => {
+                setEditDesc(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.max(140, e.target.scrollHeight) + 'px';
+              }}
             />
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <select style={styles.select} value={editPriority} onChange={e => setEditPriority(Number(e.target.value))}>
@@ -2315,6 +2320,19 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   }, [board.id, showArchivedTasks]);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  // Sync selectedTask with refreshed tasks data (fixes stale view after edit/save)
+  useEffect(() => {
+    if (selectedTask) {
+      const updated = tasks.find(t => t.id === selectedTask.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedTask)) {
+        setSelectedTask(updated);
+      } else if (!updated && !showArchivedTasks) {
+        // Task may have been deleted or archived
+        setSelectedTask(null);
+      }
+    }
+  }, [tasks]);
 
   // Load new activity count for the badge
   useEffect(() => {
