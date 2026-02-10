@@ -242,7 +242,11 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **@mention support in comments** ✅ Done — Backend: `extract_mentions()` parses `@Name` and `@"Quoted Name"` from comment text. Mentions stored in comment data JSON (no migration needed). Activity endpoint: `?mentioned=<name>` filter. `BoardActivityItem` includes top-level `mentions` field on comment events. Frontend: @mentions highlighted purple (gold for self-mentions). My Items tab uses structured mentions for reliable filtering. 2 new HTTP tests (52 total: 38 HTTP + 14 integration). Commit: be4de71
 - **Board housekeeping** — moved "Enrich activity endpoint" and "DB backup automation" tasks from Up Next to Review (already completed).
 
-*Last updated: 2026-02-10 08:25 UTC — @mention support. Tests: 52 backend (38 HTTP + 14 integration) all passing.*
+### Completed (2026-02-10 Overnight, Session 2 — 08:37 UTC)
+
+- **Consistent chip-style selectors everywhere** ✅ Done — Filter bar: replaced `<select>` dropdowns for label and assignee with clickable chip buttons (blue for labels, green for assignees). Edit task modal: added missing label chips. All three locations (create, edit, filter) now use identical chip styling with consistent colors. Priority filter kept as `<select>` (fixed set of values). Overflow indicator (+N) for large sets. Commit: 20a7be3
+
+*Last updated: 2026-02-10 08:37 UTC — chip consistency sweep. Tests: 52 backend (38 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 

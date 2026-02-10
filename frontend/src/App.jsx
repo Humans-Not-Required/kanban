@@ -281,7 +281,7 @@ const styles = {
     boxSizing: 'border-box',
   }),
   btnSmall: {
-    background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
+    background: '#334155', border: '1px solid #475569', color: '#cbd5e1',
     padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem',
     height: '32px', lineHeight: '1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     boxSizing: 'border-box',
@@ -1141,67 +1141,104 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
     <div style={styles.modal(isMobile)} onClick={onClose}>
       <div style={styles.modalContentWide(isMobile)} onClick={(e) => e.stopPropagation()}>
         {/* Task header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {editing ? (
-              <input
-                style={{ ...styles.input, fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px' }}
-                value={editTitle}
-                onChange={e => setEditTitle(e.target.value)}
-                autoFocus
-              />
-            ) : (
-              <h3 style={{ color: '#f1f5f9', marginBottom: '6px', fontSize: isMobile ? '1rem' : '1.17rem' }}>{task.title}</h3>
-            )}
-            {!editing && (
-              <div style={styles.cardMeta}>
-                <span style={{ color: priorityColor(task.priority) }}>
-                  {priorityLabel(task.priority)}
-                </span>
-                {task.assigned_to && <span>→ {task.assigned_to}</span>}
-                {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
-                {task.column_name && <span>⬜ {task.column_name}</span>}
-                {task.created_by && task.created_by !== 'anonymous' && <span>by {task.created_by}</span>}
+        <div style={{ marginBottom: '16px' }}>
+          {/* Row 1: Title + Close (mobile) or Title + all buttons (desktop) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {editing ? (
+                <input
+                  style={{ ...styles.input, fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px' }}
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <h3 style={{ color: '#f1f5f9', marginBottom: '6px', fontSize: isMobile ? '1rem' : '1.17rem' }}>{task.title}</h3>
+              )}
+              {!editing && (
+                <div style={styles.cardMeta}>
+                  <span style={{ color: priorityColor(task.priority) }}>
+                    {priorityLabel(task.priority)}
+                  </span>
+                  {task.assigned_to && <span>→ {task.assigned_to}</span>}
+                  {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
+                  {task.column_name && <span>⬜ {task.column_name}</span>}
+                  {task.created_by && task.created_by !== 'anonymous' && <span>by {task.created_by}</span>}
+                </div>
+              )}
+            </div>
+            {/* Desktop: all buttons inline; Mobile: just close */}
+            {!isMobile ? (
+              <div style={{ display: 'flex', gap: '4px', marginLeft: '8px', flexShrink: 0 }}>
+                {canEdit && !editing && reassignColumn && !isAlreadyInReassignCol && !isArchived && (
+                  <button
+                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
+                    onClick={handleQuickReassign}
+                    disabled={reassigning}
+                    title={`Move to ${reassignColumn.name}${quickReassignTo ? ` → ${quickReassignTo}` : ''}`}
+                  >{reassigning ? '⏳' : '↩'}</button>
+                )}
+                {canEdit && !editing && doneColumn && !isAlreadyDone && !isArchived && (
+                  <button
+                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
+                    onClick={handleMarkDone}
+                    disabled={markingDone}
+                    title={`Mark done${quickDoneAutoArchive ? ' & archive' : ''} → ${doneColumn.name}`}
+                  >{markingDone ? '⏳' : '✓'}</button>
+                )}
+                {canEdit && !editing && (
+                  <button
+                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                    onClick={handleArchiveToggle}
+                    disabled={archiving}
+                    title={isArchived ? 'Unarchive task' : 'Archive task'}
+                  >{archiving ? '⏳' : isArchived ? '📤' : '📦'}</button>
+                )}
+                {canEdit && !editing && (
+                  <button
+                    style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
+                    onClick={() => setEditing(true)}
+                    title="Edit task"
+                  >✏️</button>
+                )}
+                <button style={styles.btnClose} onClick={onClose}>×</button>
               </div>
+            ) : (
+              <button style={{ ...styles.btnClose, marginLeft: '8px', flexShrink: 0 }} onClick={onClose}>×</button>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '4px', marginLeft: '8px', flexShrink: 0 }}>
-            {canEdit && !editing && reassignColumn && !isAlreadyInReassignCol && !isArchived && (
-              <button
-                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
-                onClick={handleQuickReassign}
-                disabled={reassigning}
-                title={`Move to ${reassignColumn.name}${quickReassignTo ? ` → ${quickReassignTo}` : ''}`}
-              >{reassigning ? '⏳' : '↩'}</button>
-            )}
-            {canEdit && !editing && doneColumn && !isAlreadyDone && !isArchived && (
-              <button
-                style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
-                onClick={handleMarkDone}
-                disabled={markingDone}
-                title={`Mark done${quickDoneAutoArchive ? ' & archive' : ''} → ${doneColumn.name}`}
-              >{markingDone ? '⏳' : '✓'}</button>
-            )}
-            {canEdit && !editing && (
+          {/* Row 2: Action buttons on mobile (below title) */}
+          {isMobile && canEdit && !editing && (
+            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '10px', flexWrap: 'wrap' }}>
+              {reassignColumn && !isAlreadyInReassignCol && !isArchived && (
+                <button
+                  style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
+                  onClick={handleQuickReassign}
+                  disabled={reassigning}
+                  title={`Move to ${reassignColumn.name}${quickReassignTo ? ` → ${quickReassignTo}` : ''}`}
+                >{reassigning ? '⏳' : '↩'}</button>
+              )}
+              {doneColumn && !isAlreadyDone && !isArchived && (
+                <button
+                  style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem', background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
+                  onClick={handleMarkDone}
+                  disabled={markingDone}
+                  title={`Mark done${quickDoneAutoArchive ? ' & archive' : ''} → ${doneColumn.name}`}
+                >{markingDone ? '⏳' : '✓'}</button>
+              )}
               <button
                 style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
                 onClick={handleArchiveToggle}
                 disabled={archiving}
                 title={isArchived ? 'Unarchive task' : 'Archive task'}
               >{archiving ? '⏳' : isArchived ? '📤' : '📦'}</button>
-            )}
-            {canEdit && !editing && (
               <button
                 style={{ ...styles.btnSmall, padding: '6px 10px', fontSize: '0.8rem' }}
                 onClick={() => setEditing(true)}
                 title="Edit task"
               >✏️</button>
-            )}
-            <button
-              style={styles.btnClose}
-              onClick={onClose}
-            >×</button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Edit form */}
@@ -2781,7 +2818,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             )}
           </div>
           <button style={styles.btnSmall} onClick={doSearch}>Search</button>
-          <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : '#1e293b', color: hasActiveFilters ? '#3b82f6' : '#94a3b8', border: `1px solid ${hasActiveFilters ? '#3b82f644' : '#334155'}`, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
+          <button style={{ ...styles.btnSmall, background: hasActiveFilters ? '#3b82f633' : undefined, color: hasActiveFilters ? '#3b82f6' : undefined, border: hasActiveFilters ? '1px solid #3b82f644' : undefined, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Filter{hasActiveFilters ? ' ●' : ''}
           </button>
