@@ -149,6 +149,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
+### Completed (2026-02-10 Daytime, Session 1 — 06:07 UTC)
+
+- **Edit box problems** ✅ Done — Two fixes: (1) Edit textarea now starts at 140px (was 60px) and auto-grows with content as user types, fixing the too-small edit box on iPhone SE. (2) `selectedTask` now syncs with refreshed tasks data via useEffect, so task detail view updates immediately after save without close/reopen. Commit: 1a10aec
+
 ### Completed (2026-02-09 Daytime, Session 7 — 21:57 UTC)
 
 - **Timestamp timezone fix** ✅ Done — Added `parseUTC()` helper that normalizes API timestamps (space-separated, no TZ marker) to ISO 8601 with 'Z' suffix. Applied to `formatTime`, `formatTimeAgo`, `due_at`, board `created_at`, and activity feed comparisons. All timestamps now correctly display in the user's local timezone. Commit: cc7b9c0
