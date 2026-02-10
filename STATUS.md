@@ -149,6 +149,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
+### Completed (2026-02-10 Daytime, Session 3 — 07:40 UTC)
+
+- **Monotonic seq cursor pagination on activity endpoint** ✅ Done — `seq INTEGER` column on task_events table with migration + backfill. `?after=<seq>` cursor param on GET /boards/{id}/activity. Seq assigned via next_event_seq() on event insert. Response includes `seq` field. `after=` returns ASC order for feed consumption. `since=` preserved for backward compat. 50 tests passing (36 HTTP + 14 integration). Commit: f6fc0eb. Playbooks updated: kanban-monitor.md + agent-chat-monitor.md now use `?after=` instead of `?since=`.
+
 ### Completed (2026-02-10 Daytime, Session 2 — 07:04 UTC)
 
 - **Sidebar: My Boards only** ✅ Done — Removed Public Boards expandable list and Archived Boards toggle from sidebar. Added "Browse Public Boards" link that navigates to welcome/discovery page. Sidebar is now My Boards only. Cleaned up dead state vars. Commit: eaec899
