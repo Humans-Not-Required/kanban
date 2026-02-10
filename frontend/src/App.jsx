@@ -284,7 +284,7 @@ const styles = {
     background: '#334155', border: '1px solid #475569', color: '#cbd5e1',
     padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem',
     height: '32px', lineHeight: '1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    boxSizing: 'border-box',
+    boxSizing: 'border-box', outline: 'none',
   },
   btnClose: {
     background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
@@ -2823,8 +2823,8 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               >×</button>
             )}
           </div>
-          <button style={styles.btnSmall} onClick={doSearch}>Search</button>
-          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : undefined, color: hasActiveFilters ? '#a5b4fc' : undefined, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
+          <button style={{ ...styles.btnSmall, border: 'none' }} onClick={doSearch}>Search</button>
+          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : 'none', color: hasActiveFilters ? '#a5b4fc' : undefined, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Filter{hasActiveFilters ? ' ●' : ''}
           </button>
