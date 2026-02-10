@@ -149,6 +149,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 
+### Completed (2026-02-10 Overnight, Session 4 — 08:07 UTC)
+
+- **Activity panel overhaul: two tabs** ✅ Done — "Recent" tab (activity feed with since-last-visit toggle) and "My Items" tab (assigned tasks grouped by column + user's own activity). Click tasks in My Items to open detail modal. Tab badges show unread/assignment counts. Responsive. Commit: 79b4070. Kanban task: 34b6a40a → Review.
+- **Check deploy** ✅ Verified — CI passing, Watchtower pulling, health checks OK. Task: d6c982ea → Review.
+- **Tasks skip Review process fix** ✅ Confirmed working — task: 88f214a9 → Review.
+
 ### Completed (2026-02-10 Daytime, Session 3 — 07:40 UTC)
 
 - **Monotonic seq cursor pagination on activity endpoint** ✅ Done — `seq INTEGER` column on task_events table with migration + backfill. `?after=<seq>` cursor param on GET /boards/{id}/activity. Seq assigned via next_event_seq() on event insert. Response includes `seq` field. `after=` returns ASC order for feed consumption. `since=` preserved for backward compat. 50 tests passing (36 HTTP + 14 integration). Commit: f6fc0eb. Playbooks updated: kanban-monitor.md + agent-chat-monitor.md now use `?after=` instead of `?since=`.
@@ -231,7 +237,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Public boards discovery page**~~ ✅ Done — welcome page as hub: hero with CTA, stats bar (board count + total tasks), card grid with hover effects, search filter, open-by-ID section. Responsive (single column mobile, auto-fill desktop). Commit: e3f5ca5
 
-*Last updated: 2026-02-09 22:50 UTC — Enriched activity endpoint. Tests: 49 backend (35 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-10 08:07 UTC — Activity panel overhaul (two tabs). Tests: 50 backend (36 HTTP + 14 integration) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 — 09:05 UTC)
 
