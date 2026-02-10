@@ -2899,13 +2899,10 @@ function WelcomePage({ onSelectBoard, onCreateBoard, isMobile }) {
 function App() {
   const { isMobile, isCompact } = useBreakpoint();
   const collapseSidebar = isCompact; // collapse sidebar on mobile + tablet
-  const [boards, setBoards] = useState([]);
   const [myBoards, setMyBoards] = useState(() => api.getMyBoards());
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [boardDetail, setBoardDetail] = useState(null);
   const [showCreateBoard, setShowCreateBoard] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [showPublicBoards, setShowPublicBoards] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -2921,17 +2918,6 @@ function App() {
       setSelectedBoardId(boardId);
     }
   }, []);
-
-  const loadBoards = useCallback(async () => {
-    try {
-      const { data } = await api.listBoards(showArchived);
-      setBoards(data.boards || data || []);
-    } catch (err) {
-      console.error('Failed to load boards:', err);
-    }
-  }, [showArchived]);
-
-  useEffect(() => { loadBoards(); }, [loadBoards]);
 
   const loadBoardDetail = useCallback(async (boardId) => {
     const id = boardId || selectedBoardId;
@@ -2967,7 +2953,6 @@ function App() {
   }, [selectedBoardId, loadBoardDetail]);
 
   const handleBoardCreated = (newBoardId) => {
-    loadBoards();
     if (newBoardId) setSelectedBoardId(newBoardId);
   };
 
@@ -3109,11 +3094,11 @@ function App() {
           <div style={{ borderTop: '1px solid #334155', marginTop: 'auto', padding: '12px' }}>
             <DirectBoardInput onOpen={handleOpenDirect} />
             <button
-              onClick={() => { setShowPublicBoards(v => !v); if (!showPublicBoards) loadBoards(); }}
+              onClick={() => { setSelectedBoardId(null); setBoardDetail(null); if (collapseSidebar) setSidebarOpen(false); }}
               style={{
-                background: showPublicBoards ? '#6366f133' : 'transparent',
-                color: showPublicBoards ? '#a5b4fc' : '#64748b',
-                border: `1px solid ${showPublicBoards ? '#6366f155' : '#334155'}`,
+                background: 'transparent',
+                color: '#a5b4fc',
+                border: '1px solid #334155',
                 borderRadius: '4px',
                 padding: '5px 10px',
                 fontSize: '0.75rem',
@@ -3125,59 +3110,18 @@ function App() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
+                transition: 'background 0.15s, border-color 0.15s',
               }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#6366f122'; e.currentTarget.style.borderColor = '#6366f155'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#334155'; }}
             >
-              🌐 Public Boards {showPublicBoards ? '▲' : '▼'}
-            </button>
-            {showPublicBoards && (
-              <div style={{ marginTop: '4px' }}>
-                {boards.map(b => (
-                  <div
-                    key={b.id}
-                    style={{
-                      ...styles.boardItem(selectedBoardId === b.id),
-                      fontSize: '0.8rem',
-                      padding: '6px 8px',
-                    }}
-                    onClick={() => handleSelectBoard(b.id)}
-                  >
-                    <span>{b.name}</span>
-                    {b.archived_at && <span style={styles.archivedBadge}>📦</span>}
-                  </div>
-                ))}
-                {boards.length === 0 && (
-                  <div style={{ color: '#64748b', fontSize: '0.75rem', padding: '8px', textAlign: 'center' }}>
-                    No public boards.
-                  </div>
-                )}
-              </div>
-            )}
-            <button
-              onClick={() => setShowArchived(v => !v)}
-              style={{
-                background: showArchived ? '#6366f133' : 'transparent',
-                color: showArchived ? '#a5b4fc' : '#64748b',
-                border: `1px solid ${showArchived ? '#6366f155' : '#334155'}`,
-                borderRadius: '4px',
-                padding: '5px 10px',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                width: '100%',
-                marginTop: '8px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              📦 Archived Boards {showArchived ? '✓' : ''}
+              🌐 Browse Public Boards
             </button>
           </div>
         </div>
 
         {boardDetail ? (
-          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={loadBoards} isMobile={isMobile} />
+          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={() => {}} isMobile={isMobile} />
         ) : loadError ? (
           <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>

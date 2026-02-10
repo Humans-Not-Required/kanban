@@ -231,3 +231,29 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Fullscreen column view: task click reliability** ✅ Done — stopPropagation on TaskCard click + disable drag in fullscreen overlay to avoid touch/tablet drag interference. Commit: 756d403
 - **Control height consistency** ✅ Done — add `boxSizing: border-box` to btn/btnSmall/select to make 32px heights visually consistent (border-inclusive). Commit: 756d403
 - **Tablet bottom-gap mitigation** ✅ Done — app container uses `100dvh` (dynamic viewport height). Commit: 756d403
+
+---
+
+## New Requests / Direction (2026-02-10)
+
+### Public boards: UX + safety decisions
+- Public boards should be **view-only by default** (don’t grant edit to strangers in v1 — avoids “someone trashed my board”).
+- Remove any “Public Boards” list/section from the **sidebar** entirely.
+  - Sidebar should be **My Boards** only.
+  - Add a **“Browse Public Boards”** link that goes to a dedicated discovery page (welcome/discovery hub).
+- Future (needs design + implementation): **Request Edit Access** flow
+  - View-only users click “Request Edit Access” → owner gets a notification → approve/deny.
+  - Safety features if we ever allow it: snapshots/backups before granting edit, audit log, undo/revert.
+
+### New feature requests
+- **Board option to disable anonymous** task creation + commenting (require display name).
+- **User tagging** in comments/text fields.
+- **Activity box overhaul**: two tabs/modes
+  1) Recent events (last 24h)
+  2) Items assigned to current user + comments that @mention them (ties into tagging)
+- **Consistency sweep**: labels + assigned-to inputs should use the same quick-select chips + autocomplete everywhere.
+
+### Ops
+- **Check deploy**: Jordan reports some issues marked fixed / moved to Review aren’t visible live — verify deploy pipeline + whether staging is stale.
+
+*Last updated: 2026-02-10 06:56 UTC (kanban monitor).* 
