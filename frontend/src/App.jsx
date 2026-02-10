@@ -1497,6 +1497,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || '');
   const [isPublic, setIsPublic] = useState(board.is_public || false);
+  const [requireDisplayName, setRequireDisplayName] = useState(board.require_display_name || false);
   const [quickDoneColumnId, setQuickDoneColumnId] = useState(board.quick_done_column_id || '');
   const [quickDoneAutoArchive, setQuickDoneAutoArchive] = useState(board.quick_done_auto_archive || false);
   const [quickReassignColumnId, setQuickReassignColumnId] = useState(board.quick_reassign_column_id || '');
@@ -1517,6 +1518,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
         name: name.trim(),
         description: description.trim(),
         is_public: isPublic,
+        require_display_name: requireDisplayName,
         quick_done_column_id: quickDoneColumnId || '',
         quick_done_auto_archive: quickDoneAutoArchive,
         quick_reassign_column_id: quickReassignColumnId || '',
@@ -1585,7 +1587,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
           disabled={!canEdit}
         />
 
-        <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', cursor: canEdit ? 'pointer' : 'default' }}>
+        <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', cursor: canEdit ? 'pointer' : 'default' }}>
           <input
             type="checkbox"
             checked={isPublic}
@@ -1593,6 +1595,16 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
             disabled={!canEdit}
           />
           Public (listed in board directory)
+        </label>
+
+        <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', cursor: canEdit ? 'pointer' : 'default' }}>
+          <input
+            type="checkbox"
+            checked={requireDisplayName}
+            onChange={e => setRequireDisplayName(e.target.checked)}
+            disabled={!canEdit}
+          />
+          Require display name (no anonymous tasks or comments)
         </label>
 
         {canEdit && (

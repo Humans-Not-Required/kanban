@@ -42,6 +42,9 @@ pub struct CreateBoardRequest {
     /// Optional: make the board publicly listed (default: false = unlisted)
     #[serde(default)]
     pub is_public: bool,
+    /// Require display name on tasks and comments (default: false = allow anonymous)
+    #[serde(default)]
+    pub require_display_name: bool,
 }
 
 /// Update board settings (all fields optional).
@@ -50,6 +53,7 @@ pub struct UpdateBoardRequest {
     pub name: Option<String>,
     pub description: Option<String>,
     pub is_public: Option<bool>,
+    pub require_display_name: Option<bool>,
     pub quick_done_column_id: Option<String>,
     pub quick_done_auto_archive: Option<bool>,
     pub quick_reassign_column_id: Option<String>,
@@ -79,6 +83,7 @@ pub struct BoardResponse {
     pub task_count: usize,
     pub archived: bool,
     pub is_public: bool,
+    pub require_display_name: bool,
     pub quick_done_column_id: Option<String>,
     pub quick_done_auto_archive: bool,
     pub quick_reassign_column_id: Option<String>,

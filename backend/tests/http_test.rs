@@ -1200,3 +1200,89 @@ fn test_http_quick_reassign_settings() {
     let err: serde_json::Value = resp.into_json().unwrap();
     assert_eq!(err["code"], "INVALID_COLUMN");
 }
+
+// ============ Require Display Name ============
+
+#[test]
+fn test_http_require_display_name() {
+    let client = test_client();
+
+    // Create board with require_display_name enabled
+    let resp = client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Named Board", "require_display_name": true}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    let board_id = body["id"].as_str().unwrap().to_string();
+    let manage_key = body["manage_key"].as_str().unwrap().to_string();
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Verify board setting is returned
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(board["require_display_name"], true);
+
+    // Creating a task without actor_name should fail
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Anonymous Task"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // Creating a task WITH actor_name should succeed
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Named Task", "actor_name": "TestBot"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Commenting without actor_name should fail
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"message": "Anonymous comment"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // Commenting WITH actor_name should succeed
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"message": "Named comment", "actor_name": "TestBot"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Toggling setting off should allow anonymous again
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"require_display_name": false}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let board: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(board["require_display_name"], false);
+
+    // Now anonymous task creation should work
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Anonymous OK Now"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+}

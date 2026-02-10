@@ -96,3 +96,37 @@ pub fn require_manage_key(
         ))
     }
 }
+
+/// Check if the board requires a display name. Returns true if require_display_name is set.
+pub fn board_requires_display_name(conn: &Connection, board_id: &str) -> bool {
+    conn.query_row(
+        "SELECT require_display_name FROM boards WHERE id = ?1",
+        rusqlite::params![board_id],
+        |row| row.get::<_, i32>(0),
+    )
+    .unwrap_or(0)
+        == 1
+}
+
+/// Validate that a display name is provided when the board requires one.
+/// `actor` should be the display name to validate.
+pub fn require_display_name_if_needed(
+    conn: &Connection,
+    board_id: &str,
+    actor: &str,
+) -> Result<(), (Status, Json<ApiError>)> {
+    if board_requires_display_name(conn, board_id)
+        && (actor.is_empty() || actor == "anonymous")
+    {
+        Err((
+            Status::BadRequest,
+            Json(ApiError {
+                error: "This board requires a display name. Please set your name before creating tasks or commenting.".to_string(),
+                code: "DISPLAY_NAME_REQUIRED".to_string(),
+                status: 400,
+            }),
+        ))
+    } else {
+        Ok(())
+    }
+}

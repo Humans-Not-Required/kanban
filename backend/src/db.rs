@@ -164,6 +164,12 @@ pub fn init_db() -> Result<DbPool, String> {
     );
     // (silently ignored if columns already exist)
 
+    // Migration: add require_display_name setting to boards
+    let _ = conn.execute_batch(
+        "ALTER TABLE boards ADD COLUMN require_display_name INTEGER NOT NULL DEFAULT 0;"
+    );
+    // (silently ignored if column already exists)
+
     Ok(Mutex::new(conn))
 }
 

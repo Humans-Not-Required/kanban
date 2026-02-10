@@ -140,8 +140,8 @@ pub fn create_board(
     let conn = db.lock().unwrap();
 
     conn.execute(
-        "INSERT INTO boards (id, name, description, manage_key_hash, is_public) VALUES (?1, ?2, ?3, ?4, ?5)",
-        rusqlite::params![board_id, req.name.trim(), req.description, manage_key_hash, req.is_public as i32],
+        "INSERT INTO boards (id, name, description, manage_key_hash, is_public, require_display_name) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![board_id, req.name.trim(), req.description, manage_key_hash, req.is_public as i32, req.require_display_name as i32],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
@@ -331,6 +331,10 @@ pub fn update_board(
             updates.push("quick_reassign_to = ?");
             params.push(Box::new(reassign_to.trim().to_string()));
         }
+    }
+    if let Some(require_display_name) = req.require_display_name {
+        updates.push("require_display_name = ?");
+        params.push(Box::new(require_display_name as i32));
     }
 
     if updates.is_empty() {
@@ -744,6 +748,10 @@ pub fn create_task(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
+
+    // Check display name requirement
+    let creator_name = if req.actor_name.is_empty() { "anonymous" } else { &req.actor_name };
+    access::require_display_name_if_needed(&conn, board_id, creator_name)?;
 
     if req.title.trim().is_empty() {
         return Err((
@@ -2176,6 +2184,9 @@ pub fn comment_on_task(
         .unwrap_or("anonymous")
         .to_string();
 
+    // Check display name requirement
+    access::require_display_name_if_needed(&conn, board_id, &actor)?;
+
     let message = body.get("message").and_then(|v| v.as_str()).unwrap_or("");
 
     if message.is_empty() {
@@ -2840,7 +2851,8 @@ fn load_board_response(
         .query_row(
             "SELECT b.id, b.name, b.description, b.archived, b.is_public, b.created_at, b.updated_at,
                     b.quick_done_column_id, b.quick_done_auto_archive,
-                    b.quick_reassign_column_id, b.quick_reassign_to
+                    b.quick_reassign_column_id, b.quick_reassign_to,
+                    b.require_display_name
              FROM boards b
              WHERE b.id = ?1",
             rusqlite::params![board_id],
@@ -2857,6 +2869,7 @@ fn load_board_response(
                     row.get::<_, i32>(8).unwrap_or(0) == 1,
                     row.get::<_, Option<String>>(9)?,
                     row.get::<_, Option<String>>(10)?,
+                    row.get::<_, i32>(11).unwrap_or(0) == 1,
                 ))
             },
         )
@@ -2895,6 +2908,7 @@ fn load_board_response(
         task_count,
         archived: board.3,
         is_public: board.4,
+        require_display_name: board.11,
         quick_done_column_id: board.7,
         quick_done_auto_archive: board.8,
         quick_reassign_column_id: board.9,
