@@ -1234,6 +1234,27 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               suggestions={allLabels || []}
               isCommaList
             />
+            {(allLabels || []).length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '-6px', marginBottom: '6px' }}>
+                {(allLabels || []).slice(0, 8).map(l => {
+                  const current = editLabels.split(',').map(s => s.trim()).filter(Boolean);
+                  const isActive = current.includes(l);
+                  return (
+                    <button key={l} type="button" onClick={() => {
+                      if (isActive) {
+                        setEditLabels(current.filter(c => c !== l).join(', '));
+                      } else {
+                        setEditLabels(current.length ? [...current, l].join(', ') : l);
+                      }
+                    }} style={{
+                      padding: '2px 8px', fontSize: '0.7rem', borderRadius: '10px', cursor: 'pointer',
+                      background: isActive ? '#3b82f633' : '#1e293b', color: isActive ? '#93c5fd' : '#64748b',
+                      border: `1px solid ${isActive ? '#3b82f644' : '#334155'}`, whiteSpace: 'nowrap',
+                    }}>{l}</button>
+                  );
+                })}
+              </div>
+            )}
             <AutocompleteInput
               style={styles.input}
               placeholder="Assigned to (optional)"
@@ -2775,14 +2796,28 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             <option value="1">🟡 Medium</option>
             <option value="0">🟢 Low</option>
           </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
-            <option value="">Any Label</option>
-            {allLabels.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
-            <option value="">Any Assignee</option>
-            {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: '#64748b', marginRight: '2px', whiteSpace: 'nowrap' }}>Label:</span>
+            {allLabels.slice(0, 10).map(l => (
+              <button key={l} onClick={() => setFilterLabel(filterLabel === l ? '' : l)} style={{
+                padding: '2px 8px', fontSize: '0.7rem', borderRadius: '10px', cursor: 'pointer',
+                background: filterLabel === l ? '#3b82f633' : '#1e293b', color: filterLabel === l ? '#93c5fd' : '#64748b',
+                border: `1px solid ${filterLabel === l ? '#3b82f644' : '#334155'}`, whiteSpace: 'nowrap',
+              }}>{l}</button>
+            ))}
+            {allLabels.length > 10 && <span style={{ fontSize: '0.65rem', color: '#475569' }}>+{allLabels.length - 10}</span>}
+          </div>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: '#64748b', marginRight: '2px', whiteSpace: 'nowrap' }}>Assignee:</span>
+            {allAssignees.slice(0, 8).map(a => (
+              <button key={a} onClick={() => setFilterAssignee(filterAssignee === a ? '' : a)} style={{
+                padding: '2px 8px', fontSize: '0.7rem', borderRadius: '10px', cursor: 'pointer',
+                background: filterAssignee === a ? '#22c55e33' : '#1e293b', color: filterAssignee === a ? '#86efac' : '#64748b',
+                border: `1px solid ${filterAssignee === a ? '#22c55e44' : '#334155'}`, whiteSpace: 'nowrap',
+              }}>{a}</button>
+            ))}
+            {allAssignees.length > 8 && <span style={{ fontSize: '0.65rem', color: '#475569' }}>+{allAssignees.length - 8}</span>}
+          </div>
           <button
             onClick={() => setShowArchivedTasks(v => !v)}
             style={{
