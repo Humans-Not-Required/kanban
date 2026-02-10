@@ -389,6 +389,39 @@ function copyToClipboard(text) {
   );
 }
 
+// ---- @Mention Rendering ----
+
+/** Render text with @mentions highlighted. Returns array of React elements. */
+function renderWithMentions(text) {
+  if (!text) return text;
+  // Match @"Quoted Name" or @word-chars
+  const mentionRegex = /@"([^"]+)"|@([\w._-]+)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+  while ((match = mentionRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const name = match[1] || match[2];
+    const displayName = api.getDisplayName();
+    const isMe = displayName && name.toLowerCase() === displayName.toLowerCase();
+    parts.push(
+      <span key={key++} style={{
+        color: isMe ? '#fbbf24' : '#818cf8',
+        fontWeight: 600,
+        cursor: 'default',
+      }} title={`@${name}`}>@{name}</span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : text;
+}
+
 // ---- Components ----
 
 function IdentityBadge({ isMobile }) {
@@ -1299,7 +1332,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                     <span style={{ fontSize: '0.7rem', color: '#475569' }}>{formatTime(evt.created_at)}</span>
                   </div>
                   <div style={{ fontSize: '0.83rem', color: '#cbd5e1', whiteSpace: 'pre-wrap' }}>
-                    {evt.data?.message || ''}
+                    {renderWithMentions(evt.data?.message || '')}
                   </div>
                 </div>
               ))}
@@ -1840,10 +1873,12 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
         ]);
         setMyTasks((tasksRes.data || []).filter(t => !t.archived_at));
         // Filter activity to events where the current user is mentioned or is the actor
+        const dn = displayName.toLowerCase();
         const relevant = (activityRes.data || []).filter(e =>
-          (e.actor && e.actor.toLowerCase() === displayName.toLowerCase()) ||
-          (e.data?.assigned_to && e.data.assigned_to.toLowerCase() === displayName.toLowerCase()) ||
-          (e.data?.message && e.data.message.toLowerCase().includes('@' + displayName.toLowerCase()))
+          (e.actor && e.actor.toLowerCase() === dn) ||
+          (e.data?.assigned_to && e.data.assigned_to.toLowerCase() === dn) ||
+          (e.mentions && e.mentions.some(m => m.toLowerCase() === dn)) ||
+          (e.data?.message && e.data.message.toLowerCase().includes('@' + dn))
         );
         setMyActivity(relevant.slice(0, 50));
       } catch (err) {

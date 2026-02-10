@@ -231,6 +231,9 @@ pub struct BoardActivityItem {
     /// Recent comments (newest first, up to 10) — included on `comment` events only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recent_comments: Option<Vec<CommentSnapshot>>,
+    /// @mentions extracted from comment text. Present on `comment` events.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mentions: Option<Vec<String>>,
 }
 
 /// Lightweight comment representation for activity feed enrichment.

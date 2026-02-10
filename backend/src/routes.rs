@@ -32,6 +32,51 @@ fn normalize_labels(labels: &[String]) -> Vec<String> {
         .collect()
 }
 
+// ============ @Mention Extraction ============
+
+/// Extract @mentions from text. Supports `@Name` and `@"Name With Spaces"`.
+/// Returns deduplicated list of mentioned names (case-preserved).
+fn extract_mentions(text: &str) -> Vec<String> {
+    let mut mentions = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        if chars[i] == '@' && i + 1 < chars.len() {
+            i += 1;
+            let name = if chars[i] == '"' {
+                // Quoted: @"Name With Spaces"
+                i += 1;
+                let start = i;
+                while i < chars.len() && chars[i] != '"' {
+                    i += 1;
+                }
+                let name: String = chars[start..i].iter().collect();
+                if i < chars.len() { i += 1; } // skip closing quote
+                name
+            } else {
+                // Unquoted: @Name (word chars, dots, hyphens)
+                let start = i;
+                while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '-' || chars[i] == '.') {
+                    i += 1;
+                }
+                chars[start..i].iter().collect()
+            };
+            let trimmed = name.trim().to_string();
+            if !trimmed.is_empty() {
+                let key = trimmed.to_lowercase();
+                if seen.insert(key) {
+                    mentions.push(trimmed);
+                }
+            }
+        } else {
+            i += 1;
+        }
+    }
+    mentions
+}
+
 // ============ Health & OpenAPI ============
 
 #[get("/health")]
@@ -1952,12 +1997,14 @@ fn batch_delete(
 
 /// Get board-level activity feed — all events across all tasks, public, no auth required.
 /// Supports cursor pagination via `?after=<seq>` (preferred) or timestamp via `?since=<ISO-8601>` (backward compat).
-#[get("/boards/<board_id>/activity?<since>&<after>&<limit>")]
+/// Use `?mentioned=<name>` to filter for events that @mention the given name.
+#[get("/boards/<board_id>/activity?<since>&<after>&<limit>&<mentioned>")]
 pub fn get_board_activity(
     board_id: &str,
     since: Option<&str>,
     after: Option<i64>,
     limit: Option<u32>,
+    mentioned: Option<&str>,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<BoardActivityItem>>, (Status, Json<ApiError>)> {
     let conn = db.lock().unwrap();
@@ -2020,22 +2067,45 @@ pub fn get_board_activity(
     let mut items: Vec<BoardActivityItem> = stmt
         .query_map(rusqlite::params_from_iter(params.iter()), |row| {
             let data_str: String = row.get(5)?;
+            let data: serde_json::Value = serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
+            let mentions = data.get("mentions")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
             Ok(BoardActivityItem {
                 id: row.get(0)?,
                 task_id: row.get(1)?,
                 task_title: row.get(2)?,
                 event_type: row.get(3)?,
                 actor: row.get(4)?,
-                data: serde_json::from_str(&data_str).unwrap_or(serde_json::json!({})),
+                data,
                 created_at: row.get(6)?,
                 seq: row.get(7)?,
                 task: None,
                 recent_comments: None,
+                mentions,
             })
         })
         .map_err(|e| db_error(&e.to_string()))?
         .filter_map(|r| r.ok())
         .collect();
+
+    // Filter by @mention if requested
+    if let Some(mention_name) = mentioned {
+        let mention_lower = mention_name.to_lowercase();
+        items.retain(|item| {
+            // Match if mentioned in comment data.mentions array
+            if let Some(ref mentions) = item.mentions {
+                if mentions.iter().any(|m| m.to_lowercase() == mention_lower) {
+                    return true;
+                }
+            }
+            // Also match if assigned_to matches (for "my items" filtering)
+            if item.actor.to_lowercase() == mention_lower {
+                return true;
+            }
+            false
+        });
+    }
 
     // Enrich created/comment events with task snapshot and recent comments.
     // Collect unique task IDs that need enrichment.
@@ -2221,7 +2291,12 @@ pub fn comment_on_task(
     }
 
     let event_id = uuid::Uuid::new_v4().to_string();
-    let data = serde_json::json!({"message": message, "actor": actor});
+    let mentions = extract_mentions(message);
+    let data = if mentions.is_empty() {
+        serde_json::json!({"message": message, "actor": actor})
+    } else {
+        serde_json::json!({"message": message, "actor": actor, "mentions": mentions})
+    };
     let data_str = serde_json::to_string(&data).unwrap();
     let seq = next_event_seq(&conn);
 
@@ -2242,7 +2317,7 @@ pub fn comment_on_task(
     bus.emit(crate::events::BoardEvent {
         event: "task.comment".to_string(),
         board_id: board_id.to_string(),
-        data: serde_json::json!({"task_id": task_id, "actor": &actor, "message": message}),
+        data: serde_json::json!({"task_id": task_id, "actor": &actor, "message": message, "mentions": &mentions}),
     });
 
     Ok(Json(TaskEventResponse {

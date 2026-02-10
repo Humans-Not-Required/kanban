@@ -1332,3 +1332,123 @@ fn test_http_require_display_name() {
         .dispatch();
     assert_eq!(resp.status(), Status::Ok);
 }
+
+#[test]
+fn test_http_comment_mentions() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Mentions Test");
+    let auth = Header::new("Authorization", format!("Bearer {}", key));
+
+    // Create a task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Test mentions"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Post a comment with @mentions
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"message": "Hey @Jordan and @Nanook, please review this", "actor_name": "TestBot"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Post a comment without mentions
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"message": "No mentions here", "actor_name": "TestBot"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Check activity — should show mentions on first comment
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=50", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let items: Vec<serde_json::Value> = resp.into_json().unwrap();
+    let comment_events: Vec<&serde_json::Value> = items.iter()
+        .filter(|i| i["event_type"] == "comment")
+        .collect();
+    assert_eq!(comment_events.len(), 2);
+
+    // Find the comment with mentions (check data.mentions)
+    let with_mentions = comment_events.iter()
+        .find(|e| e["data"]["mentions"].is_array())
+        .expect("Should have a comment with mentions");
+    let mentions = with_mentions["mentions"].as_array()
+        .expect("Top-level mentions field should exist");
+    assert_eq!(mentions.len(), 2);
+    assert!(mentions.iter().any(|m| m == "Jordan"));
+    assert!(mentions.iter().any(|m| m == "Nanook"));
+
+    // The other comment should not have mentions
+    let without_mentions = comment_events.iter()
+        .find(|e| !e["data"]["mentions"].is_array())
+        .expect("Should have a comment without mentions");
+    assert!(without_mentions["mentions"].is_null());
+
+    // Filter activity by ?mentioned=Jordan — should return only relevant events
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?mentioned=Jordan", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let items: Vec<serde_json::Value> = resp.into_json().unwrap();
+    // Should have at least the comment that mentions Jordan
+    assert!(items.iter().any(|i| i["event_type"] == "comment" && i["data"]["mentions"].is_array()));
+
+    // Filter by ?mentioned=nobody — should return no comment mentions but may return actor-matched events
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?mentioned=nobody", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let items: Vec<serde_json::Value> = resp.into_json().unwrap();
+    let mention_comments: Vec<&serde_json::Value> = items.iter()
+        .filter(|i| i["event_type"] == "comment" && i["data"]["mentions"].is_array())
+        .collect();
+    assert_eq!(mention_comments.len(), 0);
+}
+
+#[test]
+fn test_mention_extraction_quoted() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Quoted Mentions");
+    let auth = Header::new("Authorization", format!("Bearer {}", key));
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Quoted mention test"}"#)
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Post comment with quoted mention
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"message": "cc @\"Team Lead\" and @dev-bot", "actor_name": "Tester"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=10", board_id))
+        .dispatch();
+    let items: Vec<serde_json::Value> = resp.into_json().unwrap();
+    let comment = items.iter()
+        .find(|i| i["event_type"] == "comment" && i["data"]["mentions"].is_array())
+        .expect("Should have comment with mentions");
+    let mentions = comment["mentions"].as_array().unwrap();
+    assert_eq!(mentions.len(), 2);
+    assert!(mentions.iter().any(|m| m == "Team Lead"));
+    assert!(mentions.iter().any(|m| m == "dev-bot"));
+}
