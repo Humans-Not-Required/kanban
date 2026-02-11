@@ -213,7 +213,7 @@ const styles = {
   boardHeader: (mobile) => ({
     padding: mobile ? '12px' : '16px 20px',
     display: 'flex', alignItems: mobile ? 'flex-start' : 'center',
-    justifyContent: 'space-between', borderBottom: '1px solid #1e293b',
+    justifyContent: 'space-between',
     flexDirection: mobile ? 'column' : 'row', gap: mobile ? '8px' : '0',
   }),
   boardTitle: (mobile) => ({
@@ -2900,7 +2900,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         </div>
       )}
       {showSearchBar && showFilters && (
-        <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #1e293b' }}>
+        <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center' }}>
           <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
             <option value="3">🔴 Critical</option>

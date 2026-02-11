@@ -112,6 +112,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 17. ~~**Enrich activity endpoint for created and comment events**~~ ✅ Done (2026-02-09 22:50 UTC) — `created` and `comment` events now include full `task` snapshot. `comment` events also include `recent_comments` (last 10, newest first). `moved`/`archived`/`updated` stay lean. Batch-fetched for efficiency. llms.txt updated. Test extended. Commit: cdb2ecc
 18. ~~**Fix clipped popover on share/full-access buttons (desktop)**~~ ✅ Done (2026-02-11 03:10 UTC) — Header had `overflow: hidden` which clipped the absolutely-positioned popovers. Changed to `overflow: visible`.
 19. ~~**Prevent accidental modal dismiss when form has content**~~ ✅ Done (2026-02-11 03:58 UTC) — Backdrop click and Esc key now only dismiss when no unsaved content. Applies to CreateTaskModal, CreateBoardModal, TaskDetailModal (editing/comment), BoardSettingsModal (changed fields). Cancel/Create buttons still always work. Commit: 484b123.
+20. ~~**Remove horizontal rules around search/filters**~~ ✅ Done (2026-02-11 05:55 UTC) — Removed `borderBottom` from `boardHeader` style and from the filter row div. Cleaner visual flow between header → search → filters → columns.
 
 **HNR Projects Kanban Board (current):**
 - Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
@@ -154,6 +155,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 3. **Request Edit Access flow** (future) — view-only users request edit access → owner notification → approve/deny. Safety: snapshots/undo before granting.
 4. ~~**Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter**~~ ✅ Done (2026-02-11 03:30 UTC) — Commit: 09a3faa.
 5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
+
+### Completed (2026-02-11 Daytime, Session 8 — 05:50 UTC)
+
+- **Bug: Anonymous actions bypass require_display_name** ✅ Done — Audited all write endpoints. Previously only task creation and comment creation checked `require_display_name`. Added the check to 7 more endpoints: update_task, delete_task, archive_task, unarchive_task, claim_task, release_task, move_task. New comprehensive test covers all affected endpoints. Commit: 179c495. 53 tests passing (39 HTTP + 14 integration).
 
 ### Completed (2026-02-11 Daytime, Session 7 — 05:22 UTC)
 
