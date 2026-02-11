@@ -1922,22 +1922,22 @@ function eventIcon(type) {
 
 function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
   useEscapeKey(onClose);
-  const [tab, setTab] = useState('recent'); // 'recent' | 'mine'
+  const lastVisitInit = getLastVisit(boardId);
+  const [tab, setTab] = useState(lastVisitInit ? 'since' : 'all'); // 'all' | 'since' | 'mine'
   const [activity, setActivity] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [myActivity, setMyActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showSince, setShowSince] = useState(true);
   const lastVisit = getLastVisit(boardId);
   const displayName = api.getDisplayName();
 
   // Load recent activity
   useEffect(() => {
-    if (tab !== 'recent') return;
+    if (tab !== 'all' && tab !== 'since') return;
     setLoading(true);
     (async () => {
       try {
-        const opts = showSince && lastVisit ? { since: lastVisit, limit: 100 } : { limit: 50 };
+        const opts = tab === 'since' && lastVisit ? { since: lastVisit, limit: 100 } : { limit: 50 };
         const { data } = await api.getBoardActivity(boardId, opts);
         setActivity(data || []);
       } catch (err) {
@@ -1946,7 +1946,7 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
         setLoading(false);
       }
     })();
-  }, [boardId, tab, showSince, lastVisit]);
+  }, [boardId, tab, lastVisit]);
 
   // Load my items (assigned tasks + activity where I'm actor)
   useEffect(() => {
@@ -2020,64 +2020,47 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
     return '#64748b';
   };
 
-  const renderRecentTab = () => (
-    <>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'center' }}>
-        {lastVisit && (
-          <button
-            onClick={() => setShowSince(v => !v)}
-            style={{
-              background: showSince ? '#6366f133' : 'transparent',
-              color: showSince ? '#a5b4fc' : '#94a3b8',
-              border: `1px solid ${showSince ? '#6366f155' : '#334155'}`,
-              borderRadius: '4px',
-              padding: '4px 10px',
-              fontSize: '0.75rem',
-              cursor: 'pointer',
-              height: '28px',
-              display: 'inline-flex',
-              alignItems: 'center',
-            }}
-          >
-            {showSince ? `Since last visit (${newCount})` : 'All recent'}
-          </button>
-        )}
-        {lastVisit && (
-          <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
+  const renderActivityList = () => {
+    const isSinceTab = tab === 'since';
+    const emptyMsg = isSinceTab && lastVisit ? 'No new activity since your last visit.' : 'No activity yet.';
+    return (
+      <>
+        {isSinceTab && lastVisit && (
+          <div style={{ color: '#64748b', fontSize: '0.7rem', marginBottom: '8px' }}>
             Last visit: {formatTimeAgo(lastVisit)}
-          </span>
+          </div>
         )}
-      </div>
-      {activity.length === 0 ? (
-        <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
-          {showSince && lastVisit ? 'No new activity since your last visit.' : 'No activity yet.'}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'auto', maxHeight: isMobile ? 'calc(100vh - 200px)' : '55vh' }}>
-          {activity.map(event => (
-            <div key={event.id} style={{
-              padding: '8px 10px',
-              borderRadius: '4px',
-              background: '#1e293b',
-              border: '1px solid #1e293b',
-              fontSize: '0.8rem',
-              lineHeight: '1.4',
-            }}>
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                <span style={{ flexShrink: 0 }}>{eventIcon(event.event_type)}</span>
-                <span style={{ color: '#e2e8f0', flex: 1 }}>
-                  {formatEventDescription(event)}
-                </span>
-                <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                  {formatTimeAgo(event.created_at)}
-                </span>
+        {activity.length === 0 ? (
+          <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
+            {emptyMsg}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'auto', maxHeight: isMobile ? 'calc(100vh - 200px)' : '55vh' }}>
+            {activity.map(event => (
+              <div key={event.id} style={{
+                padding: '8px 10px',
+                borderRadius: '4px',
+                background: '#1e293b',
+                border: '1px solid #1e293b',
+                fontSize: '0.8rem',
+                lineHeight: '1.4',
+              }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                  <span style={{ flexShrink: 0 }}>{eventIcon(event.event_type)}</span>
+                  <span style={{ color: '#e2e8f0', flex: 1 }}>
+                    {formatEventDescription(event)}
+                  </span>
+                  <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    {formatTimeAgo(event.created_at)}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
+            ))}
+          </div>
+        )}
+      </>
+    );
+  };
 
   const renderMyItemsTab = () => {
     if (!displayName) {
@@ -2185,19 +2168,24 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
 
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', borderBottom: '1px solid #334155' }}>
-          <button style={tabStyle(tab === 'recent')} onClick={() => setTab('recent')}>
-            🕐 Recent
-            {tab !== 'recent' && newCount > 0 && (
-              <span style={{
-                background: '#6366f1',
-                color: '#fff',
-                borderRadius: '8px',
-                padding: '1px 6px',
-                fontSize: '0.65rem',
-                fontWeight: '700',
-              }}>{newCount > 99 ? '99+' : newCount}</span>
-            )}
+          <button style={tabStyle(tab === 'all')} onClick={() => setTab('all')}>
+            🕐 All Recent
           </button>
+          {lastVisit && (
+            <button style={tabStyle(tab === 'since')} onClick={() => setTab('since')}>
+              🆕 Since Last Visit
+              {tab !== 'since' && newCount > 0 && (
+                <span style={{
+                  background: '#6366f1',
+                  color: '#fff',
+                  borderRadius: '8px',
+                  padding: '1px 6px',
+                  fontSize: '0.65rem',
+                  fontWeight: '700',
+                }}>{newCount > 99 ? '99+' : newCount}</span>
+              )}
+            </button>
+          )}
           <button style={tabStyle(tab === 'mine')} onClick={() => setTab('mine')}>
             👤 My Items
             {myTasks.length > 0 && tab !== 'mine' && (
@@ -2215,7 +2203,7 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
 
         {loading ? (
           <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Loading...</div>
-        ) : tab === 'recent' ? renderRecentTab() : renderMyItemsTab()}
+        ) : tab === 'mine' ? renderMyItemsTab() : renderActivityList()}
       </div>
     </div>
   );
