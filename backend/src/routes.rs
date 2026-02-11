@@ -1032,7 +1032,7 @@ pub fn search_tasks(
 
 /// List tasks — public, no auth required.
 #[allow(clippy::too_many_arguments)]
-#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>&<archived>&<limit>&<offset>")]
+#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>&<archived>&<updated_before>&<limit>&<offset>")]
 pub fn list_tasks(
     board_id: &str,
     column: Option<&str>,
@@ -1041,6 +1041,7 @@ pub fn list_tasks(
     priority: Option<i32>,
     label: Option<&str>,
     archived: Option<bool>,
+    updated_before: Option<&str>,
     limit: Option<i64>,
     offset: Option<i64>,
     db: &State<DbPool>,
@@ -1079,6 +1080,10 @@ pub fn list_tasks(
     if let Some(l) = label {
         params.push(Box::new(format!("%\"{}\"%", l)));
         sql.push_str(&format!(" AND t.labels LIKE ?{}", params.len()));
+    }
+    if let Some(ub) = updated_before {
+        params.push(Box::new(ub.to_string()));
+        sql.push_str(&format!(" AND t.updated_at < ?{}", params.len()));
     }
 
     // archived filter: default false (hide archived tasks)

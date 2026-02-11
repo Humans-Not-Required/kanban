@@ -1634,3 +1634,57 @@ fn test_http_require_display_name_all_endpoints() {
         .dispatch();
     assert_eq!(resp.status(), Status::Ok);
 }
+
+#[test]
+fn test_http_list_tasks_updated_before_filter() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Stale Filter");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Create two tasks
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Task A", "priority": 1}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Task B", "priority": 2}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Without filter → both tasks returned
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 2);
+
+    // With updated_before far in the future → both tasks returned
+    let resp = client
+        .get(format!(
+            "/api/v1/boards/{}/tasks?updated_before=2099-12-31T23:59:59",
+            board_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 2);
+
+    // With updated_before far in the past → no tasks returned
+    let resp = client
+        .get(format!(
+            "/api/v1/boards/{}/tasks?updated_before=2000-01-01T00:00:00",
+            board_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 0);
+}
