@@ -157,6 +157,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 5. ~~**Stale task filter (updated_before param)**~~ ✅ Done (2026-02-11 06:10 UTC) — `?updated_before=ISO-8601` on GET /tasks filters by updated_at < timestamp. Enables stale task detection crons. 1 new test (40 total HTTP). Commit: 9b44919.
 6. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
+### Completed (2026-02-11 Daytime, Session 13 — 07:48 UTC)
+
+- **Some activities erroneously showing Anonymous** ✅ Done — Issue #3 fixed: task detail activity log was missing `eventLabel` cases for `archived`, `unarchived`, and `deleted` event types. They fell through to `default: return evt.event_type` (raw lowercase, no icon). Added 📦 Archived, 📤 Unarchived, 🗑️ Deleted. Issues #1/#2 (Anonymous on actions) were already resolved by commit d9ba12e (frontend passes `?actor=` on all write endpoints). Commit: eed7724. 54 tests passing.
+
 ### Completed (2026-02-11 Daytime, Session 12 — 06:45 UTC)
 
 - **Activity Box My Items** ✅ Done — Made "My Items" the left-most tab and default when the activity panel opens. Tab order is now: My Items → All Recent → Since Last Visit. Default tab changed from 'since'/'all' to 'mine'. Commit: 233f2e1. 54 tests passing.
