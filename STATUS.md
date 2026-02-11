@@ -157,6 +157,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 5. ~~**Stale task filter (updated_before param)**~~ ✅ Done (2026-02-11 06:10 UTC) — `?updated_before=ISO-8601` on GET /tasks filters by updated_at < timestamp. Enables stale task detection crons. 1 new test (40 total HTTP). Commit: 9b44919.
 6. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
+### Completed (2026-02-11 Daytime, Session 9 — 06:20 UTC)
+
+- **URGENT: Display name errors blocking many actions — UI/API out of sync** ✅ Done — Root cause: frontend `deleteTask`, `archiveTask`, `unarchiveTask`, `moveTask`, and `releaseTask` never sent the user's display name. Backend expects `?actor=` query param on these endpoints; without it, defaults to "anonymous", which fails `require_display_name` check. Fix: all 5 endpoints now include `?actor={displayName}` from localStorage. Commit: d9ba12e. 54 tests passing (40 HTTP + 14 integration).
+
 ### Completed (2026-02-11 Daytime, Session 8 — 05:50 UTC)
 
 - **Bug: Anonymous actions bypass require_display_name** ✅ Done — Audited all write endpoints. Previously only task creation and comment creation checked `require_display_name`. Added the check to 7 more endpoints: update_task, delete_task, archive_task, unarchive_task, claim_task, release_task, move_task. New comprehensive test covers all affected endpoints. Commit: 179c495. 53 tests passing (39 HTTP + 14 integration).
