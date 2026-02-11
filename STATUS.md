@@ -78,7 +78,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 5b. ~~**Live indicator simplified**~~ ✅ Done (2026-02-08 06:15 UTC) - dot-only when connected (hover for tooltip), text only on error/reconnecting.
 6. ~~**Replace header emoji with real logo**~~ ✅ Done (2026-02-08 07:10 UTC) - SVG kanban board logo in header and welcome screen, replaced all 📋 emoji references.
 7. **Remove live indicator** - Jordan confirmed: remove it entirely (2026-02-09). SSE connection can stay for real-time updates but the visible indicator adds noise.
-8. **Ctrl/Cmd+Enter for submit** - Jordan approved: Change textarea submit shortcut from Shift+Enter to Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) for both task modal and comment submission. Standard convention per research.
+8. ~~**Ctrl/Cmd+Enter for submit**~~ ✅ Done (2026-02-11 03:30 UTC) — Changed Shift+Enter to Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) for new task modal and comment submission. Commit: 09a3faa.
 8. ~~**Hamburger menu aesthetics**~~ ✅ Done (2026-02-08 07:10 UTC) - improved border contrast (#475569), lighter text (#cbd5e1), larger padding, rounded corners (6px), smooth transition.
 9. ~~**Esc key closes modals**~~ ✅ Done (2026-02-08 08:05 UTC) - useEscapeKey hook on all 5 modals.
 10. ~~**Autocomplete/dropdowns for Labels + Assigned To**~~ ✅ Done (2026-02-08 08:32 UTC) - AutocompleteInput component with per-token suggestions for comma-separated labels, arrow keys + Tab/Enter selection, applied to both create and edit modals.
@@ -151,8 +151,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 3. **Request Edit Access flow** (future) — view-only users request edit access → owner notification → approve/deny. Safety: snapshots/undo before granting.
-4. **Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter** — Jordan direction (2026-02-10): Shift+Enter was the wrong call. Research confirms Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) is the standard for textarea submit (Gmail, Slack, SO, etc). Shift+Enter = insert newline in chat apps. Affects new task modal + comment submission. Detect platform, use appropriate modifier.
+4. ~~**Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter**~~ ✅ Done (2026-02-11 03:30 UTC) — Commit: 09a3faa.
 5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
+
+### Completed (2026-02-11 Daytime, Session 3 — 03:30 UTC)
+
+- **Submit hotkey: Ctrl/Cmd+Enter** ✅ Done — Changed Shift+Enter to Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) for new task modal global handler and comment textarea. Standard convention (Gmail, Slack, etc). Commit: 09a3faa. 52 tests passing.
 
 ### Completed (2026-02-11 Daytime, Session 2 — 01:10 UTC)
 
