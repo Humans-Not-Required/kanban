@@ -396,6 +396,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - **Activity box: Replace since-last-visit toggle with third tab** ✅ Done — Activity panel now has 3 tabs: "All Recent" (last 50 events), "Since Last Visit" (events since last visit, with badge count), "My Items" (unchanged). Since Last Visit tab only appears when user has a previous visit recorded. Default tab is Since Last Visit when available, All Recent otherwise. Removed the toggle button from inside the Recent tab. Commit: 0afd975. 54 tests passing (40 HTTP + 14 integration).
 
+### Completed (2026-02-11 Daytime, Session 19 — 23:25 UTC)
+
+- **Make modals full-screen on mobile (edit mode, share)** ✅ Done — SharePopover and AccessIndicator mode info popup now expand to full viewport on mobile instead of small centered floating boxes. Full-screen overlay with larger text, bigger touch targets for copy/unlock buttons, 16px font on inputs to prevent iOS zoom. Desktop behavior unchanged. Commit: 2cc098b. 55 tests passing (41 HTTP + 14 integration).
+
 ### Completed (2026-02-11 Daytime — 22:43 UTC)
 
 - **Fix full-access modal dismiss behavior** ✅ Done — Added invisible backdrop overlay behind the Full Access/View Only mode info popup so clicking outside closes it (same pattern as SharePopover). Previously required the × close button. Commit: 7c65736. 55 tests passing (41 unit + 14 integration).
