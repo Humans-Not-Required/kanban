@@ -1149,9 +1149,12 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
       case 'created': return '🆕 Created';
       case 'moved': return `➡️ Moved to ${evt.data?.to_column || 'column'}`;
       case 'claimed': return `🔒 Claimed`;
-      case 'released': return `🔓 Released`;
+      case 'released': return '🔓 Released';
       case 'updated': return '✏️ Updated';
       case 'assigned': return `👤 Assigned to ${evt.data?.assigned_to || 'someone'}`;
+      case 'archived': return '📦 Archived';
+      case 'unarchived': return '📤 Unarchived';
+      case 'deleted': return '🗑️ Deleted';
       default: return evt.event_type;
     }
   };
