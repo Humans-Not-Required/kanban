@@ -2410,37 +2410,30 @@ function WebhookManagerModal({ boardId, onClose, isMobile }) {
   );
 }
 
-// ---- Live SSE Connection Indicator ----
-// Floating bottom-left dot: green pulse when connected, red + text when disconnected.
-// Unobtrusive — stays out of the toolbar to avoid clutter.
+// ---- Live SSE Connection Indicator (Header) ----
+// Small dot in the header: green pulse when connected, red when disconnected.
 function LiveIndicator({ status }) {
   if (!status || status === 'initial') return null;
   const connected = status === 'connected';
   const color = connected ? '#22c55e' : '#ef4444';
   const title = connected ? 'Live — real-time sync active' : 'Reconnecting…';
   return (
-    <div title={title} style={{
-      position: 'absolute', bottom: '12px', left: '12px',
-      display: 'flex', alignItems: 'center', gap: '6px',
-      padding: connected ? '4px' : '4px 10px 4px 8px',
-      borderRadius: '12px',
-      background: connected ? 'transparent' : 'rgba(15, 23, 42, 0.9)',
-      border: connected ? 'none' : '1px solid #7f1d1d44',
-      cursor: 'default', zIndex: 10,
-      transition: 'all 0.3s ease',
+    <span title={title} style={{
+      display: 'inline-flex', alignItems: 'center', gap: '5px',
+      cursor: 'default',
     }}>
       <span style={{
-        width: connected ? '8px' : '6px', height: connected ? '8px' : '6px',
+        width: '7px', height: '7px',
         borderRadius: '50%', background: color, flexShrink: 0,
-        boxShadow: connected ? `0 0 6px ${color}80` : 'none',
+        boxShadow: connected ? `0 0 5px ${color}80` : 'none',
         animation: connected ? 'ssePulse 2.5s ease-in-out infinite' : 'none',
       }} />
       {!connected && (
-        <span style={{ fontSize: '0.65rem', color: '#fca5a5', fontWeight: 500, whiteSpace: 'nowrap' }}>
-          {title}
+        <span style={{ fontSize: '0.6rem', color: '#fca5a5', fontWeight: 500, whiteSpace: 'nowrap' }}>
+          Reconnecting…
         </span>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -2685,7 +2678,7 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
   );
 }
 
-function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefresh, isMobile }) {
+function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefresh, isMobile, onSseStatusChange }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
@@ -2764,7 +2757,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           debouncedRefresh();
         }
       },
-      (status) => setSseStatus(status), // Feed status to LiveIndicator
+      (status) => { setSseStatus(status); onSseStatusChange?.(status); }, // Feed status to header indicator
     );
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -3074,8 +3067,6 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
       )}
 
       {/* Webhook management removed from UI (Jordan request). API still available. */}
-
-      <LiveIndicator status={sseStatus} />
     </div>
   );
 }
@@ -3314,6 +3305,7 @@ function App() {
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sseStatus, setSseStatus] = useState('initial');
 
   const refreshMyBoards = useCallback(() => setMyBoards(api.getMyBoards()), []);
 
@@ -3330,7 +3322,7 @@ function App() {
 
   const loadBoardDetail = useCallback(async (boardId) => {
     const id = boardId || selectedBoardId;
-    if (!id) { setBoardDetail(null); setLoadError(null); return; }
+    if (!id) { setBoardDetail(null); setLoadError(null); setSseStatus('initial'); return; }
     setLoadError(null);
     try {
       const { data } = await api.getBoard(id);
@@ -3437,6 +3429,7 @@ function App() {
           {!isCompact && selectedBoardId && canEdit && (
             <IdentityBadge isMobile={isMobile} />
           )}
+          {selectedBoardId && <LiveIndicator status={sseStatus} />}
           {selectedBoardId && (
             <AccessIndicator boardId={selectedBoardId} canEdit={canEdit} isMobile={isMobile} onKeyUpgraded={handleKeyUpgraded} />
           )}
@@ -3530,7 +3523,7 @@ function App() {
         </div>
 
         {boardDetail ? (
-          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={() => {}} isMobile={isMobile} />
+          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={() => {}} isMobile={isMobile} onSseStatusChange={setSseStatus} />
         ) : loadError ? (
           <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>
