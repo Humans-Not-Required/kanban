@@ -114,6 +114,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 19. ~~**Prevent accidental modal dismiss when form has content**~~ ✅ Done (2026-02-11 03:58 UTC) — Backdrop click and Esc key now only dismiss when no unsaved content. Applies to CreateTaskModal, CreateBoardModal, TaskDetailModal (editing/comment), BoardSettingsModal (changed fields). Cancel/Create buttons still always work. Commit: 484b123.
 20. ~~**Remove horizontal rules around search/filters**~~ ✅ Done (2026-02-11 05:55 UTC) — Removed `borderBottom` from `boardHeader` style and from the filter row div. Cleaner visual flow between header → search → filters → columns.
 21. ~~**Remove indicator circles from search/filter buttons**~~ ✅ Done (2026-02-11 18:25 UTC) — Removed ● indicator from search toggle, Search button, and Filter button. Active state now uses indigo background (#312e81) + border (#6366f1) + light text (#a5b4fc) instead of dot indicators.
+22. ~~**iOS: Prevent page zoom when focusing search field on mobile**~~ ✅ Done (2026-02-11 18:56 UTC) — iOS Safari auto-zooms on form inputs with font-size < 16px. Fixed 5 inputs: board search field, discovery page search field, and 3 filter selects (priority, label, assignee) — all changed from 0.78-0.8rem to 16px. Also fixed search button border: indigo highlight now only shows when search results are active, not when bar is merely open. Commits: 3bda80a, 23813a3. 55 tests passing.
 
 **HNR Projects Kanban Board (current):**
 - Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
@@ -160,7 +161,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### Jordan Feedback (2026-02-11 18:12 UTC)
 
-- **Search button border issue** — "The search button still has some kind of a border. It might be indigo. There should be no kind of border highlight when there's no search in progress." Needs investigation — search highlight (Session 14) may be applying a border/highlight to the button even in idle state.
+- ~~**Search button border issue**~~ ✅ Fixed (2026-02-11 18:56 UTC) — Search toggle showed indigo border when bar was merely open (`showSearchBar`). Changed to only highlight when `searchResults !== null`. Also fixed "Search" action button which had `border: 'none'` when inactive (now inherits standard btnSmall border). Commit: 23813a3.
 
 ### Completed (2026-02-11 Daytime, Session 14 — 07:58 UTC)
 
