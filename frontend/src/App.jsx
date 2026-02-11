@@ -2560,6 +2560,8 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
         {canEdit ? (isMobile ? '✏️' : '✏️ Full Access') : (isMobile ? '👁️' : '👁️ View Only')}
       </button>
       {showModeInfo && (
+        <>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1999 }} onClick={() => setShowModeInfo(false)} />
         <div
           onClick={e => e.stopPropagation()}
           style={{
@@ -2648,6 +2650,7 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
             </div>
           )}
         </div>
+        </>
       )}
       <button
         onClick={() => setShowShare(s => !s)}
