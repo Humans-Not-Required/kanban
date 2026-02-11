@@ -841,7 +841,6 @@ function FullScreenColumnView({ column, tasks, boardId, canEdit, onRefresh, onCl
 }
 
 function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLabels, allAssignees }) {
-  useEscapeKey(onClose);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [priority, setPriority] = useState(1);
@@ -849,6 +848,11 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
   const [labels, setLabels] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Guard dismiss: only allow backdrop/Esc close when form is empty
+  const hasContent = !!(title.trim() || desc.trim() || labels.trim() || assignedTo.trim());
+  const safeClose = useCallback(() => { if (!hasContent) onClose(); }, [hasContent, onClose]);
+  useEscapeKey(safeClose);
 
   const submitTask = async () => {
     if ((!title.trim() && !desc.trim()) || loading) return;
@@ -883,7 +887,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
   });
 
   return (
-    <div style={styles.modal(isMobile)} onClick={onClose}>
+    <div style={styles.modal(isMobile)} onClick={safeClose}>
       <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginBottom: '16px', color: '#f1f5f9' }}>New Task</h3>
         <form onSubmit={submit}>
@@ -952,7 +956,6 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
 }
 
 function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile, allColumns, allLabels, allAssignees, quickDoneColumnId, quickDoneAutoArchive, quickReassignColumnId, quickReassignTo }) {
-  useEscapeKey(onClose);
   const [events, setEvents] = useState([]);
   const [comment, setComment] = useState('');
   const [actorName, setActorName] = useState(() => api.getDisplayName());
@@ -972,6 +975,11 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const isArchived = !!task.archived_at;
+
+  // Guard dismiss: don't allow backdrop/Esc close when editing or comment in progress
+  const hasUnsaved = editing || !!(comment.trim());
+  const safeClose = useCallback(() => { if (!hasUnsaved) onClose(); }, [hasUnsaved, onClose]);
+  useEscapeKey(safeClose);
 
   const handleArchiveToggle = async () => {
     setArchiving(true);
@@ -1149,7 +1157,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   };
 
   return (
-    <div style={styles.modal(isMobile)} onClick={onClose}>
+    <div style={styles.modal(isMobile)} onClick={safeClose}>
       <div style={styles.modalContentWide(isMobile)} onClick={(e) => e.stopPropagation()}>
         {/* Task header */}
         <div style={{ marginBottom: '16px' }}>
@@ -1467,13 +1475,17 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
 }
 
 function CreateBoardModal({ onClose, onCreated, isMobile }) {
-  useEscapeKey(onClose);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(null);
+
+  // Guard dismiss: only allow backdrop/Esc close when form is empty
+  const hasContent = !!(name.trim() || desc.trim());
+  const safeClose = useCallback(() => { if (!hasContent) onClose(); }, [hasContent, onClose]);
+  useEscapeKey(result ? onClose : safeClose);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1563,7 +1575,7 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
   }
 
   return (
-    <div style={styles.modal(isMobile)} onClick={onClose}>
+    <div style={styles.modal(isMobile)} onClick={safeClose}>
       <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginBottom: '16px', color: '#f1f5f9' }}>New Board</h3>
         <form onSubmit={submit}>
@@ -1595,7 +1607,6 @@ const WEBHOOK_EVENTS = [
 ];
 
 function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRefresh, isMobile }) {
-  useEscapeKey(onClose);
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || '');
   const [isPublic, setIsPublic] = useState(board.is_public || false);
@@ -1610,6 +1621,14 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState('');
   const isArchived = !!board.archived_at;
+
+  // Guard dismiss: only allow backdrop/Esc close when no unsaved changes
+  const hasChanges = name !== board.name || description !== (board.description || '') ||
+    isPublic !== (board.is_public || false) || requireDisplayName !== (board.require_display_name || false) ||
+    quickDoneColumnId !== (board.quick_done_column_id || '') || quickDoneAutoArchive !== (board.quick_done_auto_archive || false) ||
+    quickReassignColumnId !== (board.quick_reassign_column_id || '') || quickReassignTo !== (board.quick_reassign_to || '');
+  const safeClose = useCallback(() => { if (!hasChanges) onClose(); }, [hasChanges, onClose]);
+  useEscapeKey(safeClose);
 
   const handleSave = async () => {
     setError('');
@@ -1660,7 +1679,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
   };
 
   return (
-    <div style={styles.modal(isMobile)} onClick={onClose}>
+    <div style={styles.modal(isMobile)} onClick={safeClose}>
       <div style={styles.modalContent(isMobile)} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>⚙️ Board Settings</h2>
