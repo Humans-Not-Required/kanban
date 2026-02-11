@@ -77,7 +77,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 5. ~~**Filter button icon**~~ ✅ Done (2026-02-08 06:15 UTC) - ▼/▲ toggle arrow replaces emoji.
 5b. ~~**Live indicator simplified**~~ ✅ Done (2026-02-08 06:15 UTC) - dot-only when connected (hover for tooltip), text only on error/reconnecting.
 6. ~~**Replace header emoji with real logo**~~ ✅ Done (2026-02-08 07:10 UTC) - SVG kanban board logo in header and welcome screen, replaced all 📋 emoji references.
-7. **Remove live indicator** - Jordan confirmed: remove it entirely (2026-02-09). SSE connection can stay for real-time updates but the visible indicator adds noise.
+7. ~~**Move live indicator to header**~~ ✅ Done (2026-02-11 06:30 UTC) — Moved from floating bottom-left to inline 7px dot in App header. Commit: 5501622.
 8. ~~**Ctrl/Cmd+Enter for submit**~~ ✅ Done (2026-02-11 03:30 UTC) — Changed Shift+Enter to Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) for new task modal and comment submission. Commit: 09a3faa.
 8. ~~**Hamburger menu aesthetics**~~ ✅ Done (2026-02-08 07:10 UTC) - improved border contrast (#475569), lighter text (#cbd5e1), larger padding, rounded corners (6px), smooth transition.
 9. ~~**Esc key closes modals**~~ ✅ Done (2026-02-08 08:05 UTC) - useEscapeKey hook on all 5 modals.
@@ -156,6 +156,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 4. ~~**Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter**~~ ✅ Done (2026-02-11 03:30 UTC) — Commit: 09a3faa.
 5. ~~**Stale task filter (updated_before param)**~~ ✅ Done (2026-02-11 06:10 UTC) — `?updated_before=ISO-8601` on GET /tasks filters by updated_at < timestamp. Enables stale task detection crons. 1 new test (40 total HTTP). Commit: 9b44919.
 6. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
+
+### Completed (2026-02-11 Daytime, Session 10 — 06:30 UTC)
+
+- **Move SSE live indicator to header** ✅ Done — Relocated LiveIndicator from floating bottom-left position (inside BoardView) to inline in App header (headerRight area, before AccessIndicator). 7px dot, green pulse when connected, red + "Reconnecting…" text when disconnected. SSE status lifted to App via `onSseStatusChange` callback. Status resets when navigating away from a board. Commit: 5501622. 54 tests passing.
 
 ### Completed (2026-02-11 Daytime, Session 9 — 06:20 UTC)
 
