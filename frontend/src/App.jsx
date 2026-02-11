@@ -2442,23 +2442,24 @@ function SharePopover({ boardId, canEdit, onClose }) {
     });
   };
 
+  const mobile = window.innerWidth < 640;
+
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={onClose} />
-      <div style={{
-        position: window.innerWidth < 640 ? 'fixed' : 'absolute',
-        top: window.innerWidth < 640 ? '50%' : '100%',
-        left: window.innerWidth < 640 ? '50%' : 'auto',
-        right: window.innerWidth < 640 ? 'auto' : 0,
-        transform: window.innerWidth < 640 ? 'translate(-50%, -50%)' : 'none',
-        marginTop: window.innerWidth < 640 ? 0 : '6px',
-        zIndex: 300,
-        background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
+      <div style={{ position: 'fixed', inset: 0, zIndex: 299, background: mobile ? 'rgba(0,0,0,0.6)' : 'transparent' }} onClick={onClose} />
+      <div style={mobile ? {
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: '#1e293b', padding: '16px',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'auto',
+      } : {
+        position: 'absolute', top: '100%', right: 0, marginTop: '6px',
+        zIndex: 300, background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
         padding: '16px', width: '320px', maxWidth: '90vw',
         boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: mobile ? '1rem' : '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Share Board
           </div>
           <button onClick={onClose} style={{
@@ -2472,15 +2473,15 @@ function SharePopover({ boardId, canEdit, onClose }) {
 
         {/* View URL */}
         <div style={{ marginBottom: canEdit ? '10px' : 0 }}>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '4px' }}>👁️ Read-only link — anyone with this can view</div>
+          <div style={{ fontSize: mobile ? '0.85rem' : '0.7rem', color: '#64748b', marginBottom: '4px' }}>👁️ Read-only link — anyone with this can view</div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <input readOnly value={viewUrl} style={{
               flex: 1, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155',
-              borderRadius: '4px', padding: '5px 8px', fontSize: '0.75rem', outline: 'none',
+              borderRadius: '4px', padding: mobile ? '10px' : '5px 8px', fontSize: mobile ? '16px' : '0.75rem', outline: 'none',
             }} onClick={e => e.target.select()} />
             <button onClick={() => copy(viewUrl, 'view')} style={{
               background: copied === 'view' ? '#22c55e22' : '#334155', color: copied === 'view' ? '#22c55e' : '#e2e8f0',
-              border: 'none', borderRadius: '4px', padding: '5px 8px', cursor: 'pointer', fontSize: '0.75rem', whiteSpace: 'nowrap',
+              border: 'none', borderRadius: '4px', padding: mobile ? '10px 14px' : '5px 8px', cursor: 'pointer', fontSize: mobile ? '16px' : '0.75rem', whiteSpace: 'nowrap',
             }}>{copied === 'view' ? '✓ Copied' : 'Copy'}</button>
           </div>
         </div>
@@ -2488,15 +2489,15 @@ function SharePopover({ boardId, canEdit, onClose }) {
         {/* Manage URL */}
         {canEdit && manageUrl && (
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '4px' }}>✏️ Edit link — full access (keep private!)</div>
+            <div style={{ fontSize: mobile ? '0.85rem' : '0.7rem', color: '#64748b', marginBottom: '4px' }}>✏️ Edit link — full access (keep private!)</div>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <input readOnly value={manageUrl} style={{
                 flex: 1, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155',
-                borderRadius: '4px', padding: '5px 8px', fontSize: '0.75rem', outline: 'none',
+                borderRadius: '4px', padding: mobile ? '10px' : '5px 8px', fontSize: mobile ? '16px' : '0.75rem', outline: 'none',
               }} onClick={e => e.target.select()} />
               <button onClick={() => copy(manageUrl, 'manage')} style={{
                 background: copied === 'manage' ? '#22c55e22' : '#334155', color: copied === 'manage' ? '#22c55e' : '#e2e8f0',
-                border: 'none', borderRadius: '4px', padding: '5px 8px', cursor: 'pointer', fontSize: '0.75rem', whiteSpace: 'nowrap',
+                border: 'none', borderRadius: '4px', padding: mobile ? '10px 14px' : '5px 8px', cursor: 'pointer', fontSize: mobile ? '16px' : '0.75rem', whiteSpace: 'nowrap',
               }}>{copied === 'manage' ? '✓ Copied' : 'Copy'}</button>
             </div>
           </div>
@@ -2504,7 +2505,7 @@ function SharePopover({ boardId, canEdit, onClose }) {
 
         {/* Hint for view-only users */}
         {!canEdit && (
-          <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: '8px', lineHeight: 1.4 }}>
+          <div style={{ fontSize: mobile ? '0.85rem' : '0.7rem', color: '#475569', marginTop: '8px', lineHeight: 1.4 }}>
             Need edit access? Open the board using the manage link (contains <code style={{ color: '#94a3b8' }}>?key=...</code>).
           </div>
         )}
@@ -2561,24 +2562,25 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
       </button>
       {showModeInfo && (
         <>
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1999 }} onClick={() => setShowModeInfo(false)} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1999, background: isMobile ? 'rgba(0,0,0,0.6)' : 'transparent' }} onClick={() => setShowModeInfo(false)} />
         <div
           onClick={e => e.stopPropagation()}
-          style={{
-            position: isMobile ? 'fixed' : 'absolute',
-            top: isMobile ? '50%' : '100%',
-            left: isMobile ? '50%' : 'auto',
-            right: isMobile ? 'auto' : 0,
-            transform: isMobile ? 'translate(-50%, -50%)' : 'none',
-            marginTop: isMobile ? 0 : '6px',
+          style={isMobile ? {
+            position: 'fixed', inset: 0, zIndex: 2000,
+            background: '#1e293b', padding: '16px',
+            display: 'flex', flexDirection: 'column',
+            overflow: 'auto',
+            fontSize: '0.9rem', color: '#cbd5e1', lineHeight: '1.5',
+          } : {
+            position: 'absolute', top: '100%', right: 0, marginTop: '6px',
             background: '#1e293b', border: '1px solid #334155', borderRadius: '8px',
-            padding: '12px', width: isMobile ? '300px' : '320px', zIndex: 2000,
+            padding: '12px', width: '320px', zIndex: 2000,
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
             fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.5',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <div style={{ fontWeight: 700, color: '#f1f5f9' }}>
+            <div style={{ fontWeight: 700, color: '#f1f5f9', fontSize: isMobile ? '1.1rem' : 'inherit' }}>
               {canEdit ? '✏️ Full Access Mode' : '👁️ View Only Mode'}
             </div>
             <button onClick={() => setShowModeInfo(false)} style={{
@@ -2599,16 +2601,16 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
                 <li>Archive tasks and the board</li>
                 <li>Change board settings</li>
               </ul>
-              <p style={{ margin: 0, fontSize: '0.72rem', color: '#94a3b8' }}>Share the <strong>View URL</strong> for read-only access, or the <strong>Manage URL</strong> to grant full access.</p>
+              <p style={{ margin: 0, fontSize: isMobile ? '0.85rem' : '0.72rem', color: '#94a3b8' }}>Share the <strong>View URL</strong> for read-only access, or the <strong>Manage URL</strong> to grant full access.</p>
             </div>
           ) : (
             <div>
               <p style={{ margin: '0 0 6px' }}>You're viewing this board in <strong style={{ color: '#94a3b8' }}>read-only</strong> mode.</p>
               <div style={{
-                marginTop: '10px', padding: '10px', background: '#0f172a',
+                marginTop: '10px', padding: isMobile ? '14px' : '10px', background: '#0f172a',
                 borderRadius: '6px', border: '1px solid #334155',
               }}>
-                <div style={{ fontWeight: 600, color: '#f1f5f9', marginBottom: '6px', fontSize: '0.75rem' }}>
+                <div style={{ fontWeight: 600, color: '#f1f5f9', marginBottom: '6px', fontSize: isMobile ? '0.9rem' : '0.75rem' }}>
                   🔑 Have a manage key?
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
@@ -2619,7 +2621,7 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
                     onKeyDown={e => { if (e.key === 'Enter') handleUnlock(); }}
                     placeholder="Paste manage key..."
                     style={{
-                      flex: 1, padding: '5px 8px', fontSize: '0.75rem',
+                      flex: 1, padding: isMobile ? '10px' : '5px 8px', fontSize: '16px',
                       background: '#1e293b', color: '#f1f5f9',
                       border: `1px solid ${keyError ? '#ef4444' : '#475569'}`,
                       borderRadius: '4px', outline: 'none',
@@ -2630,7 +2632,7 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
                     onClick={handleUnlock}
                     disabled={validating || !keyInput.trim()}
                     style={{
-                      padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600,
+                      padding: isMobile ? '10px 14px' : '5px 10px', fontSize: isMobile ? '16px' : '0.72rem', fontWeight: 600,
                       background: validating ? '#475569' : '#3b82f6',
                       color: '#fff', border: 'none', borderRadius: '4px',
                       cursor: validating ? 'wait' : 'pointer',
@@ -2641,9 +2643,9 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
                   </button>
                 </div>
                 {keyError && (
-                  <div style={{ color: '#ef4444', fontSize: '0.7rem', marginTop: '4px' }}>{keyError}</div>
+                  <div style={{ color: '#ef4444', fontSize: isMobile ? '0.85rem' : '0.7rem', marginTop: '4px' }}>{keyError}</div>
                 )}
-                <p style={{ margin: '6px 0 0', fontSize: '0.68rem', color: '#64748b' }}>
+                <p style={{ margin: '6px 0 0', fontSize: isMobile ? '0.8rem' : '0.68rem', color: '#64748b' }}>
                   Or open the <strong>Manage URL</strong> (contains <code style={{ background: '#1e293b', padding: '1px 3px', borderRadius: '2px' }}>?key=</code>) from the board owner.
                 </p>
               </div>
