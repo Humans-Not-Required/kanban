@@ -152,6 +152,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 4. **Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter** — Jordan direction (2026-02-10): Shift+Enter was the wrong call. Research confirms Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) is the standard for textarea submit (Gmail, Slack, SO, etc). Shift+Enter = insert newline in chat apps. Affects new task modal + comment submission. Detect platform, use appropriate modifier.
 5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
+### Completed (2026-02-11 Daytime, Session 1 — 00:55 UTC)
+
+- **Title / Description Requirement** ✅ Done — Title is now optional. Either title or description must be provided (not necessarily both). Backend: `title` field uses `deserialize_string_or_null` (defaults to empty string), validation changed from `EMPTY_TITLE` to `EMPTY_TASK` (requires at least one non-empty). Update route also validates to prevent clearing both. Frontend: TaskCard shows truncated description (60 chars) when no title, task detail header shows description preview (80 chars) in muted italic, My Items tab shows description fallback. Create/edit modals updated — submit enabled when either field has content. 3 new test cases (52 total: 38 HTTP + 14 integration). Commit: 0f1b6d4.
+
 ### Completed (2026-02-10 Overnight, Session 4 — 08:07 UTC)
 
 - **Activity panel overhaul: two tabs** ✅ Done — "Recent" tab (activity feed with since-last-visit toggle) and "My Items" tab (assigned tasks grouped by column + user's own activity). Click tasks in My Items to open detail modal. Tab badges show unread/assignment counts. Responsive. Commit: 79b4070. Kanban task: 34b6a40a → Review.
