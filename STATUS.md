@@ -111,6 +111,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 17. ~~**Enrich activity endpoint for created and comment events**~~ ✅ Done (2026-02-09 22:50 UTC) — `created` and `comment` events now include full `task` snapshot. `comment` events also include `recent_comments` (last 10, newest first). `moved`/`archived`/`updated` stay lean. Batch-fetched for efficiency. llms.txt updated. Test extended. Commit: cdb2ecc
 18. ~~**Fix clipped popover on share/full-access buttons (desktop)**~~ ✅ Done (2026-02-11 03:10 UTC) — Header had `overflow: hidden` which clipped the absolutely-positioned popovers. Changed to `overflow: visible`.
+19. ~~**Prevent accidental modal dismiss when form has content**~~ ✅ Done (2026-02-11 03:58 UTC) — Backdrop click and Esc key now only dismiss when no unsaved content. Applies to CreateTaskModal, CreateBoardModal, TaskDetailModal (editing/comment), BoardSettingsModal (changed fields). Cancel/Create buttons still always work. Commit: 484b123.
 
 **HNR Projects Kanban Board (current):**
 - Board ID: `1ab5804f-3f1b-4486-b7ae-03cb9616d4c2`
