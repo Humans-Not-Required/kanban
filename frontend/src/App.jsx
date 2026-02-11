@@ -2172,7 +2172,7 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
         <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', borderBottom: '1px solid #334155' }}>
           <button style={tabStyle(tab === 'mine')} onClick={() => setTab('mine')}>
             👤 My Items
-            {myTasks.length > 0 && tab !== 'mine' && (
+            {myTasks.length > 0 && (
               <span style={{
                 background: '#f59e0b',
                 color: '#1e293b',
@@ -2189,7 +2189,7 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
           {lastVisit && (
             <button style={tabStyle(tab === 'since')} onClick={() => setTab('since')}>
               🆕 Since Last Visit
-              {tab !== 'since' && newCount > 0 && (
+              {newCount > 0 && (
                 <span style={{
                   background: '#6366f1',
                   color: '#fff',
