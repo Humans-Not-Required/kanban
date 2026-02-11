@@ -209,7 +209,7 @@ const styles = {
     fontSize: '0.65rem', background: '#475569', color: '#94a3b8',
     padding: '1px 5px', borderRadius: '3px',
   },
-  boardContent: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  boardContent: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' },
   boardHeader: (mobile) => ({
     padding: mobile ? '12px' : '16px 20px',
     display: 'flex', alignItems: mobile ? 'flex-start' : 'center',
@@ -2410,7 +2410,39 @@ function WebhookManagerModal({ boardId, onClose, isMobile }) {
   );
 }
 
-// LiveIndicator removed per Jordan's request (2026-02-09). SSE stays active for real-time sync.
+// ---- Live SSE Connection Indicator ----
+// Floating bottom-left dot: green pulse when connected, red + text when disconnected.
+// Unobtrusive — stays out of the toolbar to avoid clutter.
+function LiveIndicator({ status }) {
+  if (!status || status === 'initial') return null;
+  const connected = status === 'connected';
+  const color = connected ? '#22c55e' : '#ef4444';
+  const title = connected ? 'Live — real-time sync active' : 'Reconnecting…';
+  return (
+    <div title={title} style={{
+      position: 'absolute', bottom: '12px', left: '12px',
+      display: 'flex', alignItems: 'center', gap: '6px',
+      padding: connected ? '4px' : '4px 10px 4px 8px',
+      borderRadius: '12px',
+      background: connected ? 'transparent' : 'rgba(15, 23, 42, 0.9)',
+      border: connected ? 'none' : '1px solid #7f1d1d44',
+      cursor: 'default', zIndex: 10,
+      transition: 'all 0.3s ease',
+    }}>
+      <span style={{
+        width: connected ? '8px' : '6px', height: connected ? '8px' : '6px',
+        borderRadius: '50%', background: color, flexShrink: 0,
+        boxShadow: connected ? `0 0 6px ${color}80` : 'none',
+        animation: connected ? 'ssePulse 2.5s ease-in-out infinite' : 'none',
+      }} />
+      {!connected && (
+        <span style={{ fontSize: '0.65rem', color: '#fca5a5', fontWeight: 500, whiteSpace: 'nowrap' }}>
+          {title}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // ---- Share / Access Popover ----
 function SharePopover({ boardId, canEdit, onClose }) {
@@ -2645,7 +2677,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
-  // sseStatus state removed — LiveIndicator was removed, nothing reads this
+  const [sseStatus, setSseStatus] = useState('initial');
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   // showWebhooks state removed — webhook button removed from UI per Jordan's request
@@ -2718,7 +2750,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           debouncedRefresh();
         }
       },
-      null, // status callback removed (LiveIndicator gone)
+      (status) => setSseStatus(status), // Feed status to LiveIndicator
     );
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -3028,6 +3060,8 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
       )}
 
       {/* Webhook management removed from UI (Jordan request). API still available. */}
+
+      <LiveIndicator status={sseStatus} />
     </div>
   );
 }
