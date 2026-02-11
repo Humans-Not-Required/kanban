@@ -155,6 +155,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 4. ~~**Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter**~~ ✅ Done (2026-02-11 03:30 UTC) — Commit: 09a3faa.
 5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
+### Completed (2026-02-11 Daytime, Session 7 — 05:22 UTC)
+
+- **Filter button text color fix** ✅ Done — Filter button had black text when no filters active because `color: undefined` override removed btnSmall's `#cbd5e1`. Fixed: explicit `#cbd5e1` when inactive, `#a5b4fc` highlight when active. Border also restored to match btnSmall default. Commit: b9de811. 52 tests passing.
+
 ### Completed (2026-02-11 Daytime, Session 6 — 05:12 UTC)
 
 - **Square X close buttons on share/mode popovers** ✅ Done — Replaced "Dismiss" text links at the bottom of SharePopover and AccessIndicator mode info popover with square X close buttons (24×24px) in the top right corner, consistent with other modals (btnClose style). Webhook secret dismiss also updated to "Close" button. Commit: fed926a. 52 tests passing.
