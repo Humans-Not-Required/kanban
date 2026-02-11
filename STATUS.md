@@ -407,3 +407,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 ### Completed (2026-02-11 Daytime — 22:43 UTC)
 
 - **Fix full-access modal dismiss behavior** ✅ Done — Added invisible backdrop overlay behind the Full Access/View Only mode info popup so clicking outside closes it (same pattern as SharePopover). Previously required the × close button. Commit: 7c65736. 55 tests passing (41 unit + 14 integration).
+
+### Completed (2026-02-11 Daytime — 23:47 UTC)
+
+- **Filter button white background on desktop** ✅ Fixed — When `hasActiveFilters` was false, `background: undefined` removed the inline style, causing browser default white background on `<button>`. Changed to explicit `'#334155'` (matching btnSmall base). Commit: 619c3ba. 55 tests passing (41 HTTP + 14 integration).
