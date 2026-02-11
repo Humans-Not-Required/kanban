@@ -154,7 +154,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 3. **Request Edit Access flow** (future) — view-only users request edit access → owner notification → approve/deny. Safety: snapshots/undo before granting.
 4. ~~**Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter**~~ ✅ Done (2026-02-11 03:30 UTC) — Commit: 09a3faa.
-5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
+5. ~~**Stale task filter (updated_before param)**~~ ✅ Done (2026-02-11 06:10 UTC) — `?updated_before=ISO-8601` on GET /tasks filters by updated_at < timestamp. Enables stale task detection crons. 1 new test (40 total HTTP). Commit: 9b44919.
+6. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
 ### Completed (2026-02-11 Daytime, Session 8 — 05:50 UTC)
 
