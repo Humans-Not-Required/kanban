@@ -1181,7 +1181,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                   </span>
                   {task.assigned_to && <span>→ {task.assigned_to}</span>}
                   {task.claimed_by && <span>🔒 {task.claimed_by}</span>}
-                  {task.column_name && <span>⬜ {task.column_name}</span>}
+                  {task.column_name && <span>in {task.column_name}</span>}
                   {task.created_by && task.created_by !== 'anonymous' && <span>by {task.created_by}</span>}
                 </div>
               )}
