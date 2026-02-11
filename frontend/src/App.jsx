@@ -1923,7 +1923,7 @@ function eventIcon(type) {
 function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
   useEscapeKey(onClose);
   const lastVisitInit = getLastVisit(boardId);
-  const [tab, setTab] = useState(lastVisitInit ? 'since' : 'all'); // 'all' | 'since' | 'mine'
+  const [tab, setTab] = useState('mine'); // 'mine' | 'all' | 'since'
   const [activity, setActivity] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [myActivity, setMyActivity] = useState([]);
@@ -2168,6 +2168,19 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
 
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', borderBottom: '1px solid #334155' }}>
+          <button style={tabStyle(tab === 'mine')} onClick={() => setTab('mine')}>
+            👤 My Items
+            {myTasks.length > 0 && tab !== 'mine' && (
+              <span style={{
+                background: '#f59e0b',
+                color: '#1e293b',
+                borderRadius: '8px',
+                padding: '1px 6px',
+                fontSize: '0.65rem',
+                fontWeight: '700',
+              }}>{myTasks.length}</span>
+            )}
+          </button>
           <button style={tabStyle(tab === 'all')} onClick={() => setTab('all')}>
             🕐 All Recent
           </button>
@@ -2186,19 +2199,6 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
               )}
             </button>
           )}
-          <button style={tabStyle(tab === 'mine')} onClick={() => setTab('mine')}>
-            👤 My Items
-            {myTasks.length > 0 && tab !== 'mine' && (
-              <span style={{
-                background: '#f59e0b',
-                color: '#1e293b',
-                borderRadius: '8px',
-                padding: '1px 6px',
-                fontSize: '0.65rem',
-                fontWeight: '700',
-              }}>{myTasks.length}</span>
-            )}
-          </button>
         </div>
 
         {loading ? (
