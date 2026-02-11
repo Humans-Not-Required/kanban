@@ -161,6 +161,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - **Search field highlight** ✅ Done — When search results are active (`searchResults !== null`), the search input gets an indigo border, dark indigo background (`#1e1b4b`), and subtle box-shadow glow. Search button text turns indigo. Mobile search toggle button shows a dot indicator (●) when search is active. Clear visual signal that results are being filtered. Commit: 7587ce8. 54 tests passing.
 
+### Completed (2026-02-11 Overnight, Session 2 — 10:10 UTC)
+
+- **Fix Anonymous in activity log (reorder + batch)** ✅ Done — Three remaining sources of anonymous/unattributed activity entries fixed: (1) `reorder_task` endpoint now accepts `?actor=` query param (was hardcoded "anonymous"). (2) Batch operations now accept `"actor"` field in request JSON (was hardcoded "batch" for move/update). (3) `batch_delete` now logs deletion events in activity feed (was entirely missing). All three enforce `require_display_name` when board setting is enabled. 1 new HTTP test. Commit: e8063d4. 55 tests passing (41 HTTP + 14 integration).
+
 ### Completed (2026-02-11 Overnight, Session 1 — 08:45 UTC)
 
 - **Filter dropdown left indentation alignment** ✅ Done — Filter row had hardcoded `padding: '8px 16px'` while search bar, board header, and columns container all use 20px (desktop) / 12px (mobile) horizontal padding. Changed filter row to use `isMobile`-aware padding (`8px 20px` desktop, `8px 12px` mobile) for consistent alignment. Commit: fa1fb7e. 54 tests passing.
