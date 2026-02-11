@@ -2847,7 +2847,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             <input
               style={{
                 ...styles.input,
-                marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined, height: '32px', padding: '4px 10px', fontSize: '0.8rem',
+                marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined, height: '32px', padding: '4px 10px', fontSize: '16px',
                 ...(searchResults !== null ? { border: '1px solid #6366f1', background: '#1e1b4b', boxShadow: '0 0 0 2px rgba(99,102,241,0.15)' } : {}),
               }}
               placeholder="Search tasks..."
@@ -2890,20 +2890,20 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
       )}
       {showSearchBar && showFilters && (
         <div style={{ display: 'flex', gap: '8px', padding: isMobile ? '8px 12px' : '8px 20px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
             <option value="3">🔴 Critical</option>
             <option value="2">🟠 High</option>
             <option value="1">🟡 Medium</option>
             <option value="0">🟢 Low</option>
           </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
             <option value="">Any Label</option>
             {allLabels.map(l => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
             <option value="">Any Assignee</option>
             {allAssignees.map(a => (
               <option key={a} value={a}>{a}</option>
@@ -3188,7 +3188,7 @@ function WelcomePage({ onSelectBoard, onCreateBoard, isMobile }) {
               <input
                 style={{
                   ...styles.input, marginBottom: 0, width: '100%',
-                  height: '32px', padding: '4px 10px', fontSize: '0.8rem',
+                  height: '32px', padding: '4px 10px', fontSize: '16px',
                   paddingRight: searchQuery ? '28px' : undefined,
                 }}
                 placeholder="Search boards..."
