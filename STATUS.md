@@ -163,6 +163,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Search button border issue**~~ ✅ Fixed (2026-02-11 18:56 UTC) — Search toggle showed indigo border when bar was merely open (`showSearchBar`). Changed to only highlight when `searchResults !== null`. Also fixed "Search" action button which had `border: 'none'` when inactive (now inherits standard btnSmall border). Commit: 23813a3.
 
+### Completed (2026-02-11 Daytime, Session 17 — 22:30 UTC)
+
+- **Fix: allow saving edited task with description but no title** ✅ Done — Save button's `disabled` prop checked only `!editTitle.trim()`, ignoring description. Changed to `(!editTitle.trim() && !editDesc.trim())` to match `saveEdit()` validation and backend logic. Backend was already correct. Commit: 57c81ab. 55 tests passing.
+
 ### Completed (2026-02-11 Daytime, Session 16 — 22:03 UTC)
 
 - **Remove by-name header from task details** ✅ Done — Removed the `by {task.created_by}` line from task detail metadata in App.jsx. Cleaner task detail view. Commit: d83606a. 55 tests passing.
