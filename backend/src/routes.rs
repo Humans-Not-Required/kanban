@@ -1568,15 +1568,16 @@ pub fn move_task(
 
 // ============ Task Reorder ============
 
-/// Reorder a task — requires manage key.
+/// Reorder a task — requires manage key. Optional `?actor=` query param for attribution.
 #[post(
-    "/boards/<board_id>/tasks/<task_id>/reorder",
+    "/boards/<board_id>/tasks/<task_id>/reorder?<actor>",
     format = "json",
     data = "<req>"
 )]
 pub fn reorder_task(
     board_id: &str,
     task_id: &str,
+    actor: Option<&str>,
     req: Json<ReorderTaskRequest>,
     token: BoardToken,
     db: &State<DbPool>,
@@ -1587,6 +1588,8 @@ pub fn reorder_task(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
+    let actor = actor.unwrap_or("anonymous");
+    access::require_display_name_if_needed(&conn, board_id, actor)?;
 
     let current_column: String = conn
         .query_row(
@@ -1681,7 +1684,7 @@ pub fn reorder_task(
         "column_id": target_column,
         "from_column": current_column,
     });
-    log_event(&conn, task_id, "reordered", "anonymous", &event_data);
+    log_event(&conn, task_id, "reordered", actor, &event_data);
 
     bus.emit(crate::events::BoardEvent {
         event: "task.reordered".to_string(),
@@ -1708,6 +1711,8 @@ pub fn batch_tasks(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
+    let actor = req.actor.as_deref().unwrap_or("batch");
+    access::require_display_name_if_needed(&conn, board_id, actor)?;
 
     if req.operations.is_empty() {
         return Err((
@@ -1741,7 +1746,7 @@ pub fn batch_tasks(
                 task_ids,
                 column_id,
             } => {
-                let result = batch_move(&conn, board_id, task_ids, column_id, bus);
+                let result = batch_move(&conn, board_id, task_ids, column_id, actor, bus);
                 match result {
                     Ok(affected) => {
                         succeeded += 1;
@@ -1766,7 +1771,7 @@ pub fn batch_tasks(
                 }
             }
             BatchOperation::Update { task_ids, fields } => {
-                let result = batch_update(&conn, board_id, task_ids, fields, bus);
+                let result = batch_update(&conn, board_id, task_ids, fields, actor, bus);
                 match result {
                     Ok(affected) => {
                         succeeded += 1;
@@ -1791,7 +1796,7 @@ pub fn batch_tasks(
                 }
             }
             BatchOperation::Delete { task_ids } => {
-                let result = batch_delete(&conn, board_id, task_ids, bus);
+                let result = batch_delete(&conn, board_id, task_ids, actor, bus);
                 match result {
                     Ok(affected) => {
                         succeeded += 1;
@@ -1831,6 +1836,7 @@ fn batch_move(
     board_id: &str,
     task_ids: &[String],
     column_id: &str,
+    actor: &str,
     bus: &EventBus,
 ) -> Result<usize, String> {
     let col_exists: bool = conn
@@ -1898,7 +1904,7 @@ fn batch_move(
                 .query_row("SELECT name FROM columns WHERE id = ?1", rusqlite::params![column_id], |row| row.get(0))
                 .unwrap_or_else(|_| column_id.to_string());
             let event_data = serde_json::json!({"task_id": task_id, "from": from_col, "to": column_id, "from_column": from_col_name, "to_column": to_col_name, "batch": true});
-            log_event(conn, task_id, "moved", "batch", &event_data);
+            log_event(conn, task_id, "moved", actor, &event_data);
             bus.emit(crate::events::BoardEvent {
                 event: "task.moved".to_string(),
                 board_id: board_id.to_string(),
@@ -1915,6 +1921,7 @@ fn batch_update(
     board_id: &str,
     task_ids: &[String],
     fields: &BatchUpdateFields,
+    actor: &str,
     bus: &EventBus,
 ) -> Result<usize, String> {
     let mut affected = 0;
@@ -1975,7 +1982,7 @@ fn batch_update(
         if !changes.is_empty() {
             affected += 1;
             let event_data = serde_json::Value::Object(changes.clone());
-            log_event(conn, task_id, "updated", "batch", &event_data);
+            log_event(conn, task_id, "updated", actor, &event_data);
 
             let mut emit_data = changes;
             emit_data.insert("task_id".into(), serde_json::json!(task_id));
@@ -1995,11 +2002,20 @@ fn batch_delete(
     conn: &Connection,
     board_id: &str,
     task_ids: &[String],
+    actor: &str,
     bus: &EventBus,
 ) -> Result<usize, String> {
     let mut affected = 0;
 
     for task_id in task_ids {
+        let task_title: Option<String> = conn
+            .query_row(
+                "SELECT title FROM tasks WHERE id = ?1 AND board_id = ?2",
+                rusqlite::params![task_id, board_id],
+                |row| row.get(0),
+            )
+            .ok();
+
         let rows = conn
             .execute(
                 "DELETE FROM tasks WHERE id = ?1 AND board_id = ?2",
@@ -2009,10 +2025,12 @@ fn batch_delete(
 
         if rows > 0 {
             affected += 1;
+            let event_data = serde_json::json!({"task_id": task_id, "title": task_title, "batch": true});
+            log_event(conn, task_id, "deleted", actor, &event_data);
             bus.emit(crate::events::BoardEvent {
                 event: "task.deleted".to_string(),
                 board_id: board_id.to_string(),
-                data: serde_json::json!({"task_id": task_id, "batch": true}),
+                data: event_data,
             });
         }
     }

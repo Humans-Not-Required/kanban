@@ -1688,3 +1688,122 @@ fn test_http_list_tasks_updated_before_filter() {
     let tasks: serde_json::Value = resp.into_json().unwrap();
     assert_eq!(tasks.as_array().unwrap().len(), 0);
 }
+
+// ============ Reorder & Batch Actor Attribution ============
+
+#[test]
+fn test_http_reorder_and_batch_actor_attribution() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Actor Attribution");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Create a task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Reorder Me", "actor_name": "TestUser"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Get the column IDs
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Reorder with actor param
+    let resp = client
+        .post(format!(
+            "/api/v1/boards/{}/tasks/{}/reorder?actor=ReorderBot",
+            board_id, task_id
+        ))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"position": 0, "column_id": "{}"}}"#, col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Check activity for reorder event with correct actor
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=10", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: serde_json::Value = resp.into_json().unwrap();
+    let events = activity.as_array().unwrap();
+    let reorder_event = events.iter().find(|e| e["event_type"] == "reordered");
+    assert!(reorder_event.is_some(), "Should have a reordered event");
+    assert_eq!(reorder_event.unwrap()["actor"], "ReorderBot");
+
+    // Create another task for batch test
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Batch Me", "actor_name": "TestUser"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task2: serde_json::Value = resp.into_json().unwrap();
+    let task2_id = task2["id"].as_str().unwrap();
+
+    // Batch update with actor
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/batch", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(
+            r#"{{"actor": "BatchBot", "operations": [{{"action": "update", "task_ids": ["{}"], "priority": 3}}]}}"#,
+            task2_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Check activity for batch update event with correct actor
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=20", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: serde_json::Value = resp.into_json().unwrap();
+    let events = activity.as_array().unwrap();
+    let batch_update_event = events.iter().find(|e| {
+        e["event_type"] == "updated" && e["actor"] == "BatchBot"
+    });
+    assert!(batch_update_event.is_some(), "Should have a batch updated event with BatchBot actor");
+
+    // Reorder without actor param → defaults to "anonymous"
+    let resp = client
+        .post(format!(
+            "/api/v1/boards/{}/tasks/{}/reorder",
+            board_id, task_id
+        ))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"position": 1, "column_id": "{}"}}"#, col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Batch without actor → defaults to "batch"
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/batch", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(
+            r#"{{"operations": [{{"action": "update", "task_ids": ["{}"], "priority": 1}}]}}"#,
+            task2_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Verify activity has both defaults
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=30", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: serde_json::Value = resp.into_json().unwrap();
+    let events = activity.as_array().unwrap();
+    let anon_reorder = events.iter().find(|e| e["event_type"] == "reordered" && e["actor"] == "anonymous");
+    assert!(anon_reorder.is_some(), "Reorder without actor should default to anonymous");
+    let batch_default = events.iter().find(|e| e["event_type"] == "updated" && e["actor"] == "batch");
+    assert!(batch_default.is_some(), "Batch without actor should default to batch");
+}
