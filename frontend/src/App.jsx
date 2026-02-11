@@ -2888,7 +2888,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         </div>
       )}
       {showSearchBar && showFilters && (
-        <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', padding: isMobile ? '8px 12px' : '8px 20px', flexWrap: 'wrap', alignItems: 'center' }}>
           <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '0.78rem', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
             <option value="3">🔴 Critical</option>
