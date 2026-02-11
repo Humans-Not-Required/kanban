@@ -366,21 +366,52 @@ fn test_http_task_crud() {
 }
 
 #[test]
-fn test_http_task_empty_title_rejected() {
+fn test_http_task_empty_title_and_desc_rejected() {
     let client = test_client();
-    let (board_id, manage_key) = create_test_board(&client, "Empty Title");
+    let (board_id, manage_key) = create_test_board(&client, "Empty Task");
     let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
 
+    // Both empty → rejected
     let resp = client
         .post(format!("/api/v1/boards/{}/tasks", board_id))
         .header(ContentType::JSON)
-        .header(auth)
+        .header(auth.clone())
         .body(r#"{"title": "   "}"#)
         .dispatch();
 
     assert_eq!(resp.status(), Status::BadRequest);
     let body: serde_json::Value = resp.into_json().unwrap();
-    assert_eq!(body["code"], "EMPTY_TITLE");
+    assert_eq!(body["code"], "EMPTY_TASK");
+
+    // Title only → accepted
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Has title"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Description only → accepted
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"description": "Has description but no title"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["title"], "");
+    assert_eq!(body["description"], "Has description but no title");
+
+    // No title field at all, just description → accepted
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth)
+        .body(r#"{"description": "Description-only task for AI"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
 }
 
 // ============ Move / Claim / Release ============

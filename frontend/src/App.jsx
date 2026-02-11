@@ -500,7 +500,7 @@ function TaskCard({ task, boardId, canEdit, onRefresh, archived, onClickTask, is
       onDragEnd={draggable ? () => setDragging(false) : undefined}
       onClick={(e) => { e.stopPropagation(); if (!dragging) onClickTask(task); }}
     >
-      <div style={styles.cardTitle}>{task.title}</div>
+      <div style={styles.cardTitle}>{task.title || (task.description ? task.description.slice(0, 60) + (task.description.length > 60 ? '…' : '') : '(untitled)')}</div>
       <div style={styles.cardMeta}>
         <span style={{ color: priorityColor(task.priority) }}>{priorityLabel(task.priority)}</span>
         {task.assigned_to && <span>→ {task.assigned_to}</span>}
@@ -785,7 +785,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
 function FullScreenColumnView({ column, tasks, boardId, canEdit, onRefresh, onClose, onClickTask, archived }) {
   useEscapeKey(onClose);
   const colTasks = tasks.filter(t => t.column_id === column.id)
-    .sort((a, b) => (b.priority || 0) - (a.priority || 0) || a.title.localeCompare(b.title));
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0) || (a.title || '').localeCompare(b.title || ''));
 
   // Responsive grid: up to 3 columns on wide screens
   return (
@@ -851,7 +851,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
   const [loading, setLoading] = useState(false);
 
   const submitTask = async () => {
-    if (!title.trim() || loading) return;
+    if ((!title.trim() && !desc.trim()) || loading) return;
     setLoading(true);
     try {
       await api.createTask(boardId, {
@@ -887,8 +887,8 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
       <div style={styles.modalContent(isMobile)} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginBottom: '16px', color: '#f1f5f9' }}>New Task</h3>
         <form onSubmit={submit}>
-          <input style={styles.input} placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
-          <textarea style={styles.textarea} placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} />
+          <input style={styles.input} placeholder="Title (optional if description provided)" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+          <textarea style={styles.textarea} placeholder="Description (optional if title provided)" value={desc} onChange={e => setDesc(e.target.value)} />
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
             <select style={styles.select} value={priority} onChange={e => setPriority(Number(e.target.value))}>
               <option value={3}>Critical</option>
@@ -941,7 +941,7 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
           )}
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
             <button type="button" style={styles.btn('secondary', isMobile)} onClick={onClose}>Cancel</button>
-            <button type="submit" style={styles.btn('primary', isMobile)} disabled={loading || !title.trim()}>
+            <button type="submit" style={styles.btn('primary', isMobile)} disabled={loading || (!title.trim() && !desc.trim())}>
               {loading ? 'Creating...' : 'Create Task'}
             </button>
           </div>
@@ -963,7 +963,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   const [markingDone, setMarkingDone] = useState(false);
   const [reassigning, setReassigning] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(task.title);
+  const [editTitle, setEditTitle] = useState(task.title || '');
   const [editDesc, setEditDesc] = useState(task.description || '');
   const [editPriority, setEditPriority] = useState(task.priority);
   const [editLabels, setEditLabels] = useState((task.labels || []).join(', '));
@@ -1078,10 +1078,14 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   };
 
   const saveEdit = async () => {
+    if (!editTitle.trim() && !editDesc.trim()) {
+      alert('Either title or description must be provided');
+      return;
+    }
     setSaving(true);
     try {
       const updates = {};
-      if (editTitle.trim() !== task.title) updates.title = editTitle.trim();
+      if (editTitle.trim() !== (task.title || '')) updates.title = editTitle.trim();
       if (editDesc.trim() !== (task.description || '')) updates.description = editDesc.trim();
       if (editPriority !== task.priority) updates.priority = editPriority;
       const newLabels = normalizeLabels(editLabels);
@@ -1160,7 +1164,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                   autoFocus
                 />
               ) : (
-                <h3 style={{ color: '#f1f5f9', marginBottom: '6px', fontSize: isMobile ? '1rem' : '1.17rem' }}>{task.title}</h3>
+                <h3 style={{ color: task.title ? '#f1f5f9' : '#94a3b8', marginBottom: '6px', fontSize: isMobile ? '1rem' : '1.17rem' }}>{task.title || (task.description ? task.description.slice(0, 80) + (task.description.length > 80 ? '…' : '') : '(untitled)')}</h3>
               )}
               {!editing && (
                 <div style={styles.cardMeta}>
@@ -1847,7 +1851,7 @@ function setLastVisit(boardId) {
 function formatEventDescription(event) {
   const { event_type, actor, data, task_title } = event;
   const who = actor || 'Someone';
-  const title = task_title || '(unknown task)';
+  const title = task_title || '(untitled)';
   const truncTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
 
   switch (event_type) {
@@ -2099,8 +2103,8 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
                     <span style={{ color: priorityColor(task.priority), fontSize: '0.7rem', fontWeight: '700', flexShrink: 0 }}>
                       P{task.priority}
                     </span>
-                    <span style={{ color: '#e2e8f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {task.title}
+                    <span style={{ color: task.title ? '#e2e8f0' : '#94a3b8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: task.title ? 'normal' : 'italic' }}>
+                      {task.title || (task.description ? task.description.slice(0, 60) + (task.description.length > 60 ? '…' : '') : '(untitled)')}
                     </span>
                     {task.comment_count > 0 && (
                       <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0 }}>

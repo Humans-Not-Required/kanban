@@ -149,7 +149,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. ~~**Public boards discovery UX**~~ ✅ Done (2026-02-09 08:06 UTC) — welcome page as discovery hub: hero section, stats bar, card grid of public boards (name/desc/tasks/age), search filter, open-by-ID. Commit: e3f5ca5
 2. **Auto-fill fields on new tasks (AI)** - monitoring agent sets priority/labels/assignment based on title+description
 3. **Request Edit Access flow** (future) — view-only users request edit access → owner notification → approve/deny. Safety: snapshots/undo before granting.
-4. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
+4. **Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter** — Jordan direction (2026-02-10): Shift+Enter was the wrong call. Research confirms Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) is the standard for textarea submit (Gmail, Slack, SO, etc). Shift+Enter = insert newline in chat apps. Affects new task modal + comment submission. Detect platform, use appropriate modifier.
+5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
 ### Completed (2026-02-10 Overnight, Session 4 — 08:07 UTC)
 

@@ -137,6 +137,7 @@ pub struct ReorderColumnsRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateTaskRequest {
+    #[serde(default, deserialize_with = "deserialize_string_or_null")]
     pub title: String,
     #[serde(default, deserialize_with = "deserialize_string_or_null")]
     pub description: String,

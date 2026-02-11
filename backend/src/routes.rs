@@ -798,12 +798,12 @@ pub fn create_task(
     let creator_name = if req.actor_name.is_empty() { "anonymous" } else { &req.actor_name };
     access::require_display_name_if_needed(&conn, board_id, creator_name)?;
 
-    if req.title.trim().is_empty() {
+    if req.title.trim().is_empty() && req.description.trim().is_empty() {
         return Err((
             Status::BadRequest,
             Json(ApiError {
-                error: "Task title cannot be empty".to_string(),
-                code: "EMPTY_TITLE".to_string(),
+                error: "Either title or description must be provided".to_string(),
+                code: "EMPTY_TASK".to_string(),
                 status: 400,
             }),
         ));
@@ -1137,8 +1137,23 @@ pub fn update_task(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
-    let _existing = load_task_response(&conn, task_id)?;
+    let existing = load_task_response(&conn, task_id)?;
     let actor = req.actor_name.clone().unwrap_or_else(|| "anonymous".to_string());
+
+    // Prevent clearing both title and description
+    let new_title = req.title.as_deref().unwrap_or(&existing.title);
+    let new_desc = req.description.as_deref().unwrap_or(&existing.description);
+    if new_title.trim().is_empty() && new_desc.trim().is_empty() {
+        return Err((
+            Status::BadRequest,
+            Json(ApiError {
+                error: "Either title or description must be provided".to_string(),
+                code: "EMPTY_TASK".to_string(),
+                status: 400,
+            }),
+        ));
+    }
+
     let mut changes = serde_json::Map::new();
 
     if let Some(ref title) = req.title {
