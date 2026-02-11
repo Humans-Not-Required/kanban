@@ -147,17 +147,29 @@ const updateTask = (boardId, taskId, body) => {
   return request(`/boards/${boardId}/tasks/${taskId}`, { method: 'PATCH', body, boardId });
 };
 
-const deleteTask = (boardId, taskId) =>
-  request(`/boards/${boardId}/tasks/${taskId}`, { method: 'DELETE', boardId });
+const deleteTask = (boardId, taskId) => {
+  const name = getDisplayName();
+  const actorParam = name ? `?actor=${encodeURIComponent(name)}` : '';
+  return request(`/boards/${boardId}/tasks/${taskId}${actorParam}`, { method: 'DELETE', boardId });
+};
 
-const archiveTask = (boardId, taskId) =>
-  request(`/boards/${boardId}/tasks/${taskId}/archive`, { method: 'POST', boardId });
+const archiveTask = (boardId, taskId) => {
+  const name = getDisplayName();
+  const actorParam = name ? `?actor=${encodeURIComponent(name)}` : '';
+  return request(`/boards/${boardId}/tasks/${taskId}/archive${actorParam}`, { method: 'POST', boardId });
+};
 
-const unarchiveTask = (boardId, taskId) =>
-  request(`/boards/${boardId}/tasks/${taskId}/unarchive`, { method: 'POST', boardId });
+const unarchiveTask = (boardId, taskId) => {
+  const name = getDisplayName();
+  const actorParam = name ? `?actor=${encodeURIComponent(name)}` : '';
+  return request(`/boards/${boardId}/tasks/${taskId}/unarchive${actorParam}`, { method: 'POST', boardId });
+};
 
-const moveTask = (boardId, taskId, columnId) =>
-  request(`/boards/${boardId}/tasks/${taskId}/move/${columnId}`, { method: 'POST', boardId });
+const moveTask = (boardId, taskId, columnId) => {
+  const name = getDisplayName();
+  const actorParam = name ? `?actor=${encodeURIComponent(name)}` : '';
+  return request(`/boards/${boardId}/tasks/${taskId}/move/${columnId}${actorParam}`, { method: 'POST', boardId });
+};
 
 const claimTask = (boardId, taskId) => {
   const name = getDisplayName();
@@ -165,8 +177,11 @@ const claimTask = (boardId, taskId) => {
   return request(`/boards/${boardId}/tasks/${taskId}/claim${agentParam}`, { method: 'POST', boardId });
 };
 
-const releaseTask = (boardId, taskId) =>
-  request(`/boards/${boardId}/tasks/${taskId}/release`, { method: 'POST', boardId });
+const releaseTask = (boardId, taskId) => {
+  const name = getDisplayName();
+  const actorParam = name ? `?actor=${encodeURIComponent(name)}` : '';
+  return request(`/boards/${boardId}/tasks/${taskId}/release${actorParam}`, { method: 'POST', boardId });
+};
 
 // ---- Search ----
 
