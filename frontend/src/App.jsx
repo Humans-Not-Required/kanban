@@ -2311,7 +2311,7 @@ function WebhookManagerModal({ boardId, onClose, isMobile }) {
               <span style={{ flex: 1, color: '#e2e8f0' }}>{createdSecret}</span>
               <button style={styles.btnSmall} onClick={() => { navigator.clipboard.writeText(createdSecret); }}>Copy</button>
             </div>
-            <button style={styles.btnSmall} onClick={() => setCreatedSecret(null)}>Dismiss</button>
+            <button style={{ ...styles.btnSmall, marginTop: '6px' }} onClick={() => setCreatedSecret(null)}>Close</button>
           </div>
         )}
 
@@ -2474,8 +2474,17 @@ function SharePopover({ boardId, canEdit, onClose }) {
         padding: '16px', width: '320px', maxWidth: '90vw',
         boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
       }}>
-        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Share Board
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Share Board
+          </div>
+          <button onClick={onClose} style={{
+            background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
+            width: '24px', height: '24px', borderRadius: '4px', cursor: 'pointer',
+            fontSize: '0.85rem', lineHeight: 1, padding: 0,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>×</button>
         </div>
 
         {/* View URL */}
@@ -2583,8 +2592,17 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
             fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.5',
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: '8px', color: '#f1f5f9' }}>
-            {canEdit ? '✏️ Full Access Mode' : '👁️ View Only Mode'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ fontWeight: 700, color: '#f1f5f9' }}>
+              {canEdit ? '✏️ Full Access Mode' : '👁️ View Only Mode'}
+            </div>
+            <button onClick={() => setShowModeInfo(false)} style={{
+              background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
+              width: '24px', height: '24px', borderRadius: '4px', cursor: 'pointer',
+              fontSize: '0.85rem', lineHeight: 1, padding: 0,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>×</button>
           </div>
           {canEdit ? (
             <div>
@@ -2646,10 +2664,6 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
               </div>
             </div>
           )}
-          <button
-            onClick={() => setShowModeInfo(false)}
-            style={{ marginTop: '8px', fontSize: '0.7rem', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-          >Dismiss</button>
         </div>
       )}
       <button
