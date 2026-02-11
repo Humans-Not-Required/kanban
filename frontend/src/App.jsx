@@ -1349,7 +1349,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 <button
                   style={styles.btn('primary', isMobile)}
                   onClick={saveEdit}
-                  disabled={saving || !editTitle.trim()}
+                  disabled={saving || (!editTitle.trim() && !editDesc.trim())}
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>

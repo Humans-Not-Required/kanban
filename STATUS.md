@@ -163,6 +163,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - ~~**Search button border issue**~~ ✅ Fixed (2026-02-11 18:56 UTC) — Search toggle showed indigo border when bar was merely open (`showSearchBar`). Changed to only highlight when `searchResults !== null`. Also fixed "Search" action button which had `border: 'none'` when inactive (now inherits standard btnSmall border). Commit: 23813a3.
 
+### Completed (2026-02-11 Daytime, Session 16 — 22:03 UTC)
+
+- **Remove by-name header from task details** ✅ Done — Removed the `by {task.created_by}` line from task detail metadata in App.jsx. Cleaner task detail view. Commit: d83606a. 55 tests passing.
+
 ### Completed (2026-02-11 Daytime, Session 15 — 21:33 UTC)
 
 - **Search button white outline** ✅ Fixed — Search button's `btnSmall` style had `border: 1px solid #475569` which appeared as a white outline vs the borderless toolbar buttons (⚙️ 📊). Changed both Search and Filter buttons to `border: none` when inactive, keeping indigo border when active (search results / active filters). Commit: 4ea23d7. 55 tests passing.
