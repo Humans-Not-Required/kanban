@@ -1139,6 +1139,7 @@ pub fn update_task(
     access::require_not_archived(&conn, board_id)?;
     let existing = load_task_response(&conn, task_id)?;
     let actor = req.actor_name.clone().unwrap_or_else(|| "anonymous".to_string());
+    access::require_display_name_if_needed(&conn, board_id, &actor)?;
 
     // Prevent clearing both title and description
     let new_title = req.title.as_deref().unwrap_or(&existing.title);
@@ -1264,6 +1265,9 @@ pub fn delete_task(
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
 
+    let actor = actor.unwrap_or("anonymous");
+    access::require_display_name_if_needed(&conn, board_id, actor)?;
+
     // Capture task title before deleting for activity feed
     let task_title: Option<String> = conn
         .query_row(
@@ -1279,8 +1283,6 @@ pub fn delete_task(
             rusqlite::params![task_id, board_id],
         )
         .unwrap_or(0);
-
-    let actor = actor.unwrap_or("anonymous");
     if affected > 0 {
         let event_data = serde_json::json!({"task_id": task_id, "title": task_title});
         log_event(&conn, task_id, "deleted", actor, &event_data);
@@ -1313,6 +1315,7 @@ pub fn archive_task(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
+    access::require_display_name_if_needed(&conn, board_id, actor)?;
 
     // Check task exists
     let _existing = load_task_response(&conn, task_id)?;
@@ -1350,6 +1353,7 @@ pub fn unarchive_task(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
+    access::require_display_name_if_needed(&conn, board_id, actor)?;
 
     let _existing = load_task_response(&conn, task_id)?;
 
@@ -1389,6 +1393,7 @@ pub fn claim_task(
     access::require_not_archived(&conn, board_id)?;
 
     let actor = agent.unwrap_or("anonymous").to_string();
+    access::require_display_name_if_needed(&conn, board_id, &actor)?;
 
     // Check if already claimed by someone else
     let current_claim: Option<String> = conn
@@ -1445,6 +1450,7 @@ pub fn release_task(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
+    access::require_display_name_if_needed(&conn, board_id, actor)?;
 
     conn.execute(
         "UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, updated_at = datetime('now') WHERE id = ?1 AND board_id = ?2",
@@ -1481,6 +1487,7 @@ pub fn move_task(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
+    access::require_display_name_if_needed(&conn, board_id, actor)?;
 
     // Verify target column belongs to the board
     let col_exists: bool = conn

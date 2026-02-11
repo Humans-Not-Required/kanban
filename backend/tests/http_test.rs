@@ -1483,3 +1483,154 @@ fn test_mention_extraction_quoted() {
     assert!(mentions.iter().any(|m| m == "Team Lead"));
     assert!(mentions.iter().any(|m| m == "dev-bot"));
 }
+
+#[test]
+fn test_http_require_display_name_all_endpoints() {
+    let client = test_client();
+
+    // Create board with require_display_name enabled
+    let resp = client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Display Name Audit", "require_display_name": true}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    let board_id = body["id"].as_str().unwrap().to_string();
+    let manage_key = body["manage_key"].as_str().unwrap().to_string();
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Get column ID for moves
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let columns = board["columns"].as_array().unwrap();
+    let col_id = columns[0]["id"].as_str().unwrap().to_string();
+    let col2_id = columns[1]["id"].as_str().unwrap().to_string();
+
+    // Create a task WITH actor_name (should succeed)
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Test Task", "actor_name": "TestBot"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap().to_string();
+
+    // UPDATE task without actor_name → should fail
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Updated Title"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // UPDATE task with actor_name → should succeed
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Updated Title", "actor_name": "TestBot"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // MOVE task without actor → should fail
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}", board_id, task_id, col2_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // MOVE task with actor → should succeed
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}?actor=TestBot", board_id, task_id, col2_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // CLAIM task without agent → should fail
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // CLAIM task with agent → should succeed
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?agent=TestBot", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // RELEASE task without actor → should fail
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/release", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // RELEASE task with actor → should succeed
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/release?actor=TestBot", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // ARCHIVE task without actor → should fail
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/archive", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // ARCHIVE task with actor → should succeed
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/archive?actor=TestBot", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // UNARCHIVE task without actor → should fail
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/unarchive", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // UNARCHIVE task with actor → should succeed
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/unarchive?actor=TestBot", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // DELETE task without actor → should fail
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "DISPLAY_NAME_REQUIRED");
+
+    // DELETE task with actor → should succeed
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/tasks/{}?actor=TestBot", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+}
