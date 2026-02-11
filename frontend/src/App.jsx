@@ -2880,8 +2880,8 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               >×</button>
             )}
           </div>
-          <button style={{ ...styles.btnSmall, ...(searchResults !== null ? { border: '1px solid #6366f1', color: '#a5b4fc', background: '#312e81' } : {}) }} onClick={doSearch}>Search</button>
-          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : '1px solid #475569', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', background: hasActiveFilters ? '#312e81' : undefined, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
+          <button style={{ ...styles.btnSmall, border: 'none', ...(searchResults !== null ? { border: '1px solid #6366f1', color: '#a5b4fc', background: '#312e81' } : {}) }} onClick={doSearch}>Search</button>
+          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : 'none', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', background: hasActiveFilters ? '#312e81' : undefined, display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Filter
           </button>
