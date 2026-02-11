@@ -390,8 +390,12 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 ### Ops
 - **Check deploy**: Jordan reports some issues marked fixed / moved to Review aren’t visible live — verify deploy pipeline + whether staging is stale.
 
-*Last updated: 2026-02-10 06:56 UTC (kanban monitor).* 
+*Last updated: 2026-02-11 22:43 UTC*
 
 ### Completed (2026-02-11 Daytime, Session 11 — 06:40 UTC)
 
 - **Activity box: Replace since-last-visit toggle with third tab** ✅ Done — Activity panel now has 3 tabs: "All Recent" (last 50 events), "Since Last Visit" (events since last visit, with badge count), "My Items" (unchanged). Since Last Visit tab only appears when user has a previous visit recorded. Default tab is Since Last Visit when available, All Recent otherwise. Removed the toggle button from inside the Recent tab. Commit: 0afd975. 54 tests passing (40 HTTP + 14 integration).
+
+### Completed (2026-02-11 Daytime — 22:43 UTC)
+
+- **Fix full-access modal dismiss behavior** ✅ Done — Added invisible backdrop overlay behind the Full Access/View Only mode info popup so clicking outside closes it (same pattern as SharePopover). Previously required the × close button. Commit: 7c65736. 55 tests passing (41 unit + 14 integration).
