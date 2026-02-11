@@ -2827,11 +2827,11 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               <button
                 style={{
                   ...styles.btn('secondary', isMobile),
-                  border: showSearchBar ? '1px solid #6366f1' : undefined,
+                  border: (showSearchBar || searchResults !== null) ? '1px solid #6366f1' : undefined,
                 }}
                 onClick={() => setShowSearchBar(v => !v)}
                 title="Search & Filter"
-              >🔍</button>
+              >🔍{searchResults !== null ? ' ●' : ''}</button>
             )}
           </div>
           {canEdit && !archived && (
@@ -2844,7 +2844,11 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         <div style={styles.searchBar(isMobile)}>
           <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
             <input
-              style={{ ...styles.input, marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined, height: '32px', padding: '4px 10px', fontSize: '0.8rem' }}
+              style={{
+                ...styles.input,
+                marginBottom: 0, width: '100%', paddingRight: search ? '28px' : undefined, height: '32px', padding: '4px 10px', fontSize: '0.8rem',
+                ...(searchResults !== null ? { border: '1px solid #6366f1', background: '#1e1b4b', boxShadow: '0 0 0 2px rgba(99,102,241,0.15)' } : {}),
+              }}
               placeholder="Search tasks..."
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -2876,7 +2880,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               >×</button>
             )}
           </div>
-          <button style={{ ...styles.btnSmall, border: 'none' }} onClick={doSearch}>Search</button>
+          <button style={{ ...styles.btnSmall, border: 'none', ...(searchResults !== null ? { color: '#a5b4fc' } : {}) }} onClick={doSearch}>Search</button>
           <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : '1px solid #475569', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Filter{hasActiveFilters ? ' ●' : ''}
