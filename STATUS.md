@@ -155,6 +155,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 4. ~~**Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter**~~ ✅ Done (2026-02-11 03:30 UTC) — Commit: 09a3faa.
 5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
+### Completed (2026-02-11 Daytime, Session 4 — 04:10 UTC)
+
+- **Live SSE streaming indicator** ✅ Done — Floating bottom-left dot: green pulsing dot when connected (tooltip-only, no text), red dot + "Reconnecting…" text when disconnected. Positioned out of the toolbar to avoid the clutter that caused the original removal. Uses `ssePulse` keyframe for subtle breathing animation. Re-enabled `sseStatus` state + callback. Commit: 86f3793. 52 tests passing.
+
 ### Completed (2026-02-11 Daytime, Session 3 — 03:30 UTC)
 
 - **Submit hotkey: Ctrl/Cmd+Enter** ✅ Done — Changed Shift+Enter to Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) for new task modal global handler and comment textarea. Standard convention (Gmail, Slack, etc). Commit: 09a3faa. 52 tests passing.
