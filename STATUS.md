@@ -155,6 +155,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 4. ~~**Change submit hotkey from Shift+Enter to Ctrl/Cmd+Enter**~~ ✅ Done (2026-02-11 03:30 UTC) — Commit: 09a3faa.
 5. **Any new Jordan feedback** — all 2026-02-10 items completed, awaiting review.
 
+### Completed (2026-02-11 Daytime, Session 6 — 05:12 UTC)
+
+- **Square X close buttons on share/mode popovers** ✅ Done — Replaced "Dismiss" text links at the bottom of SharePopover and AccessIndicator mode info popover with square X close buttons (24×24px) in the top right corner, consistent with other modals (btnClose style). Webhook secret dismiss also updated to "Close" button. Commit: fed926a. 52 tests passing.
+
 ### Completed (2026-02-11 Daytime, Session 5 — 04:53 UTC)
 
 - **Shift+Enter submits comment** ✅ Done — Added Shift+Enter as additional submit hotkey for both comment textarea and new task modal (alongside existing Ctrl/Cmd+Enter). Commit: d087b86. 52 tests passing.
