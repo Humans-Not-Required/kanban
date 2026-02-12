@@ -433,6 +433,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - **Filter button white background on desktop** ✅ Fixed — When `hasActiveFilters` was false, `background: undefined` removed the inline style, causing browser default white background on `<button>`. Changed to explicit `'#334155'` (matching btnSmall base). Commit: 619c3ba. 55 tests passing (41 HTTP + 14 integration).
 
+### Completed (2026-02-12 Daytime, Session 26 — 04:44 UTC)
+
+- **Fix iPad zoom issue on kanban board** ✅ Done — Three-part fix: (1) Fixed 3 remaining inputs with font-size < 16px that triggered Safari auto-zoom on focus: column rename (0.85rem→16px), display name (0.8rem→16px), add column (0.85rem→16px). (2) Added `visibilitychange` handler to reset viewport zoom when returning from another app by temporarily forcing `maximum-scale=1`. (3) On iOS devices, set `maximum-scale=1` in viewport meta tag — prevents auto-zoom on input focus but does NOT block user pinch-to-zoom (iOS 10+). Also added `touch-action: manipulation` (prevents double-tap zoom) and `-webkit-text-size-adjust: 100%` (prevents text inflation on orientation change) to body CSS. Commit: a3d0eea. 56 tests passing (42 HTTP + 14 integration).
+
 ### Jordan Direction (2026-02-12 01:17-01:28 UTC)
 
 1. **Actor param fix → check playbooks** (task 5edb6c0c) — Jordan: "Check through all playbooks to make sure that this change is reflected if it is relevant." The `?agent=` → `?actor=` and `actor` → `actor_name` changes (commit 6f59db0) need to be verified across all playbooks that call kanban API.

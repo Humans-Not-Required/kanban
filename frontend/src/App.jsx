@@ -164,6 +164,51 @@ function AutocompleteInput({ value, onChange, suggestions, placeholder, style, i
   );
 }
 
+// ---- Styled Select (custom chevron, consistent across platforms) ----
+function StyledSelect({ style, children, ...props }) {
+  const wrapperStyle = {
+    position: 'relative',
+    display: 'inline-flex',
+    flex: style?.flex ?? 1,
+    minWidth: style?.minWidth ?? undefined,
+    marginBottom: style?.marginBottom ?? undefined,
+  };
+  const chevronStyle = {
+    position: 'absolute',
+    right: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    pointerEvents: 'none',
+    display: 'flex',
+    alignItems: 'center',
+  };
+  // Merge caller styles, force appearance:none and right padding for chevron
+  const selectStyle = {
+    ...style,
+    flex: 1,
+    width: '100%',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    MozAppearance: 'none',
+    paddingRight: '32px',
+    cursor: 'pointer',
+    // remove wrapper-level props that don't belong on <select>
+    minWidth: undefined,
+  };
+  return (
+    <div style={wrapperStyle}>
+      <select style={selectStyle} {...props}>
+        {children}
+      </select>
+      <span style={chevronStyle}>
+        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M1.5 1.75L6 6.25L10.5 1.75" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
+    </div>
+  );
+}
+
 // ---- Responsive hook ----
 function useBreakpoint() {
   const [width, setWidth] = useState(window.innerWidth);
@@ -925,15 +970,15 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
           <input style={styles.input} placeholder="Title (optional if description provided)" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
           <textarea style={styles.textarea} placeholder="Description (optional if title provided)" value={desc} onChange={e => setDesc(e.target.value)} />
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-            <select style={styles.select} value={priority} onChange={e => setPriority(Number(e.target.value))}>
+            <StyledSelect style={styles.select} value={priority} onChange={e => setPriority(Number(e.target.value))}>
               <option value={3}>Critical</option>
               <option value={2}>High</option>
               <option value={1}>Medium</option>
               <option value={0}>Low</option>
-            </select>
-            <select style={styles.select} value={columnId} onChange={e => setColumnId(e.target.value)}>
+            </StyledSelect>
+            <StyledSelect style={styles.select} value={columnId} onChange={e => setColumnId(e.target.value)}>
               {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            </StyledSelect>
           </div>
           <AutocompleteInput style={styles.input} placeholder="Labels (comma-separated)" value={labels} onChange={setLabels} suggestions={allLabels || []} isCommaList />
           {(allLabels || []).length > 0 && (
@@ -1308,12 +1353,12 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               }}
             />
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <select style={styles.select} value={editPriority} onChange={e => setEditPriority(Number(e.target.value))}>
+              <StyledSelect style={styles.select} value={editPriority} onChange={e => setEditPriority(Number(e.target.value))}>
                 <option value={3}>Critical</option>
                 <option value={2}>High</option>
                 <option value={1}>Medium</option>
                 <option value={0}>Low</option>
-              </select>
+              </StyledSelect>
             </div>
             <AutocompleteInput
               style={styles.input}
@@ -1765,7 +1810,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
           <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', marginBottom: '16px' }}>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Quick Done Button <span style={{ color: '#22c55e' }}>✓</span></label>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Target column</label>
-            <select
+            <StyledSelect
               style={{ ...styles.input, cursor: 'pointer' }}
               value={quickDoneColumnId}
               onChange={e => setQuickDoneColumnId(e.target.value)}
@@ -1774,7 +1819,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
               {(board.columns || []).map(col => (
                 <option key={col.id} value={col.id}>{col.name}</option>
               ))}
-            </select>
+            </StyledSelect>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -1790,7 +1835,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
           <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', marginBottom: '16px' }}>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Quick Reassign Button <span style={{ color: '#f59e0b' }}>↩</span></label>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Target column</label>
-            <select
+            <StyledSelect
               style={{ ...styles.input, cursor: 'pointer' }}
               value={quickReassignColumnId}
               onChange={e => setQuickReassignColumnId(e.target.value)}
@@ -1799,7 +1844,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
               {(board.columns || []).map(col => (
                 <option key={col.id} value={col.id}>{col.name}</option>
               ))}
-            </select>
+            </StyledSelect>
             <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Assign to (optional)</label>
             <input
               style={styles.input}
@@ -2946,25 +2991,25 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
       )}
       {showSearchBar && showFilters && (
         <div style={{ display: 'flex', gap: '8px', padding: isMobile ? '8px 12px' : '8px 20px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
             <option value="3">🔴 Critical</option>
             <option value="2">🟠 High</option>
             <option value="1">🟡 Medium</option>
             <option value="0">🟢 Low</option>
-          </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          </StyledSelect>
+          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
             <option value="">Any Label</option>
             {allLabels.map(l => (
               <option key={l} value={l}>{l}</option>
             ))}
-          </select>
-          <select style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+          </StyledSelect>
+          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
             <option value="">Any Assignee</option>
             {allAssignees.map(a => (
               <option key={a} value={a}>{a}</option>
             ))}
-          </select>
+          </StyledSelect>
           <button
             onClick={() => setShowArchivedTasks(v => !v)}
             style={{
