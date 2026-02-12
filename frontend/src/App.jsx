@@ -24,6 +24,37 @@ function normalizeLabels(labelsStr) {
   return labelsStr.split(',').map(l => normalizeLabel(l)).filter(Boolean);
 }
 
+// ---- iOS Safari zoom reset on app resume ----
+// When Safari auto-zooms on input focus and the user switches apps,
+// the zoom persists when returning. This resets it.
+if (typeof document !== 'undefined') {
+  // Detect iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    // On iOS Safari, maximum-scale=1 prevents auto-zoom on input focus
+    // but does NOT block user-initiated pinch-to-zoom (iOS 10+)
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';
+    }
+  }
+
+  // Reset zoom when returning from another app (belt and suspenders)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        // Temporarily force scale reset, then restore
+        const original = viewport.content;
+        viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';
+        setTimeout(() => { viewport.content = original; }, 100);
+      }
+    }
+  });
+}
+
 // ---- Escape key hook (layered: only topmost modal closes) ----
 let escapeLayerId = 0;
 const escapeStack = [];
@@ -449,7 +480,7 @@ function IdentityBadge({ isMobile }) {
         <input
           style={{
             background: '#0f172a', border: '1px solid #6366f1', color: '#e2e8f0',
-            padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem',
+            padding: '3px 8px', borderRadius: '4px', fontSize: '16px',
             width: isMobile ? '100px' : '120px',
           }}
           placeholder="Your name"
@@ -671,7 +702,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
         {renaming ? (
           <input
             autoFocus
-            style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #3b82f6', borderRadius: '4px', padding: '2px 6px', fontSize: '0.85rem', fontWeight: 600, width: '100%' }}
+            style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #3b82f6', borderRadius: '4px', padding: '2px 6px', fontSize: '16px', fontWeight: 600, width: '100%' }}
             value={renameValue}
             onChange={e => setRenameValue(e.target.value)}
             onBlur={handleRename}
@@ -2979,7 +3010,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             <div style={{ ...styles.column(false, isMobile), minWidth: isMobile ? undefined : '200px', maxWidth: isMobile ? undefined : '200px', justifyContent: 'flex-start' }}>
               <input
                 autoFocus
-                style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #3b82f6', borderRadius: '4px', padding: '6px 8px', fontSize: '0.85rem', width: '100%' }}
+                style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #3b82f6', borderRadius: '4px', padding: '6px 8px', fontSize: '16px', width: '100%' }}
                 placeholder="Column name..."
                 value={newColumnName}
                 onChange={e => setNewColumnName(e.target.value)}
