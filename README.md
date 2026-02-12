@@ -101,199 +101,47 @@ No accounts, no signup, no login. Boards are the only resource, and access is co
 
 ## API Reference
 
-Base path: `/api/v1`
+Full API documentation: **[API.md](API.md)**
 
-### System
+Base path: `/api/v1` — also available at runtime via `GET /llms.txt` and `GET /openapi.json`.
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/health` | ❌ | Health check |
+### Quick Reference
 
-### Boards
+| Resource | Endpoints | Auth |
+|----------|-----------|------|
+| Boards | Create, list public, get, update, archive | Create/read: public. Write: 🔑 |
+| Columns | Create, update, delete, reorder | 🔑 |
+| Tasks | CRUD, search, batch operations | Read/search: public. Write: 🔑 |
+| Task Actions | Claim, release, move, reorder, archive | 🔑 |
+| Comments | Post comment with @mentions | 🔑 |
+| Activity | Board-wide feed with cursor pagination | Public |
+| Events | SSE real-time stream | Public |
+| Webhooks | CRUD with HMAC-SHA256 verification | 🔑 |
+| Dependencies | Create, list, delete | Read: public. Write: 🔑 |
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/boards` | ❌ | Create a board (returns `manage_key`) |
-| GET | `/boards` | ❌ | List public boards |
-| GET | `/boards/{id}` | ❌ | Get board details with columns |
-| PATCH | `/boards/{id}` | 🔑 | Update board (name, description, is_public) |
-| POST | `/boards/{id}/archive` | 🔑 | Archive board |
-| POST | `/boards/{id}/unarchive` | 🔑 | Unarchive board |
-
-### Columns
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/boards/{id}/columns` | 🔑 | Add a column (optional WIP limit) |
-| PATCH | `/boards/{id}/columns/{colId}` | 🔑 | Update column (rename, WIP limit) |
-| DELETE | `/boards/{id}/columns/{colId}` | 🔑 | Delete empty column |
-| POST | `/boards/{id}/columns/reorder` | 🔑 | Reorder columns (ordered ID list) |
-
-### Tasks
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/boards/{id}/tasks` | 🔑 | Create a task |
-| GET | `/boards/{id}/tasks` | ❌ | List tasks (with filters) |
-| GET | `/boards/{id}/tasks/search?q=` | ❌ | Search tasks (title, description, labels) |
-| GET | `/boards/{id}/tasks/{taskId}` | ❌ | Get task details |
-| PATCH | `/boards/{id}/tasks/{taskId}` | 🔑 | Update task (partial) |
-| DELETE | `/boards/{id}/tasks/{taskId}` | 🔑 | Delete task |
-
-**Query filters for list:** `?column=`, `?assigned=`, `?claimed=`, `?priority=`, `?label=`
-
-**Search:** `GET /boards/{id}/tasks/search?q=<query>` searches across titles, descriptions, and labels. Supports `?limit=` (1-100, default 50), `?offset=`, and additional filters.
-
-### Agent Coordination
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/boards/{id}/tasks/{taskId}/claim` | 🔑 | Claim a task (you're working on it) |
-| POST | `/boards/{id}/tasks/{taskId}/release` | 🔑 | Release your claim |
-| POST | `/boards/{id}/tasks/{taskId}/move/{columnId}` | 🔑 | Move task to another column |
-| POST | `/boards/{id}/tasks/{taskId}/reorder` | 🔑 | Reorder task within/across columns |
-
-**Claim vs. Assign:** Assignment (`assigned_to`) means responsibility. Claiming (`claimed_by`) means "I'm actively working on this right now." Claims prevent conflicts when multiple agents coordinate on the same board.
-
-### Events & Comments
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/boards/{id}/events/stream` | ❌ | SSE real-time event stream |
-| GET | `/boards/{id}/tasks/{taskId}/events` | ❌ | Get task event history |
-| POST | `/boards/{id}/tasks/{taskId}/comment` | ❌ | Post a comment |
-
-### Webhooks
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/boards/{id}/webhooks` | 🔑 | Register a webhook |
-| GET | `/boards/{id}/webhooks` | 🔑 | List board webhooks |
-| PATCH | `/boards/{id}/webhooks/{whId}` | 🔑 | Update webhook |
-| DELETE | `/boards/{id}/webhooks/{whId}` | 🔑 | Delete webhook |
-
-## Real-Time Events (SSE)
-
-Subscribe to board-level events via Server-Sent Events. Any mutation emits an event to all connected subscribers.
+### Usage Examples
 
 ```bash
-curl -N http://localhost:8000/api/v1/boards/$BOARD_ID/events/stream
-```
-
-### Event Types
-
-| Event | Fired When |
-|-------|-----------|
-| `task.created` | A task is created |
-| `task.updated` | A task is modified |
-| `task.deleted` | A task is deleted |
-| `task.claimed` | A task is claimed |
-| `task.released` | A claimed task is released |
-| `task.moved` | A task moves to a different column |
-| `task.comment` | A comment is posted |
-| `warning` | Events were dropped (client fell behind) |
-
-Events arrive as standard SSE format with a heartbeat every 15 seconds.
-
-### Agent Integration
-
-```python
-import sseclient  # pip install sseclient-py
-import requests
-
-url = f"http://localhost:8000/api/v1/boards/{board_id}/events/stream"
-response = requests.get(url, stream=True)
-client = sseclient.SSEClient(response)
-
-for event in client.events():
-    if event.event == "task.created":
-        print(f"New task: {event.data}")
-```
-
-## Rate Limiting
-
-IP-based rate limiting on board creation to prevent abuse:
-- Default: 10 boards per hour per IP
-- Configurable via `BOARD_RATE_LIMIT` environment variable
-- Returns `429 Too Many Requests` when exceeded
-
-## WIP Limits
-
-Columns can have optional work-in-progress limits. When set:
-
-- Creating or moving a task into a full column returns `409 Conflict`
-- Error code: `WIP_LIMIT_EXCEEDED`
-- Agents should handle this by moving tasks out of full columns first
-- Columns with `wip_limit: null` are unlimited
-
-## Webhooks
-
-Register webhooks to receive HTTP POST notifications when board events occur.
-
-### Payload
-
-```json
-{
-  "event": "task.created",
-  "board_id": "board-uuid",
-  "data": { "title": "Fix bug", "task_id": "task-uuid" },
-  "timestamp": "2026-02-07T12:00:00Z"
-}
-```
-
-### Verification
-
-Every delivery includes an HMAC-SHA256 signature:
-
-```
-X-Kanban-Signature: sha256=<hex-digest>
-X-Kanban-Event: task.created
-X-Kanban-Board: <board-id>
-```
-
-### Reliability
-
-- Auto-disable after 10 consecutive failures
-- Re-enable via PATCH with `{"active": true}`
-- 10-second timeout per delivery
-- Asynchronous delivery
-
-## Usage Examples
-
-### Create a board
-
-```bash
+# Create a board
 curl -X POST http://localhost:8000/api/v1/boards \
   -H "Content-Type: application/json" \
-  -d '{"name": "Sprint 1", "columns": ["Todo", "Doing", "Done"]}'
-```
+  -d '{"name": "Sprint 1"}'
+# → returns manage_key, view_url, manage_url, api_base
 
-Response includes `manage_key`, `view_url`, `manage_url`, and `api_base`.
-
-### Create a task
-
-```bash
+# Create a task
 curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks \
   -H "Authorization: Bearer $MANAGE_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "title": "Implement auth middleware",
-    "priority": 5,
-    "labels": ["backend", "security"]
-  }'
-```
+  -d '{"title": "Implement auth", "priority": 2, "labels": ["backend"]}'
 
-### Claim and work on a task
-
-```bash
-# Claim it
-curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks/$TASK_ID/claim \
+# Claim and move a task
+curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks/$TASK_ID/claim?actor=Nanook \
   -H "Authorization: Bearer $MANAGE_KEY"
-
-# Move to done
-curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks/$TASK_ID/move/$DONE_COL_ID \
+curl -X POST http://localhost:8000/api/v1/boards/$BOARD_ID/tasks/$TASK_ID/move/$DONE_COL_ID?actor=Nanook \
   -H "Authorization: Bearer $MANAGE_KEY"
 ```
+
+See [API.md](API.md) for full request/response schemas, error codes, query parameters, batch operations, webhooks, and more.
 
 ## Frontend Dashboard
 
