@@ -68,6 +68,11 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 16. ~~**Bigger description fields**~~ ✅ Done (2026-02-08 02:04 UTC) - textarea minHeight 80px → 140px
 17. ~~**JSON error catchers**~~ ✅ Done (2026-02-08 03:40 UTC) - registered Rocket catchers for 401, 404, 422, 429, 500 returning JSON instead of HTML
 
+### What's Next (Priority Order) - Current
+
+1. ~~**Mobile UI: Segmented button bar + compact search/filter controls**~~ ✅ Done (2026-02-12 02:02 UTC) — On mobile: button bar is now a connected segmented bar at 100% width (Activity | Settings | Search | + Task, with + Task taking most space). Search button uses arrow icon instead of text. Filter button uses funnel icon only (no text). Makes search input larger on mobile.
+2. **New board default columns** — Remove columns field from board creation UI. Boards are created with default columns: Backlog, Up Next, In Progress, Review, Done. Keep API field as optional. (Direction from Jordan, 2026-02-12)
+
 ### What's Next (Priority Order) - Jordan UI Feedback (2026-02-08)
 
 1. ~~**View/edit mode UX overhaul**~~ ✅ Done (2026-02-08 06:15 UTC) - replaced pill badge with AccessIndicator ("Full Access"/"View Only") + "🔗 Share" button. SharePopover shows copy-able view URL and manage URL (edit-only). Hint for view-only users. Deployed.
@@ -427,3 +432,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 ### Completed (2026-02-11 Daytime — 23:47 UTC)
 
 - **Filter button white background on desktop** ✅ Fixed — When `hasActiveFilters` was false, `background: undefined` removed the inline style, causing browser default white background on `<button>`. Changed to explicit `'#334155'` (matching btnSmall base). Commit: 619c3ba. 55 tests passing (41 HTTP + 14 integration).
+
+### Jordan Direction (2026-02-12 01:17-01:28 UTC)
+
+1. **Actor param fix → check playbooks** (task 5edb6c0c) — Jordan: "Check through all playbooks to make sure that this change is reflected if it is relevant." The `?agent=` → `?actor=` and `actor` → `actor_name` changes (commit 6f59db0) need to be verified across all playbooks that call kanban API.
+2. **Shift+Enter still working** (task 055ef295) — Jordan: "Shift+Enter still seems to be working in addition to Ctrl+Enter." Session 5 re-added Shift+Enter as submit shortcut (commit d087b86). Jordan wants ONLY Ctrl/Cmd+Enter. Need to remove Shift+Enter handler from comment textarea and new task modal.
+3. **Drop-down chevron not visible** (task 169fd738) — Jordan: "I don't see these changes being reflected. On desktop the chevron is too close to the right side and on mobile there is no chevron at all. Research the new iOS look to see if there is anything there that could be affecting this." Custom chevron may not be rendering on iOS. Need to research iOS Safari select element styling.
+4. **SKILL.md research pivot** (task 55faf1e0, non-kanban) — Jordan: "I got the details wrong. Sky.ai uses SKILL.md. Research SKILL.md usage." Original task was STATE.md vs llms.txt; now pivoted to SKILL.md as the standard used by Sky.ai.

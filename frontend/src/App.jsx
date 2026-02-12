@@ -2808,16 +2808,17 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{board.description}</p>
           )}
         </div>
-        <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <button style={{ ...styles.btn('secondary', isMobile), position: 'relative' }} onClick={() => setShowActivity(true)} title="Activity Feed">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        {isMobile ? (
+          /* Mobile: connected segmented button bar, 100% width */
+          <div style={{ display: 'flex', width: '100%', borderRadius: '6px', overflow: 'hidden', border: '1px solid #475569' }}>
+            <button style={{ flex: '0 0 auto', background: '#334155', color: '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 14px', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }} onClick={() => setShowActivity(true)} title="Activity Feed">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
               {newActivityCount > 0 && (
                 <span style={{
-                  position: 'absolute', top: '-4px', right: '-4px',
+                  position: 'absolute', top: '2px', right: '2px',
                   background: '#6366f1', color: '#fff',
-                  fontSize: '0.6rem', fontWeight: 700,
-                  width: '16px', height: '16px',
+                  fontSize: '0.55rem', fontWeight: 700,
+                  width: '14px', height: '14px',
                   borderRadius: '50%', display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
                   lineHeight: 1,
@@ -2826,22 +2827,39 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
                 </span>
               )}
             </button>
-            <button style={styles.btn('secondary', isMobile)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
-            {isMobile && (
-              <button
-                style={{
-                  ...styles.btn('secondary', isMobile),
-                  ...(searchResults !== null ? { border: '1px solid #6366f1', background: '#312e81', color: '#a5b4fc' } : {}),
-                }}
-                onClick={() => setShowSearchBar(v => !v)}
-                title="Search & Filter"
-              >🔍</button>
+            <button style={{ flex: '0 0 auto', background: '#334155', color: '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 14px', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
+            <button style={{ flex: '0 0 auto', background: searchResults !== null ? '#312e81' : '#334155', color: searchResults !== null ? '#a5b4fc' : '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 14px', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSearchBar(v => !v)} title="Search & Filter">🔍</button>
+            {canEdit && !archived && (
+              <button style={{ flex: '1 1 auto', background: '#6366f1', color: '#fff', border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} onClick={() => setShowCreate(true)}>+ Task</button>
             )}
           </div>
-          {canEdit && !archived && (
-            <button style={styles.btn('primary', isMobile)} onClick={() => setShowCreate(true)}>+ Task</button>
-          )}
-        </div>
+        ) : (
+          /* Desktop: original button layout */
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <button style={{ ...styles.btn('secondary', false), position: 'relative' }} onClick={() => setShowActivity(true)} title="Activity Feed">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                {newActivityCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '-4px', right: '-4px',
+                    background: '#6366f1', color: '#fff',
+                    fontSize: '0.6rem', fontWeight: 700,
+                    width: '16px', height: '16px',
+                    borderRadius: '50%', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    lineHeight: 1,
+                  }}>
+                    {newActivityCount > 99 ? '99+' : newActivityCount}
+                  </span>
+                )}
+              </button>
+              <button style={styles.btn('secondary', false)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
+            </div>
+            {canEdit && !archived && (
+              <button style={styles.btn('primary', false)} onClick={() => setShowCreate(true)}>+ Task</button>
+            )}
+          </div>
+        )}
       </div>
 
       {showSearchBar && (
@@ -2884,10 +2902,14 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               >×</button>
             )}
           </div>
-          <button style={{ ...styles.btnSmall, border: 'none', ...(searchResults !== null ? { border: '1px solid #6366f1', color: '#a5b4fc', background: '#312e81' } : {}) }} onClick={doSearch}>Search</button>
-          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : 'none', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', background: hasActiveFilters ? '#312e81' : '#334155', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setShowFilters(f => !f)}>
+          <button style={{ ...styles.btnSmall, border: 'none', ...(searchResults !== null ? { border: '1px solid #6366f1', color: '#a5b4fc', background: '#312e81' } : {}), ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={doSearch} title="Search">
+            {isMobile ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            ) : 'Search'}
+          </button>
+          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : 'none', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', background: hasActiveFilters ? '#312e81' : '#334155', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '5px', ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={() => setShowFilters(f => !f)} title="Filter">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            Filter
+            {!isMobile && 'Filter'}
           </button>
         </div>
       )}
