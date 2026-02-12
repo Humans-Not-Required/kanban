@@ -71,7 +71,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 ### What's Next (Priority Order) - Current
 
 1. ~~**Mobile UI: Segmented button bar + compact search/filter controls**~~ ✅ Done (2026-02-12 02:02 UTC, updated 02:47 UTC) — On mobile: button bar is now a connected segmented bar at 100% width (Activity | Settings | Search | + Task). +Task button takes exactly 1/3 width (per Jordan direction), other 3 buttons share remaining 2/3 equally. Search button uses arrow icon instead of text. Filter button uses funnel icon only (no text). Commits: e917f57, 985b8b7.
-2. **New board default columns** — Remove columns field from board creation UI. Boards are created with default columns: Backlog, Up Next, In Progress, Review, Done. Keep API field as optional. (Direction from Jordan, 2026-02-12)
+2. ~~**Custom dropdown chevrons (StyledSelect)**~~ ✅ Done (2026-02-12 04:55 UTC) — Created reusable `StyledSelect` component with custom SVG downward chevron. Uses `appearance:none`/`-webkit-appearance:none` to hide native browser chrome. Chevron positioned at `right:10px` with `paddingRight:32px`. Replaced all 9 `<select>` elements app-wide. Fixes: chevron too close to right edge on desktop, missing on iOS Safari. Commit: 0916f79.
+3. **New board default columns** — Remove columns field from board creation UI. Boards are created with default columns: Backlog, Up Next, In Progress, Review, Done. Keep API field as optional. (Direction from Jordan, 2026-02-12)
 
 ### What's Next (Priority Order) - Jordan UI Feedback (2026-02-08)
 
