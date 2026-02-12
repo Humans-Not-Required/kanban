@@ -877,10 +877,10 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
 
   const submit = (e) => { e.preventDefault(); submitTask(); };
 
-  // Shift+Enter / Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) submits from anywhere in the modal
+  // Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS) submits from anywhere in the modal
   useEffect(() => {
     const handler = (e) => {
-      if ((e.shiftKey || e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submitTask(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submitTask(); }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
@@ -1434,7 +1434,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 value={comment}
                 onChange={e => setComment(e.target.value)}
                 onKeyDown={e => {
-                  if ((e.shiftKey || e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                     e.preventDefault();
                     if (comment.trim() && !posting) {
                       submitComment(e);
