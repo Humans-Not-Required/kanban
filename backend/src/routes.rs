@@ -1383,11 +1383,11 @@ pub fn unarchive_task(
 // ============ Agent-First: Claim / Release ============
 
 /// Claim a task — requires manage key.
-#[post("/boards/<board_id>/tasks/<task_id>/claim?<agent>")]
+#[post("/boards/<board_id>/tasks/<task_id>/claim?<actor>")]
 pub fn claim_task(
     board_id: &str,
     task_id: &str,
-    agent: Option<&str>,
+    actor: Option<&str>,
     token: BoardToken,
     db: &State<DbPool>,
     bus: &State<EventBus>,
@@ -1397,7 +1397,7 @@ pub fn claim_task(
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
 
-    let actor = agent.unwrap_or("anonymous").to_string();
+    let actor = actor.unwrap_or("anonymous").to_string();
     access::require_display_name_if_needed(&conn, board_id, &actor)?;
 
     // Check if already claimed by someone else
@@ -1428,7 +1428,7 @@ pub fn claim_task(
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
-    let event_data = serde_json::json!({"task_id": task_id, "agent": actor});
+    let event_data = serde_json::json!({"task_id": task_id, "actor": actor});
     log_event(&conn, task_id, "claimed", &actor, &event_data);
 
     bus.emit(crate::events::BoardEvent {
@@ -1711,7 +1711,7 @@ pub fn batch_tasks(
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
-    let actor = req.actor.as_deref().unwrap_or("batch");
+    let actor = req.actor_name.as_deref().unwrap_or("batch");
     access::require_display_name_if_needed(&conn, board_id, actor)?;
 
     if req.operations.is_empty() {

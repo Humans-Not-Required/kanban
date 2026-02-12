@@ -265,7 +265,7 @@ pub struct BatchRequest {
     pub operations: Vec<BatchOperation>,
     /// Optional actor name for attribution (defaults to "batch" if not provided).
     #[serde(default)]
-    pub actor: Option<String>,
+    pub actor_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

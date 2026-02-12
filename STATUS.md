@@ -396,6 +396,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - **Activity box: Replace since-last-visit toggle with third tab** ✅ Done — Activity panel now has 3 tabs: "All Recent" (last 50 events), "Since Last Visit" (events since last visit, with badge count), "My Items" (unchanged). Since Last Visit tab only appears when user has a previous visit recorded. Default tab is Since Last Visit when available, All Recent otherwise. Removed the toggle button from inside the Recent tab. Commit: 0afd975. 54 tests passing (40 HTTP + 14 integration).
 
+### Completed (2026-02-12 Daytime, Session 21 — 00:03 UTC)
+
+- **Board settings: enlarge description box on desktop** ✅ Done — Description textarea in BoardSettingsModal was using `styles.input` with `minHeight: '60px'` (tiny). Changed to `styles.textarea` which has `minHeight: '140px'`, proper `resize: 'vertical'`, and `fontFamily: 'inherit'`. Consistent with other textareas. Commit: 88e29bd. 55 tests passing (41 HTTP + 14 integration).
+
 ### Completed (2026-02-11 Daytime, Session 20 — 23:33 UTC)
 
 - **Activity view: tab count badges hidden when tab is selected** ✅ Done — Tab badges for "My Items" (task count) and "Since Last Visit" (new event count) had conditions `tab !== 'mine'` / `tab !== 'since'` that hid them on the active tab. Removed active-tab guard so badges are always visible. Commit: a6a8264. 55 tests passing (41 HTTP + 14 integration).

@@ -38,7 +38,7 @@
 - POST /api/v1/boards/{id}/tasks/batch — batch create tasks (auth required)
 
 ### Task Actions
-- POST /api/v1/boards/{id}/tasks/{task_id}/claim?agent={name} — claim task (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/claim?actor={name} — claim task (auth required)
 - POST /api/v1/boards/{id}/tasks/{task_id}/release — release claim (auth required)
 - POST /api/v1/boards/{id}/tasks/{task_id}/move/{column_id} — move to column (auth required)
 - POST /api/v1/boards/{id}/tasks/{task_id}/reorder — reorder within column (auth required)

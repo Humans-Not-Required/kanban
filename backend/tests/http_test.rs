@@ -473,7 +473,7 @@ fn test_http_claim_and_release() {
     // Claim
     let resp = client
         .post(format!(
-            "/api/v1/boards/{}/tasks/{}/claim?agent=Nanook",
+            "/api/v1/boards/{}/tasks/{}/claim?actor=Nanook",
             board_id, task_id
         ))
         .header(auth.clone())
@@ -485,7 +485,7 @@ fn test_http_claim_and_release() {
     // Double-claim by same agent is OK
     let resp = client
         .post(format!(
-            "/api/v1/boards/{}/tasks/{}/claim?agent=Nanook",
+            "/api/v1/boards/{}/tasks/{}/claim?actor=Nanook",
             board_id, task_id
         ))
         .header(auth.clone())
@@ -495,7 +495,7 @@ fn test_http_claim_and_release() {
     // Claim by different agent should fail (conflict)
     let resp = client
         .post(format!(
-            "/api/v1/boards/{}/tasks/{}/claim?agent=OtherAgent",
+            "/api/v1/boards/{}/tasks/{}/claim?actor=OtherAgent",
             board_id, task_id
         ))
         .header(auth.clone())
@@ -1565,7 +1565,7 @@ fn test_http_require_display_name_all_endpoints() {
 
     // CLAIM task with agent → should succeed
     let resp = client
-        .post(format!("/api/v1/boards/{}/tasks/{}/claim?agent=TestBot", board_id, task_id))
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=TestBot", board_id, task_id))
         .header(auth.clone())
         .dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -1753,7 +1753,7 @@ fn test_http_reorder_and_batch_actor_attribution() {
         .header(ContentType::JSON)
         .header(auth.clone())
         .body(format!(
-            r#"{{"actor": "BatchBot", "operations": [{{"action": "update", "task_ids": ["{}"], "priority": 3}}]}}"#,
+            r#"{{"actor_name": "BatchBot", "operations": [{{"action": "update", "task_ids": ["{}"], "priority": 3}}]}}"#,
             task2_id
         ))
         .dispatch();

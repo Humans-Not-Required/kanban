@@ -173,8 +173,8 @@ const moveTask = (boardId, taskId, columnId) => {
 
 const claimTask = (boardId, taskId) => {
   const name = getDisplayName();
-  const agentParam = name ? `?agent=${encodeURIComponent(name)}` : '';
-  return request(`/boards/${boardId}/tasks/${taskId}/claim${agentParam}`, { method: 'POST', boardId });
+  const actorParam = name ? `?actor=${encodeURIComponent(name)}` : '';
+  return request(`/boards/${boardId}/tasks/${taskId}/claim${actorParam}`, { method: 'POST', boardId });
 };
 
 const releaseTask = (boardId, taskId) => {
