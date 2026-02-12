@@ -396,6 +396,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - **Activity box: Replace since-last-visit toggle with third tab** ✅ Done — Activity panel now has 3 tabs: "All Recent" (last 50 events), "Since Last Visit" (events since last visit, with badge count), "My Items" (unchanged). Since Last Visit tab only appears when user has a previous visit recorded. Default tab is Since Last Visit when available, All Recent otherwise. Removed the toggle button from inside the Recent tab. Commit: 0afd975. 54 tests passing (40 HTTP + 14 integration).
 
+### Completed (2026-02-12 Daytime, Session 23 — 00:35 UTC)
+
+- **Create API.md documentation** ✅ Done — Comprehensive API.md (500+ lines) documenting all endpoints: boards, columns, tasks, task actions, batch operations, comments, activity feed, SSE, webhooks, dependencies. Includes request/response schemas, error code table (20 codes), query parameters, object reference, auth model, WIP limits, display name enforcement. Slimmed README from inline API details to quick reference table + examples linking to API.md. Commit: 38647d4. 55 tests passing (41 HTTP + 14 integration).
+
 ### Completed (2026-02-12 Daytime, Session 22 — 00:15 UTC)
 
 - **Fix actor param inconsistency** ✅ Done — Two naming inconsistencies fixed: (1) Claim endpoint `?agent=` → `?actor=` to match all other query param endpoints (move, archive, delete, release, reorder). (2) Batch endpoint `actor` → `actor_name` in JSON body to match create/update request models. Also fixed claim event data key from `agent` to `actor`. Frontend, tests, llms.txt updated. Commit: 6f59db0. 55 tests passing (41 HTTP + 14 integration).

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use chrono::Utc;
 use rocket::http::{ContentType, Status};
 use rocket::response::stream::{Event, EventStream};
 use rocket::serde::json::Json;
@@ -1032,7 +1033,7 @@ pub fn search_tasks(
 
 /// List tasks — public, no auth required.
 #[allow(clippy::too_many_arguments)]
-#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>&<archived>&<updated_before>&<limit>&<offset>")]
+#[get("/boards/<board_id>/tasks?<column>&<assigned>&<claimed>&<priority>&<label>&<archived>&<updated_before>&<stale>&<limit>&<offset>")]
 pub fn list_tasks(
     board_id: &str,
     column: Option<&str>,
@@ -1042,6 +1043,7 @@ pub fn list_tasks(
     label: Option<&str>,
     archived: Option<bool>,
     updated_before: Option<&str>,
+    stale: Option<i64>,
     limit: Option<i64>,
     offset: Option<i64>,
     db: &State<DbPool>,
@@ -1081,8 +1083,32 @@ pub fn list_tasks(
         params.push(Box::new(format!("%\"{}\"%", l)));
         sql.push_str(&format!(" AND t.labels LIKE ?{}", params.len()));
     }
-    if let Some(ub) = updated_before {
-        params.push(Box::new(ub.to_string()));
+    // stale=<minutes> is a convenience wrapper for updated_before
+    // It computes the threshold as now - stale minutes
+    let computed_updated_before = if let Some(minutes) = stale {
+        if minutes <= 0 {
+            return Err((
+                Status::BadRequest,
+                Json(ApiError {
+                    error: "stale must be a positive number of minutes".into(),
+                    code: "INVALID_STALE".into(),
+                    status: 400,
+                }),
+            ));
+        }
+        Some(
+            Utc::now()
+                .checked_sub_signed(chrono::Duration::minutes(minutes))
+                .unwrap()
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string(),
+        )
+    } else {
+        updated_before.map(|s| s.to_string())
+    };
+
+    if let Some(ref ub) = computed_updated_before {
+        params.push(Box::new(ub.clone()));
         sql.push_str(&format!(" AND t.updated_at < ?{}", params.len()));
     }
 

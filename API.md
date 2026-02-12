@@ -335,6 +335,7 @@ No auth. Returns tasks for a board.
 | `label` | Filter by label (exact match) |
 | `archived` | `true` to include archived tasks (excluded by default) |
 | `updated_before` | ISO-8601 timestamp — only tasks with `updated_at` before this time |
+| `stale` | Minutes — convenience wrapper: returns tasks not updated in the last N minutes (computes `updated_before` server-side) |
 | `limit` | Max results (default 200, max 1000) |
 | `offset` | Pagination offset |
 

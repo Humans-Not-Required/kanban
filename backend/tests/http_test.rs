@@ -1689,6 +1689,62 @@ fn test_http_list_tasks_updated_before_filter() {
     assert_eq!(tasks.as_array().unwrap().len(), 0);
 }
 
+// ============ Stale Query Parameter ============
+
+#[test]
+fn test_http_list_tasks_stale_filter() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Stale Filter Minutes");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Create a task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Fresh Task", "priority": 1}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // stale=1 (1 minute) — task was just created, so it's NOT stale yet
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?stale=1", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 0, "freshly created task should not be stale");
+
+    // stale=0 should return error (must be positive)
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?stale=0", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "INVALID_STALE");
+
+    // stale=-5 should return error
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?stale=-5", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+
+    // stale=999999 (tasks older than 999999 min) — fresh task is NOT that old
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?stale=999999", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 0, "fresh task should not be stale even with large window");
+
+    // Verify without stale filter — task is there
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 1, "task exists without stale filter");
+}
+
 // ============ Reorder & Batch Actor Attribution ============
 
 #[test]
