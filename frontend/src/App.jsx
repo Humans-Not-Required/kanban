@@ -1704,7 +1704,7 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
 
         <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Description</label>
         <textarea
-          style={{ ...styles.input, minHeight: '60px', resize: 'vertical' }}
+          style={styles.textarea}
           value={description}
           onChange={e => setDescription(e.target.value)}
           disabled={!canEdit}
