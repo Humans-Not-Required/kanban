@@ -2164,7 +2164,7 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
     <div style={styles.modal(isMobile)} onClick={handleClose}>
       <div style={{ ...styles.modalContent(isMobile), width: isMobile ? '100%' : '560px', maxHeight: isMobile ? '100vh' : '85vh' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0 }}>📊 Activity</h2>
+          <h2 style={{ color: '#f1f5f9', fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Activity</h2>
           <button style={styles.btnClose} onClick={handleClose}>×</button>
         </div>
 
@@ -2811,7 +2811,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <button style={{ ...styles.btn('secondary', isMobile), position: 'relative' }} onClick={() => setShowActivity(true)} title="Activity Feed">
-              📊
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
               {newActivityCount > 0 && (
                 <span style={{
                   position: 'absolute', top: '-4px', right: '-4px',

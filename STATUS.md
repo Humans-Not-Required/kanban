@@ -396,6 +396,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - **Activity box: Replace since-last-visit toggle with third tab** ✅ Done — Activity panel now has 3 tabs: "All Recent" (last 50 events), "Since Last Visit" (events since last visit, with badge count), "My Items" (unchanged). Since Last Visit tab only appears when user has a previous visit recorded. Default tab is Since Last Visit when available, All Recent otherwise. Removed the toggle button from inside the Recent tab. Commit: 0afd975. 54 tests passing (40 HTTP + 14 integration).
 
+### Completed (2026-02-12 Daytime, Session 25 — 01:15 UTC)
+
+- **Activity button icon doesn't match theme** ✅ Done — Replaced 📊 emoji with inline SVG pulse/activity icon (Lucide-style `<polyline>` heartbeat line). Matches the existing filter button SVG style and dark theme (`stroke="currentColor"` inherits button text color). Updated both the toolbar button (14×14) and Activity panel header (16×16). Frontend builds clean, 56 backend tests passing.
+
 ### Completed (2026-02-12 Daytime, Session 23 — 00:35 UTC)
 
 - **Create API.md documentation** ✅ Done — Comprehensive API.md (500+ lines) documenting all endpoints: boards, columns, tasks, task actions, batch operations, comments, activity feed, SSE, webhooks, dependencies. Includes request/response schemas, error code table (20 codes), query parameters, object reference, auth model, WIP limits, display name enforcement. Slimmed README from inline API details to quick reference table + examples linking to API.md. Commit: 38647d4. 55 tests passing (41 HTTP + 14 integration).
