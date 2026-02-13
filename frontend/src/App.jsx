@@ -2947,16 +2947,11 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
               {newActivityCount > 0 && (
                 <span style={{
-                  position: 'absolute', top: '2px', right: '2px',
-                  background: '#6366f1', color: '#fff',
-                  fontSize: '0.55rem', fontWeight: 700,
-                  width: '14px', height: '14px',
-                  borderRadius: '50%', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                  lineHeight: 1,
-                }}>
-                  {newActivityCount > 99 ? '99+' : newActivityCount}
-                </span>
+                  position: 'absolute', top: '4px', right: '4px',
+                  background: '#6366f1',
+                  width: '8px', height: '8px',
+                  borderRadius: '50%',
+                }} />
               )}
             </button>
             <button style={{ flex: '1 1 0', background: '#334155', color: '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 0', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
@@ -2973,16 +2968,11 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 {newActivityCount > 0 && (
                   <span style={{
-                    position: 'absolute', top: '-4px', right: '-4px',
-                    background: '#6366f1', color: '#fff',
-                    fontSize: '0.6rem', fontWeight: 700,
-                    width: '16px', height: '16px',
-                    borderRadius: '50%', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                    lineHeight: 1,
-                  }}>
-                    {newActivityCount > 99 ? '99+' : newActivityCount}
-                  </span>
+                    position: 'absolute', top: '-2px', right: '-2px',
+                    background: '#6366f1',
+                    width: '8px', height: '8px',
+                    borderRadius: '50%',
+                  }} />
                 )}
               </button>
               <button style={styles.btn('secondary', false)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>

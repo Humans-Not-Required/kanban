@@ -79,6 +79,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 7. ~~**Mobile: when search is expanded, always expand filters (hide filter toggle)**~~ ✅ Done (2026-02-13 14:19 UTC) — On mobile, the Search toggle now always shows filters and the in-search Filter toggle button is hidden. Search toggle highlights when filters are active. Commit: f447d13.
 8. ~~**Mobile: filter controls fill each row**~~ ✅ Done (2026-02-13 14:52 UTC) — On mobile, filters now use a grid so Priority + Label each take 50% width; Assignee takes 50%; Archived + Clear share the remaining space. Clear button label is shortened on mobile. Commit: 4af6254.
 9. ~~**Mobile: column move menu uses up/down labels**~~ ✅ Done (2026-02-13 15:03 UTC) — Column options menu now shows "Move Up"/"Move Down" on mobile (instead of left/right) since columns stack vertically. Commit: a699bd9.
+10. **SSE Live indicator: desktop pill tag** — Jordan wants a pill tag with "LIVE" text to the left of the username on desktop (not just a 7px dot). Current LiveIndicator is a dot-only. Needs: pill shape, "LIVE" text, positioned left of username/IdentityBadge in header.
 
 ### What's Next (Priority Order) - Jordan UI Feedback (2026-02-08)
 
@@ -457,6 +458,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 1. **Actor param fix → check playbooks** (task 5edb6c0c) — Jordan: "Check through all playbooks to make sure that this change is reflected if it is relevant." The `?agent=` → `?actor=` and `actor` → `actor_name` changes (commit 6f59db0) need to be verified across all playbooks that call kanban API.
 2. ~~**Shift+Enter still working**~~ ✅ Fixed (2026-02-12 04:18 UTC) — Removed `e.shiftKey` from both new task modal global handler and comment textarea onKeyDown. Now ONLY Ctrl/Cmd+Enter submits. Commit: 4445ea2. 56 tests passing.
 3. **Drop-down chevron not visible** (task 169fd738) — Jordan: "I don't see these changes being reflected. On desktop the chevron is too close to the right side and on mobile there is no chevron at all. Research the new iOS look to see if there is anything there that could be affecting this." Custom chevron may not be rendering on iOS. Need to research iOS Safari select element styling.
+   - **Update (2026-02-13 17:10 UTC):** Jordan still reports chevron spacing/missing chevron; verify deploy/caching + iOS rendering.
 4. **SKILL.md research pivot** (task 55faf1e0, non-kanban) — Jordan: "I got the details wrong. Sky.ai uses SKILL.md. Research SKILL.md usage." Original task was STATE.md vs llms.txt; now pivoted to SKILL.md as the standard used by Sky.ai.
 
 ## Incoming Directions (Work Queue)
@@ -464,8 +466,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 **Triage checks (2026-02-13):**
 - ✅ Fix: allow saving task with description but no title — verified already shipped in `main` (commit 57c81ab). Safe to close.
 - ✅ Fix full-access modal dismiss behavior (click outside to close) — verified already shipped in `main` (commit 7c65736). Safe to close.
+- (Repeat ping via NATS directions) Jordan/anonymous re-pinged on prior kanban items (My Boards/Public Boards, webhook button placement, DB backup automation verification). All are already captured below as completed/verified.
 
 <!-- WORK_QUEUE_DIRECTIONS_START -->
+- [ ] Button bar: Search button background still different — Jordan reports the Search button still looks like a different background color than the other toolbar buttons; all should share the same dark background (except +Task). (Jordan; 2026-02-13T18:06:18.561Z; task_id: 7164b9d5-baea-488a-b453-68677f5d150a)
 - [ ] Activity button icon doesn't match theme — The icon that's used for the activity button is not very good and doesn't match the theme. Please choose a better one or draw a better one. (Jordan; 2026-02-13 07:52:02; task_id: f37e7f86-de38-4589-ba1a-9b8bd38d567a)
 - [ ] My Links page: improve page title — Give the My Links page a better title. (Jordan; 2026-02-13 07:52:02; task_id: 7c121df8-3df5-47a4-850e-8c77840addd0)
 - [ ] Filter button has white background on desktop — The filter button has a white background when I'm viewing it on desktop. (Jordan; 2026-02-13 07:52:02; task_id: 5ab4b5e7-5913-47c0-bfe6-53ec449c1c34)
@@ -486,6 +490,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Remove horizontal rules around search/filters — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:54.436Z; task_id: 25e8aa27-5058-490a-a86b-0768440743b4)
 - [ ] Fix filter dropdown left indentation — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:54.558Z; task_id: 0a8a402f-0db7-42d0-8af7-4841bbcf9894)
 - [ ] Remove by-name header from task details — Remove the "by <name>" at the top of task details. (Jordan; 2026-02-13T10:40:28.688Z; task_id: 89ea4c9d-e537-486c-a35a-363ee31646b9)
+- [ ] Hotkeys: submit should be Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS), NOT Shift+Enter — Re-audit typical conventions; update new-task modal + comment submit to use Ctrl/Cmd+Enter. Shift+Enter should insert newline. Remove Shift+Enter-as-submit if present. (Jordan; 2026-02-13T18:40:08.375Z; task_id: 34c80cee-8341-4f8f-a185-f739f362cd44)
+- [ ] Verify activity endpoint enrichment before archiving — Confirm GET /boards/{id}/activity enriches *created* events with task snapshot and *comment* events with task snapshot + recent_comments (last 5-10). If correct, mark done + archive. (Jordan; 2026-02-13T18:40:08.426Z; task_id: 4eddb19c-1a24-4b92-9a9b-5da9ca9af845)
 <!-- WORK_QUEUE_DIRECTIONS_END -->
 
 ### Completed (2026-02-13 Overnight)
@@ -493,3 +499,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Board settings: Save button on right** ✅ Done — Reordered the Board Settings modal action row so “Save Changes” is right-aligned (moved after archive controls + `marginLeft: auto`). Commit: bc4c1bb.
 - **New Task modal: priority toggle height + mobile compact labels** ✅ Done — Removed extra bottom margin from the column dropdown in the New Task modal so the Priority segmented control matches its height. On mobile, priority buttons now show color dots instead of full text labels. Commit: 4aca0ad.
 - **Share/View popovers: close button size consistency** ✅ Done — SharePopover and access mode info popover now use standard `btnClose` (32×32) like other modals. Commit: 2dc67a9.
+
+## Incoming directions (2026-02-13T17:49:01Z)
+- Jordan reports popovers (Share + Access/View mode) are still clipped on tablet; likely overflow/positioning issue in header/container. Needs fix.
+- Jordan: 🔍 mobile toggle button background color should match other header buttons.
+- Jordan: Activity/since-last-visit feature not useful; rethink or simplify.
+- (refs: task c3e8b248, 52695b91, 035f9168, 1f4f04be)
