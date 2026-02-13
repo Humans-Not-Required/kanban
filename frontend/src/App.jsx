@@ -1696,9 +1696,7 @@ function CreateBoardModal({ onClose, onCreated, isMobile }) {
         <form onSubmit={submit}>
           <input style={styles.input} placeholder="Board Name" value={name} onChange={e => setName(e.target.value)} autoFocus />
           <textarea style={styles.textarea} placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} />
-          <p style={{ fontSize: '0.73rem', color: '#64748b', marginBottom: '12px' }}>
-            Boards are created with default columns: Backlog, Up Next, In Progress, Review, Done.
-          </p>
+          {/* Boards are created with default columns on the server. */}
           <label style={{ fontSize: '0.85rem', color: '#94a3b8', cursor: 'pointer', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} />
             Make board public
