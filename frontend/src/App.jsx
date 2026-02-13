@@ -456,6 +456,53 @@ function priorityLabel(p) {
   return String(p);
 }
 
+// ---- Priority Toggle (4-way button bar) ----
+
+const PRIORITY_OPTIONS = [
+  { value: 3, label: 'Critical', color: '#ef4444' },
+  { value: 2, label: 'High', color: '#f97316' },
+  { value: 1, label: 'Medium', color: '#eab308' },
+  { value: 0, label: 'Low', color: '#22c55e' },
+];
+
+function PriorityToggle({ value, onChange }) {
+  return (
+    <div style={{
+      display: 'flex',
+      borderRadius: '6px',
+      overflow: 'hidden',
+      border: '1px solid #475569',
+      flex: 1,
+    }}>
+      {PRIORITY_OPTIONS.map((opt, i) => {
+        const isActive = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            style={{
+              flex: 1,
+              padding: '6px 0',
+              fontSize: '0.78rem',
+              fontWeight: isActive ? '700' : '500',
+              color: isActive ? '#fff' : '#94a3b8',
+              background: isActive ? opt.color + 'cc' : '#1e293b',
+              border: 'none',
+              borderRight: i < PRIORITY_OPTIONS.length - 1 ? '1px solid #475569' : 'none',
+              cursor: 'pointer',
+              transition: 'background 0.15s, color 0.15s',
+              lineHeight: '1.4',
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---- Copy to clipboard helper ----
 
 function copyToClipboard(text) {
@@ -969,13 +1016,8 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
         <form onSubmit={submit}>
           <input style={styles.input} placeholder="Title (optional if description provided)" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
           <textarea style={styles.textarea} placeholder="Description (optional if title provided)" value={desc} onChange={e => setDesc(e.target.value)} />
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-            <StyledSelect style={styles.select} value={priority} onChange={e => setPriority(Number(e.target.value))}>
-              <option value={3}>Critical</option>
-              <option value={2}>High</option>
-              <option value={1}>Medium</option>
-              <option value={0}>Low</option>
-            </StyledSelect>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'stretch' }}>
+            <PriorityToggle value={priority} onChange={setPriority} />
             <StyledSelect style={styles.select} value={columnId} onChange={e => setColumnId(e.target.value)}>
               {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </StyledSelect>
@@ -1353,12 +1395,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               }}
             />
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <StyledSelect style={styles.select} value={editPriority} onChange={e => setEditPriority(Number(e.target.value))}>
-                <option value={3}>Critical</option>
-                <option value={2}>High</option>
-                <option value={1}>Medium</option>
-                <option value={0}>Low</option>
-              </StyledSelect>
+              <PriorityToggle value={editPriority} onChange={setEditPriority} />
             </div>
             <AutocompleteInput
               style={styles.input}
