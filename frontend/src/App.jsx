@@ -2845,6 +2845,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const [filterPriority, setFilterPriority] = useState('');
   const [filterLabel, setFilterLabel] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [filterCreatedBy, setFilterCreatedBy] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(!isMobile);
@@ -2941,6 +2942,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
     return Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
   })();
   const allAssignees = [...new Set(baseTasks.map(t => t.assigned_to || t.claimed_by).filter(Boolean))].sort();
+  const allCreators = [...new Set(baseTasks.map(t => t.created_by).filter(Boolean))].sort();
 
   // Apply filters
   const displayTasks = baseTasks.filter(t => {
@@ -2950,9 +2952,10 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
     }
     if (filterLabel && !(Array.isArray(t.labels) ? t.labels : (t.labels || '').split(',').map(l => l.trim())).some(l => l.toLowerCase() === filterLabel.toLowerCase())) return false;
     if (filterAssignee && t.assigned_to !== filterAssignee && t.claimed_by !== filterAssignee) return false;
+    if (filterCreatedBy && t.created_by !== filterCreatedBy) return false;
     return true;
   });
-  const hasActiveFilters = filterPriority || filterLabel || filterAssignee || showArchivedTasks;
+  const hasActiveFilters = filterPriority || filterLabel || filterAssignee || filterCreatedBy || showArchivedTasks;
   const searchActive = searchResults !== null || hasActiveFilters;
   const archived = !!board.archived_at;
 
@@ -3084,11 +3087,17 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               <option key={a} value={a}>{a}</option>
             ))}
           </StyledSelect>
+          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none', minWidth: isMobile ? 0 : '120px', width: isMobile ? '100%' : undefined, ...(isMobile ? { gridColumn: 'span 2' } : {}), padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterCreatedBy ? '#3b82f611' : '#0f172a', border: `1px solid ${filterCreatedBy ? '#3b82f644' : '#334155'}`, color: filterCreatedBy ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterCreatedBy} onChange={e => setFilterCreatedBy(e.target.value)}>
+            <option value="">Created By</option>
+            {allCreators.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </StyledSelect>
           <button
             onClick={() => setShowArchivedTasks(v => !v)}
             style={{
               ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none',
-              ...(isMobile ? { gridColumn: 'span 1', width: '100%' } : {}),
+              ...(isMobile ? { gridColumn: 'span 2', width: '100%' } : {}),
               padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
               background: showArchivedTasks ? '#6366f133' : '#0f172a',
               color: showArchivedTasks ? '#a5b4fc' : '#94a3b8',
@@ -3103,10 +3112,10 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             disabled={!hasActiveFilters && !showArchivedTasks}
             style={{
               ...styles.btnSmall,
-              ...(isMobile ? { gridColumn: 'span 1', width: '100%' } : {}),
+              ...(isMobile ? { gridColumn: 'span 2', width: '100%' } : {}),
               ...(!hasActiveFilters && !showArchivedTasks ? { opacity: 0.4, cursor: 'not-allowed' } : {}),
             }}
-            onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); setShowArchivedTasks(false); }}
+            onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); setFilterCreatedBy(''); setShowArchivedTasks(false); }}
           >
             {isMobile ? 'Clear' : 'Clear Filters'}
           </button>
