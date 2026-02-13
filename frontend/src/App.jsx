@@ -2068,22 +2068,22 @@ function eventIcon(type) {
 function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
   useEscapeKey(onClose);
   const lastVisitInit = getLastVisit(boardId);
-  const [tab, setTab] = useState('mine'); // 'mine' | 'all' | 'since'
+  const [tab, setTab] = useState('mine'); // 'mine' | 'myactivity' | 'all'
   const [activity, setActivity] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [myActivity, setMyActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortMode, setSortMode] = useState('priority'); // 'priority' | 'column'
   const lastVisit = getLastVisit(boardId);
   const displayName = api.getDisplayName();
 
   // Load recent activity
   useEffect(() => {
-    if (tab !== 'all' && tab !== 'since') return;
+    if (tab !== 'all') return;
     setLoading(true);
     (async () => {
       try {
-        const opts = tab === 'since' && lastVisit ? { since: lastVisit, limit: 100 } : { limit: 50 };
-        const { data } = await api.getBoardActivity(boardId, opts);
+        const { data } = await api.getBoardActivity(boardId, { limit: 50 });
         setActivity(data || []);
       } catch (err) {
         console.error('Failed to load activity:', err);
@@ -2091,11 +2091,11 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
         setLoading(false);
       }
     })();
-  }, [boardId, tab, lastVisit]);
+  }, [boardId, tab]);
 
   // Load my items (assigned tasks + activity where I'm actor)
   useEffect(() => {
-    if (tab !== 'mine') return;
+    if (tab !== 'mine' && tab !== 'myactivity') return;
     if (!displayName) { setLoading(false); return; }
     setLoading(true);
     (async () => {
@@ -2127,13 +2127,6 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
     onClose();
   };
 
-  const newCount = lastVisit
-    ? activity.filter(e => {
-        const t = parseUTC(e.created_at);
-        return t > new Date(lastVisit);
-      }).length
-    : 0;
-
   // Group tasks by column
   const tasksByColumn = {};
   myTasks.forEach(t => {
@@ -2141,6 +2134,9 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
     if (!tasksByColumn[col]) tasksByColumn[col] = [];
     tasksByColumn[col].push(t);
   });
+
+  // Sort tasks by priority (lower number = higher importance)
+  const tasksByPriority = [...myTasks].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3));
 
   const tabStyle = (active) => ({
     background: active ? '#6366f133' : 'transparent',
@@ -2166,18 +2162,11 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
   };
 
   const renderActivityList = () => {
-    const isSinceTab = tab === 'since';
-    const emptyMsg = isSinceTab && lastVisit ? 'No new activity since your last visit.' : 'No activity yet.';
     return (
       <>
-        {isSinceTab && lastVisit && (
-          <div style={{ color: '#64748b', fontSize: '0.7rem', marginBottom: '8px' }}>
-            Last visit: {formatTimeAgo(lastVisit)}
-          </div>
-        )}
         {activity.length === 0 ? (
           <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
-            {emptyMsg}
+            No activity yet.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'auto', maxHeight: isMobile ? 'calc(100vh - 200px)' : '55vh' }}>
@@ -2207,96 +2196,145 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
     );
   };
 
+  const sortToggleStyle = (active) => ({
+    background: active ? '#6366f133' : '#334155',
+    color: active ? '#a5b4fc' : '#94a3b8',
+    border: `1px solid ${active ? '#6366f155' : '#475569'}`,
+    borderRadius: '4px',
+    padding: '3px 10px',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    fontWeight: active ? '600' : '400',
+  });
+
+  const renderTaskItem = (task) => (
+    <div
+      key={task.id}
+      onClick={() => { if (onOpenTask) onOpenTask(task); }}
+      style={{
+        padding: '8px 10px',
+        borderRadius: '4px',
+        background: '#1e293b',
+        border: '1px solid #2a3548',
+        fontSize: '0.8rem',
+        lineHeight: '1.4',
+        marginBottom: '2px',
+        cursor: onOpenTask ? 'pointer' : 'default',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      }}
+    >
+      <span style={{ color: priorityColor(task.priority), fontSize: '0.7rem', fontWeight: '700', flexShrink: 0 }}>
+        P{task.priority}
+      </span>
+      <span style={{ color: task.title ? '#e2e8f0' : '#94a3b8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: task.title ? 'normal' : 'italic' }}>
+        {task.title || (task.description ? task.description.slice(0, 60) + (task.description.length > 60 ? '…' : '') : '(untitled)')}
+      </span>
+      {sortMode === 'priority' && task.column_name && (
+        <span style={{ color: '#64748b', fontSize: '0.65rem', flexShrink: 0 }}>
+          {task.column_name}
+        </span>
+      )}
+      {task.comment_count > 0 && (
+        <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0 }}>
+          💬{task.comment_count}
+        </span>
+      )}
+    </div>
+  );
+
   const renderMyItemsTab = () => {
     if (!displayName) {
       return (
         <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
-          Set a display name to see your assigned tasks and activity.
+          Set a display name to see your assigned tasks.
         </div>
       );
     }
 
     return (
       <div style={{ overflow: 'auto', maxHeight: isMobile ? 'calc(100vh - 200px)' : '55vh' }}>
-        {/* Assigned tasks section */}
-        {myTasks.length > 0 ? (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+        {/* Header with count and sort toggle */}
+        {myTasks.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Assigned to me ({myTasks.length})
             </div>
-            {Object.entries(tasksByColumn).map(([colName, tasks]) => (
-              <div key={colName} style={{ marginBottom: '10px' }}>
-                <div style={{ color: '#64748b', fontSize: '0.7rem', marginBottom: '4px', paddingLeft: '4px' }}>
-                  {colName}
-                </div>
-                {tasks.map(task => (
-                  <div
-                    key={task.id}
-                    onClick={() => { if (onOpenTask) onOpenTask(task); }}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: '4px',
-                      background: '#1e293b',
-                      border: '1px solid #2a3548',
-                      fontSize: '0.8rem',
-                      lineHeight: '1.4',
-                      marginBottom: '2px',
-                      cursor: onOpenTask ? 'pointer' : 'default',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <span style={{ color: priorityColor(task.priority), fontSize: '0.7rem', fontWeight: '700', flexShrink: 0 }}>
-                      P{task.priority}
-                    </span>
-                    <span style={{ color: task.title ? '#e2e8f0' : '#94a3b8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: task.title ? 'normal' : 'italic' }}>
-                      {task.title || (task.description ? task.description.slice(0, 60) + (task.description.length > 60 ? '…' : '') : '(untitled)')}
-                    </span>
-                    {task.comment_count > 0 && (
-                      <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0 }}>
-                        💬{task.comment_count}
-                      </span>
-                    )}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button style={sortToggleStyle(sortMode === 'priority')} onClick={() => setSortMode('priority')}>
+                By Priority
+              </button>
+              <button style={sortToggleStyle(sortMode === 'column')} onClick={() => setSortMode('column')}>
+                By Column
+              </button>
+            </div>
+          </div>
+        )}
+
+        {myTasks.length > 0 ? (
+          <div style={{ marginBottom: '16px' }}>
+            {sortMode === 'priority' ? (
+              /* Priority sorted: flat list, highest priority (lowest number) first */
+              tasksByPriority.map(task => renderTaskItem(task))
+            ) : (
+              /* Grouped by column */
+              Object.entries(tasksByColumn).map(([colName, tasks]) => (
+                <div key={colName} style={{ marginBottom: '10px' }}>
+                  <div style={{ color: '#64748b', fontSize: '0.7rem', marginBottom: '4px', paddingLeft: '4px' }}>
+                    {colName}
                   </div>
-                ))}
-              </div>
-            ))}
+                  {tasks.map(task => renderTaskItem(task))}
+                </div>
+              ))
+            )}
           </div>
         ) : (
           <div style={{ color: '#64748b', textAlign: 'center', padding: '16px', fontSize: '0.8rem' }}>
             No tasks assigned to you.
           </div>
         )}
+      </div>
+    );
+  };
 
-        {/* My recent activity section */}
-        {myActivity.length > 0 && (
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-              My recent activity ({myActivity.length})
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              {myActivity.map(event => (
-                <div key={event.id} style={{
-                  padding: '8px 10px',
-                  borderRadius: '4px',
-                  background: '#1e293b',
-                  border: '1px solid #1e293b',
-                  fontSize: '0.8rem',
-                  lineHeight: '1.4',
-                }}>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                    <span style={{ flexShrink: 0 }}>{eventIcon(event.event_type)}</span>
-                    <span style={{ color: '#e2e8f0', flex: 1 }}>
-                      {formatEventDescription(event)}
-                    </span>
-                    <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                      {formatTimeAgo(event.created_at)}
-                    </span>
-                  </div>
+  const renderMyRecentActivityTab = () => {
+    if (!displayName) {
+      return (
+        <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
+          Set a display name to see your recent activity.
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ overflow: 'auto', maxHeight: isMobile ? 'calc(100vh - 200px)' : '55vh' }}>
+        {myActivity.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {myActivity.map(event => (
+              <div key={event.id} style={{
+                padding: '8px 10px',
+                borderRadius: '4px',
+                background: '#1e293b',
+                border: '1px solid #1e293b',
+                fontSize: '0.8rem',
+                lineHeight: '1.4',
+              }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                  <span style={{ flexShrink: 0 }}>{eventIcon(event.event_type)}</span>
+                  <span style={{ color: '#e2e8f0', flex: 1 }}>
+                    {formatEventDescription(event)}
+                  </span>
+                  <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    {formatTimeAgo(event.created_at)}
+                  </span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
+            No recent activity.
           </div>
         )}
       </div>
@@ -2326,29 +2364,17 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
               }}>{myTasks.length}</span>
             )}
           </button>
-          <button style={tabStyle(tab === 'all')} onClick={() => setTab('all')}>
-            🕐 All Recent
+          <button style={tabStyle(tab === 'myactivity')} onClick={() => setTab('myactivity')}>
+            🕐 My Recent Activity
           </button>
-          {lastVisit && (
-            <button style={tabStyle(tab === 'since')} onClick={() => setTab('since')}>
-              🆕 Since Last Visit
-              {newCount > 0 && (
-                <span style={{
-                  background: '#6366f1',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  padding: '1px 6px',
-                  fontSize: '0.65rem',
-                  fontWeight: '700',
-                }}>{newCount > 99 ? '99+' : newCount}</span>
-              )}
-            </button>
-          )}
+          <button style={tabStyle(tab === 'all')} onClick={() => setTab('all')}>
+            📋 All Recent
+          </button>
         </div>
 
         {loading ? (
           <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Loading...</div>
-        ) : tab === 'mine' ? renderMyItemsTab() : renderActivityList()}
+        ) : tab === 'mine' ? renderMyItemsTab() : tab === 'myactivity' ? renderMyRecentActivityTab() : renderActivityList()}
       </div>
     </div>
   );
