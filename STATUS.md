@@ -490,3 +490,4 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 - **Board settings: Save button on right** ✅ Done — Reordered the Board Settings modal action row so “Save Changes” is right-aligned (moved after archive controls + `marginLeft: auto`). Commit: bc4c1bb.
 - **New Task modal: priority toggle height + mobile compact labels** ✅ Done — Removed extra bottom margin from the column dropdown in the New Task modal so the Priority segmented control matches its height. On mobile, priority buttons now show color dots instead of full text labels. Commit: 4aca0ad.
+- **Share/View popovers: close button size consistency** ✅ Done — SharePopover and access mode info popover now use standard `btnClose` (32×32) like other modals. Commit: 2dc67a9.
