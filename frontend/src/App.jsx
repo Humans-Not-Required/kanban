@@ -477,7 +477,7 @@ const PRIORITY_OPTIONS = [
   { value: 0, label: 'Low', color: '#22c55e' },
 ];
 
-function PriorityToggle({ value, onChange }) {
+function PriorityToggle({ value, onChange, compact = false }) {
   return (
     <div style={{
       display: 'flex',
@@ -485,6 +485,8 @@ function PriorityToggle({ value, onChange }) {
       overflow: 'hidden',
       border: '1px solid #475569',
       flex: 1,
+      minHeight: '32px',
+      boxSizing: 'border-box',
     }}>
       {PRIORITY_OPTIONS.map((opt, i) => {
         const isActive = value === opt.value;
@@ -493,10 +495,12 @@ function PriorityToggle({ value, onChange }) {
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
+            aria-label={opt.label}
+            title={opt.label}
             style={{
               flex: 1,
-              padding: '6px 0',
-              fontSize: '0.78rem',
+              padding: compact ? 0 : '6px 0',
+              fontSize: compact ? '0.75rem' : '0.78rem',
               fontWeight: isActive ? '700' : '500',
               color: isActive ? '#fff' : '#94a3b8',
               background: isActive ? opt.color + 'cc' : '#1e293b',
@@ -504,10 +508,26 @@ function PriorityToggle({ value, onChange }) {
               borderRight: i < PRIORITY_OPTIONS.length - 1 ? '1px solid #475569' : 'none',
               cursor: 'pointer',
               transition: 'background 0.15s, color 0.15s',
-              lineHeight: '1.4',
+              lineHeight: '1.2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              userSelect: 'none',
             }}
           >
-            {opt.label}
+            {compact ? (
+              <span
+                style={{
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '999px',
+                  background: opt.color,
+                  boxShadow: isActive ? '0 0 0 2px rgba(255,255,255,0.35)' : '0 0 0 1px rgba(0,0,0,0.35)',
+                }}
+              />
+            ) : (
+              opt.label
+            )}
           </button>
         );
       })}
@@ -1029,8 +1049,8 @@ function CreateTaskModal({ boardId, columns, onClose, onCreated, isMobile, allLa
           <input style={styles.input} placeholder="Title (optional if description provided)" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
           <textarea style={styles.textarea} placeholder="Description (optional if title provided)" value={desc} onChange={e => setDesc(e.target.value)} />
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'stretch' }}>
-            <PriorityToggle value={priority} onChange={setPriority} />
-            <StyledSelect style={styles.select} value={columnId} onChange={e => setColumnId(e.target.value)}>
+            <PriorityToggle value={priority} onChange={setPriority} compact={isMobile} />
+            <StyledSelect style={{ ...styles.select, marginBottom: 0 }} value={columnId} onChange={e => setColumnId(e.target.value)}>
               {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </StyledSelect>
           </div>
@@ -1407,7 +1427,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
               }}
             />
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <PriorityToggle value={editPriority} onChange={setEditPriority} />
+              <PriorityToggle value={editPriority} onChange={setEditPriority} compact={isMobile} />
             </div>
             <AutocompleteInput
               style={styles.input}
