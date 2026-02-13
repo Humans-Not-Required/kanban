@@ -75,6 +75,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 3. ~~**New board default columns**~~ ✅ Done (2026-02-09) — Remove columns field from board creation UI. Boards are created with default columns: Backlog, Up Next, In Progress, Review, Done. Keep API field as optional.
 4. ~~**Replace priority dropdown with 4-way button toggle**~~ ✅ Done (2026-02-13 04:05 UTC) — Created reusable `PriorityToggle` component: 4 connected buttons (Critical/High/Medium/Low) with color-coded backgrounds (red/orange/yellow/green). Active button filled, inactive muted. Replaced `<StyledSelect>` in both CreateTaskModal and TaskDetailModal edit mode. Filter bar dropdown unchanged. Commit: ac4eec1. 56 tests passing (42 HTTP + 14 integration).
 5. ~~**Mobile scroll: header + board controls can scroll out of view**~~ ✅ Done (2026-02-13 12:03 UTC) — On mobile, switch to page scroll (no fixed-height internal scroller) so header, board title, button bar, search bar, and filters can scroll away. Commit: d82babd. 56 tests passing (42 HTTP + 14 integration).
+6. ~~**Mobile: display name control visible**~~ ✅ Done (2026-02-13 12:23 UTC) — Show IdentityBadge on mobile (compact) header so users can set/change their display name. Commit: f4a2370.
 
 ### What's Next (Priority Order) - Jordan UI Feedback (2026-02-08)
 
