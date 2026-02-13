@@ -3549,8 +3549,8 @@ function App() {
               </svg>
             </button>
           )}
-          {/* On tablet: identity badge next to hamburger (left side) */}
-          {isCompact && !isMobile && selectedBoardId && canEdit && (
+          {/* On compact screens (tablet/mobile): identity badge next to hamburger (left side) */}
+          {isCompact && selectedBoardId && canEdit && (
             <IdentityBadge isMobile={isMobile} />
           )}
           {/* On desktop (non-compact): logo stays left */}
