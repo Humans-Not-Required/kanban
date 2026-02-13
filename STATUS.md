@@ -496,6 +496,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Verify activity endpoint enrichment before archiving — Confirm GET /boards/{id}/activity enriches *created* events with task snapshot and *comment* events with task snapshot + recent_comments (last 5-10). If correct, mark done + archive. (Jordan; 2026-02-13T18:40:08.426Z; task_id: 4eddb19c-1a24-4b92-9a9b-5da9ca9af845)
 <!-- WORK_QUEUE_DIRECTIONS_END -->
 
+### Completed (2026-02-13 Daytime, Session — 20:17 UTC)
+
+- **Search/Filter button style mismatch (multiple reports)** ✅ Done — Root cause: Search and Filter buttons used `btnSmall` style (border: 1px solid, color: #cbd5e1) while toolbar buttons (Activity, Settings) used `btn('secondary')` (border: none, color: #fff). Changed both Search and Filter to use `btn('secondary')` as base style. All toolbar-area buttons now render with identical background/border/color when inactive. Commit: 624428c. 56 tests passing (42 HTTP + 14 integration).
+
 ### Completed (2026-02-13 Daytime, Session — 19:28 UTC)
 
 - **Remove number from activity indicator button** ✅ Done — Replaced numbered badge (14-16px circle with count) with simple 8px indigo dot on both mobile and desktop activity buttons. Indicator still appears when new activity exists, just without the number. Commit: 7c75e32. 56 tests passing (42 HTTP + 14 integration).
