@@ -3048,21 +3048,21 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         </div>
       )}
       {showSearchBar && (isMobile || showFilters) && (
-        <div style={{ display: 'flex', gap: '8px', padding: isMobile ? '8px 12px' : '8px 20px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+        <div style={isMobile ? { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', padding: '8px 12px', alignItems: 'center' } : { display: 'flex', gap: '8px', padding: '8px 20px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none', minWidth: isMobile ? 0 : '120px', width: isMobile ? '100%' : undefined, ...(isMobile ? { gridColumn: 'span 2' } : {}), padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
             <option value="3">🔴 Critical</option>
             <option value="2">🟠 High</option>
             <option value="1">🟡 Medium</option>
             <option value="0">🟢 Low</option>
           </StyledSelect>
-          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none', minWidth: isMobile ? 0 : '120px', width: isMobile ? '100%' : undefined, ...(isMobile ? { gridColumn: 'span 2' } : {}), padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
             <option value="">Any Label</option>
             {allLabels.map(l => (
               <option key={l} value={l}>{l}</option>
             ))}
           </StyledSelect>
-          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+          <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none', minWidth: isMobile ? 0 : '120px', width: isMobile ? '100%' : undefined, ...(isMobile ? { gridColumn: 'span 2' } : {}), padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterAssignee ? '#3b82f611' : '#0f172a', border: `1px solid ${filterAssignee ? '#3b82f644' : '#334155'}`, color: filterAssignee ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
             <option value="">Any Assignee</option>
             {allAssignees.map(a => (
               <option key={a} value={a}>{a}</option>
@@ -3071,7 +3071,8 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           <button
             onClick={() => setShowArchivedTasks(v => !v)}
             style={{
-              ...styles.select, marginBottom: 0, flex: 'none',
+              ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none',
+              ...(isMobile ? { gridColumn: (hasActiveFilters || showArchivedTasks) ? 'span 1' : 'span 2', width: '100%' } : {}),
               padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
               background: showArchivedTasks ? '#6366f133' : '#0f172a',
               color: showArchivedTasks ? '#a5b4fc' : '#94a3b8',
@@ -3083,7 +3084,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             📦 Archived {showArchivedTasks ? '✓' : ''}
           </button>
           {(hasActiveFilters || showArchivedTasks) && (
-            <button style={styles.btnSmall} onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); setShowArchivedTasks(false); }}>Clear Filters</button>
+            <button style={{ ...styles.btnSmall, ...(isMobile ? { gridColumn: 'span 1', width: '100%' } : {}) }} onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); setShowArchivedTasks(false); }}>{isMobile ? 'Clear' : 'Clear Filters'}</button>
           )}
         </div>
       )}
