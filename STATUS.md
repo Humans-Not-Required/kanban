@@ -484,3 +484,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Fix filter dropdown left indentation — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:54.558Z; task_id: 0a8a402f-0db7-42d0-8af7-4841bbcf9894)
 - [ ] Remove by-name header from task details — Remove the "by <name>" at the top of task details. (Jordan; 2026-02-13T10:40:28.688Z; task_id: 89ea4c9d-e537-486c-a35a-363ee31646b9)
 <!-- WORK_QUEUE_DIRECTIONS_END -->
+
+### Completed (2026-02-13 Overnight)
+
+- **Board settings: Save button on right** ✅ Done — Reordered the Board Settings modal action row so “Save Changes” is right-aligned (moved after archive controls + `marginLeft: auto`). Commit: bc4c1bb.
+- **New Task modal: priority toggle height + mobile compact labels** ✅ Done — Removed extra bottom margin from the column dropdown in the New Task modal so the Priority segmented control matches its height. On mobile, priority buttons now show color dots instead of full text labels. Commit: 4aca0ad.
