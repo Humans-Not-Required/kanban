@@ -2605,13 +2605,7 @@ function SharePopover({ boardId, canEdit, onClose }) {
           <div style={{ fontSize: mobile ? '1rem' : '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Share Board
           </div>
-          <button onClick={onClose} style={{
-            background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
-            width: '24px', height: '24px', borderRadius: '4px', cursor: 'pointer',
-            fontSize: '0.85rem', lineHeight: 1, padding: 0,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>×</button>
+          <button onClick={onClose} style={styles.btnClose}>×</button>
         </div>
 
         {/* View URL */}
@@ -2726,13 +2720,7 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
             <div style={{ fontWeight: 700, color: '#f1f5f9', fontSize: isMobile ? '1.1rem' : 'inherit' }}>
               {canEdit ? '✏️ Full Access Mode' : '👁️ View Only Mode'}
             </div>
-            <button onClick={() => setShowModeInfo(false)} style={{
-              background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
-              width: '24px', height: '24px', borderRadius: '4px', cursor: 'pointer',
-              fontSize: '0.85rem', lineHeight: 1, padding: 0,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}>×</button>
+            <button onClick={() => setShowModeInfo(false)} style={styles.btnClose}>×</button>
           </div>
           {canEdit ? (
             <div>
