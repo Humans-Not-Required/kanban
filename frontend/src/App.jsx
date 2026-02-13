@@ -877,7 +877,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
                 onClick={() => { handleMoveColumn(-1); setShowMenu(false); }}
                 onMouseEnter={e => e.target.style.background = '#334155'}
                 onMouseLeave={e => e.target.style.background = 'none'}
-              >⬅️ Move Left</button>
+              >{isMobile ? '⬆️ Move Up' : '⬅️ Move Left'}</button>
             )}
             {!isLast && (
               <button
@@ -885,7 +885,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
                 onClick={() => { handleMoveColumn(1); setShowMenu(false); }}
                 onMouseEnter={e => e.target.style.background = '#334155'}
                 onMouseLeave={e => e.target.style.background = 'none'}
-              >➡️ Move Right</button>
+              >{isMobile ? '⬇️ Move Down' : '➡️ Move Right'}</button>
             )}
             <div style={{ borderTop: '1px solid #334155', margin: '4px 0' }} />
             <button
