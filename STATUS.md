@@ -78,6 +78,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 6. ~~**Mobile: display name control visible**~~ ✅ Done (2026-02-13 12:23 UTC) — Show IdentityBadge on mobile (compact) header so users can set/change their display name. Commit: f4a2370.
 7. ~~**Mobile: when search is expanded, always expand filters (hide filter toggle)**~~ ✅ Done (2026-02-13 14:19 UTC) — On mobile, the Search toggle now always shows filters and the in-search Filter toggle button is hidden. Search toggle highlights when filters are active. Commit: f447d13.
 8. ~~**Mobile: filter controls fill each row**~~ ✅ Done (2026-02-13 14:52 UTC) — On mobile, filters now use a grid so Priority + Label each take 50% width; Assignee takes 50%; Archived + Clear share the remaining space. Clear button label is shortened on mobile. Commit: 4af6254.
+9. ~~**Mobile: column move menu uses up/down labels**~~ ✅ Done (2026-02-13 15:03 UTC) — Column options menu now shows "Move Up"/"Move Down" on mobile (instead of left/right) since columns stack vertically. Commit: a699bd9.
 
 ### What's Next (Priority Order) - Jordan UI Feedback (2026-02-08)
 
