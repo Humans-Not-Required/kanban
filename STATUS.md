@@ -470,6 +470,8 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 <!-- WORK_QUEUE_DIRECTIONS_START -->
 - [ ] Button bar: Search button background still different — Jordan reports the Search button still looks like a different background color than the other toolbar buttons; all should share the same dark background (except +Task). (Jordan; 2026-02-13T18:06:18.561Z; task_id: 7164b9d5-baea-488a-b453-68677f5d150a)
+- [ ] Search button still has border (re-report) — Jordan: "The search button still has some kind of a border. It might be indigo. There should be no kind of border highlight when there's no search in progress." Previous fixes (953a824, 4ea23d7) did not fully resolve. (Jordan; 2026-02-13T19:30:55Z; task_id: 8be9ae71-5bf3-4298-bdd9-c210cb4c6bcf)
+- [ ] Board manager: Up Next column as triage gate — Jordan: "If I could put things into Up Next and then you would automatically process those next. This would require you to modify the board manager playbook so that you check up next first." Need to update board-manager playbook so Up Next takes priority over Backlog for NATS publishing. (Jordan; 2026-02-13T19:30:55Z; task_id: 4a3f787a-00d2-46ae-bc7e-e5db0c9d3959)
 - [ ] Activity button icon doesn't match theme — The icon that's used for the activity button is not very good and doesn't match the theme. Please choose a better one or draw a better one. (Jordan; 2026-02-13 07:52:02; task_id: f37e7f86-de38-4589-ba1a-9b8bd38d567a)
 - [ ] My Links page: improve page title — Give the My Links page a better title. (Jordan; 2026-02-13 07:52:02; task_id: 7c121df8-3df5-47a4-850e-8c77840addd0)
 - [ ] Filter button has white background on desktop — The filter button has a white background when I'm viewing it on desktop. (Jordan; 2026-02-13 07:52:02; task_id: 5ab4b5e7-5913-47c0-bfe6-53ec449c1c34)
@@ -493,6 +495,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Hotkeys: submit should be Ctrl+Enter (Win/Linux) / Cmd+Enter (macOS), NOT Shift+Enter — Re-audit typical conventions; update new-task modal + comment submit to use Ctrl/Cmd+Enter. Shift+Enter should insert newline. Remove Shift+Enter-as-submit if present. (Jordan; 2026-02-13T18:40:08.375Z; task_id: 34c80cee-8341-4f8f-a185-f739f362cd44)
 - [ ] Verify activity endpoint enrichment before archiving — Confirm GET /boards/{id}/activity enriches *created* events with task snapshot and *comment* events with task snapshot + recent_comments (last 5-10). If correct, mark done + archive. (Jordan; 2026-02-13T18:40:08.426Z; task_id: 4eddb19c-1a24-4b92-9a9b-5da9ca9af845)
 <!-- WORK_QUEUE_DIRECTIONS_END -->
+
+### Completed (2026-02-13 Daytime, Session — 19:28 UTC)
+
+- **Remove number from activity indicator button** ✅ Done — Replaced numbered badge (14-16px circle with count) with simple 8px indigo dot on both mobile and desktop activity buttons. Indicator still appears when new activity exists, just without the number. Commit: 7c75e32. 56 tests passing (42 HTTP + 14 integration).
 
 ### Completed (2026-02-13 Overnight)
 

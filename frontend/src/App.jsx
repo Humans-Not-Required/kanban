@@ -3024,13 +3024,13 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               >×</button>
             )}
           </div>
-          <button style={{ ...styles.btnSmall, border: '1px solid transparent', ...(searchResults !== null ? { border: '1px solid #6366f1', color: '#a5b4fc', background: '#312e81' } : {}), ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={doSearch} title="Search">
+          <button style={{ ...styles.btn('secondary', false), ...(searchResults !== null ? { border: '1px solid #6366f1', color: '#a5b4fc', background: '#312e81' } : {}), ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={doSearch} title="Search">
             {isMobile ? (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             ) : 'Search'}
           </button>
           {!isMobile && (
-            <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : '1px solid transparent', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', background: hasActiveFilters ? '#312e81' : '#334155', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '5px', ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={() => setShowFilters(f => !f)} title="Filter">
+            <button style={{ ...styles.btn('secondary', false), ...(hasActiveFilters ? { border: '1px solid #6366f1', color: '#a5b4fc', background: '#312e81' } : {}), display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '5px', ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={() => setShowFilters(f => !f)} title="Filter">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
               {!isMobile && 'Filter'}
             </button>
