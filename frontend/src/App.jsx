@@ -222,7 +222,10 @@ function useBreakpoint() {
 
 // ---- Styles ----
 const styles = {
-  app: { height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  app: (mobile) => (mobile
+    ? { minHeight: '100dvh', display: 'block', overflowX: 'hidden' }
+    : { height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+  ),
   header: (mobile) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: mobile ? '8px 10px' : '12px 20px', background: '#1e293b',
@@ -249,9 +252,11 @@ const styles = {
     whiteSpace: 'nowrap',
   }),
   main: (mobile) => ({
-    flex: 1, display: 'flex',
+    flex: mobile ? undefined : 1,
+    display: 'flex',
     flexDirection: mobile ? 'column' : 'row',
-    overflow: 'hidden', position: 'relative',
+    overflow: mobile ? 'visible' : 'hidden',
+    position: 'relative',
   }),
   sidebar: (mobile, open) => ({
     ...(mobile ? {
@@ -285,7 +290,13 @@ const styles = {
     fontSize: '0.65rem', background: '#475569', color: '#94a3b8',
     padding: '1px 5px', borderRadius: '3px',
   },
-  boardContent: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' },
+  boardContent: (mobile) => ({
+    flex: mobile ? undefined : 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: mobile ? 'visible' : 'hidden',
+    position: 'relative',
+  }),
   boardHeader: (mobile) => ({
     padding: mobile ? '12px' : '16px 20px',
     display: 'flex', alignItems: mobile ? 'flex-start' : 'center',
@@ -296,12 +307,13 @@ const styles = {
     fontSize: mobile ? '1.1rem' : '1.3rem', fontWeight: 700, color: '#f1f5f9',
   }),
   columnsContainer: (mobile) => ({
-    flex: 1, display: 'flex',
+    flex: mobile ? undefined : 1,
+    display: 'flex',
     flexDirection: mobile ? 'column' : 'row',
     gap: mobile ? '12px' : '16px',
     padding: mobile ? '12px' : '16px 20px',
     overflowX: mobile ? 'hidden' : 'auto',
-    overflowY: mobile ? 'auto' : 'hidden',
+    overflowY: mobile ? 'visible' : 'hidden',
     alignItems: mobile ? 'stretch' : 'stretch',
     minHeight: 0,
   }),
@@ -2910,7 +2922,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const archived = !!board.archived_at;
 
   return (
-    <div style={styles.boardContent}>
+    <div style={styles.boardContent(isMobile)}>
       <div style={styles.boardHeader(isMobile)}>
         <div style={{ minWidth: 0 }}>
           <span style={styles.boardTitle(isMobile)}>{board.name}</span>
@@ -3510,7 +3522,7 @@ function App() {
   };
 
   return (
-    <div style={styles.app}>
+    <div style={styles.app(isMobile)}>
       <div style={styles.header(isMobile)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: isCompact ? '1 1 0' : undefined }}>
           {collapseSidebar && (
@@ -3657,7 +3669,7 @@ function App() {
         {boardDetail ? (
           <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={() => {}} isMobile={isMobile} onSseStatusChange={setSseStatus} />
         ) : loadError ? (
-          <div style={{ ...styles.boardContent, ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
+          <div style={{ ...styles.boardContent(isMobile), ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>
               <p style={{ fontSize: '1.1rem', marginBottom: '8px', color: '#ef4444' }}>{loadError}</p>
               <p style={{ fontSize: '0.85rem' }}>Check the board ID and try again.</p>
