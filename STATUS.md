@@ -79,7 +79,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 7. ~~**Mobile: when search is expanded, always expand filters (hide filter toggle)**~~ ✅ Done (2026-02-13 14:19 UTC) — On mobile, the Search toggle now always shows filters and the in-search Filter toggle button is hidden. Search toggle highlights when filters are active. Commit: f447d13.
 8. ~~**Mobile: filter controls fill each row**~~ ✅ Done (2026-02-13 14:52 UTC) — On mobile, filters now use a grid so Priority + Label each take 50% width; Assignee takes 50%; Archived + Clear share the remaining space. Clear button label is shortened on mobile. Commit: 4af6254.
 9. ~~**Mobile: column move menu uses up/down labels**~~ ✅ Done (2026-02-13 15:03 UTC) — Column options menu now shows "Move Up"/"Move Down" on mobile (instead of left/right) since columns stack vertically. Commit: a699bd9.
-10. **SSE Live indicator: desktop pill tag** — Jordan wants a pill tag with "LIVE" text to the left of the username on desktop (not just a 7px dot). Current LiveIndicator is a dot-only. Needs: pill shape, "LIVE" text, positioned left of username/IdentityBadge in header.
+10. ~~**SSE Live indicator: desktop pill tag**~~ ✅ Done (2026-02-13 22:00 UTC) — Desktop: pill tag with "LIVE" text, green translucent bg, rounded border, pulsing dot. Positioned left of IdentityBadge. Mobile: compact 7px dot. Commit: 699a094. 56 tests passing.
 
 ### What's Next (Priority Order) - Jordan UI Feedback (2026-02-08)
 

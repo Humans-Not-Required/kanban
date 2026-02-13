@@ -720,6 +720,21 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(column.name);
   const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showMenu]);
   const [visibleCount, setVisibleCount] = useState(TASKS_PER_PAGE);
   const colTasks = tasks.filter(t => t.column_id === column.id)
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
@@ -855,7 +870,7 @@ function Column({ column, tasks, boardId, canEdit, onRefresh, onBoardRefresh, ar
           )}
         </span>
         {showMenu && canEdit && !archived && (
-          <div style={{
+          <div ref={menuRef} style={{
             position: 'absolute', top: '100%', right: 0, zIndex: 50,
             background: '#1e293b', border: '1px solid #334155', borderRadius: '6px',
             padding: '4px 0', minWidth: '140px', boxShadow: '0 4px 12px rgba(0,0,0,.4)',
