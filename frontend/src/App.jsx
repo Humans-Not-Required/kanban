@@ -2573,28 +2573,59 @@ function WebhookManagerModal({ boardId, onClose, isMobile }) {
 }
 
 // ---- Live SSE Connection Indicator (Header) ----
-// Small dot in the header: green pulse when connected, red when disconnected.
-function LiveIndicator({ status }) {
+// Desktop: pill tag with "LIVE" text to the left of the username.
+// Mobile: small dot only.
+function LiveIndicator({ status, isMobile }) {
   if (!status || status === 'initial') return null;
   const connected = status === 'connected';
   const color = connected ? '#22c55e' : '#ef4444';
   const title = connected ? 'Live — real-time sync active' : 'Reconnecting…';
+
+  // Mobile: compact dot only
+  if (isMobile) {
+    return (
+      <span title={title} style={{
+        display: 'inline-flex', alignItems: 'center', gap: '5px',
+        cursor: 'default',
+      }}>
+        <span style={{
+          width: '7px', height: '7px',
+          borderRadius: '50%', background: color, flexShrink: 0,
+          boxShadow: connected ? `0 0 5px ${color}80` : 'none',
+          animation: connected ? 'ssePulse 2.5s ease-in-out infinite' : 'none',
+        }} />
+        {!connected && (
+          <span style={{ fontSize: '0.6rem', color: '#fca5a5', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            Reconnecting…
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  // Desktop: pill tag with "LIVE" text
   return (
     <span title={title} style={{
       display: 'inline-flex', alignItems: 'center', gap: '5px',
       cursor: 'default',
+      background: connected ? '#22c55e18' : '#ef444418',
+      border: `1px solid ${connected ? '#22c55e40' : '#ef444440'}`,
+      borderRadius: '9999px',
+      padding: '2px 8px 2px 6px',
+      fontSize: '0.65rem',
+      fontWeight: 600,
+      letterSpacing: '0.04em',
+      color: connected ? '#4ade80' : '#fca5a5',
+      textTransform: 'uppercase',
+      whiteSpace: 'nowrap',
     }}>
       <span style={{
-        width: '7px', height: '7px',
+        width: '6px', height: '6px',
         borderRadius: '50%', background: color, flexShrink: 0,
-        boxShadow: connected ? `0 0 5px ${color}80` : 'none',
+        boxShadow: connected ? `0 0 4px ${color}80` : 'none',
         animation: connected ? 'ssePulse 2.5s ease-in-out infinite' : 'none',
       }} />
-      {!connected && (
-        <span style={{ fontSize: '0.6rem', color: '#fca5a5', fontWeight: 500, whiteSpace: 'nowrap' }}>
-          Reconnecting…
-        </span>
-      )}
+      {connected ? 'Live' : 'Reconnecting…'}
     </span>
   );
 }
@@ -3617,11 +3648,14 @@ function App() {
           </div>
         )}
         <div style={{ ...styles.headerRight, flex: isCompact ? '1 1 0' : undefined, justifyContent: isCompact ? 'flex-end' : undefined }}>
+          {/* On desktop: live indicator pill to the left of the username */}
+          {!isCompact && selectedBoardId && <LiveIndicator status={sseStatus} isMobile={false} />}
           {/* On desktop: identity badge stays on right */}
           {!isCompact && selectedBoardId && canEdit && (
             <IdentityBadge isMobile={isMobile} />
           )}
-          {selectedBoardId && <LiveIndicator status={sseStatus} />}
+          {/* On mobile/tablet: compact dot indicator */}
+          {isCompact && selectedBoardId && <LiveIndicator status={sseStatus} isMobile={true} />}
           {selectedBoardId && (
             <AccessIndicator boardId={selectedBoardId} canEdit={canEdit} isMobile={isMobile} onKeyUpgraded={handleKeyUpgraded} />
           )}
