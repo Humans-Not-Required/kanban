@@ -1928,13 +1928,6 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
 
         {canEdit && (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button
-              style={styles.btn('primary', isMobile)}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
             {confirmArchive ? (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>Archive this board?</span>
@@ -1965,6 +1958,13 @@ function BoardSettingsModal({ board, canEdit, onClose, onRefresh, onBoardListRef
                 {archiving ? '...' : isArchived ? '📤 Unarchive Board' : '📦 Archive Board'}
               </button>
             )}
+            <button
+              style={{ ...styles.btn('primary', isMobile), marginLeft: 'auto' }}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         )}
       </div>
