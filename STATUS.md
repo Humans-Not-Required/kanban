@@ -496,6 +496,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Verify activity endpoint enrichment before archiving — Confirm GET /boards/{id}/activity enriches *created* events with task snapshot and *comment* events with task snapshot + recent_comments (last 5-10). If correct, mark done + archive. (Jordan; 2026-02-13T18:40:08.426Z; task_id: 4eddb19c-1a24-4b92-9a9b-5da9ca9af845)
 <!-- WORK_QUEUE_DIRECTIONS_END -->
 
+### Completed (2026-02-13 Daytime, Session — 21:14 UTC)
+
+- **Add Created By filter** ✅ Done — New "Created By" dropdown in filter bar. Collects unique creator names from task data dynamically. Filter logic matches on `task.created_by`. Mobile grid layout updated: Archived and Clear buttons now `gridColumn: span 2` (full row) since 5th filter pushes them to row 3. Commit: 00e01dd. 56 tests passing (42 HTTP + 14 integration).
+
 ### Completed (2026-02-13 Daytime, Session — 20:53 UTC)
 
 - **Disable Clear Filters button instead of hiding** ✅ Done — Clear Filters button is now always visible in the filter bar but disabled (opacity 0.4, cursor not-allowed) when no filters are active. Previously it was conditionally rendered (hidden). Archived button mobile grid column simplified to always span 1. Commit: 644723c. 56 tests passing.

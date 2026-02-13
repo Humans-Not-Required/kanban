@@ -172,6 +172,8 @@ function StyledSelect({ style, children, ...props }) {
     flex: style?.flex ?? 1,
     minWidth: style?.minWidth ?? undefined,
     marginBottom: style?.marginBottom ?? undefined,
+    gridColumn: style?.gridColumn ?? undefined,
+    width: style?.width ?? undefined,
   };
   const chevronStyle = {
     position: 'absolute',
@@ -194,6 +196,7 @@ function StyledSelect({ style, children, ...props }) {
     cursor: 'pointer',
     // remove wrapper-level props that don't belong on <select>
     minWidth: undefined,
+    gridColumn: undefined,
   };
   return (
     <div style={wrapperStyle}>
@@ -3102,11 +3105,11 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               background: showArchivedTasks ? '#6366f133' : '#0f172a',
               color: showArchivedTasks ? '#a5b4fc' : '#94a3b8',
               border: `1px solid ${showArchivedTasks ? '#6366f155' : '#334155'}`,
-              borderRadius: '4px', fontSize: '0.78rem',
+              borderRadius: '4px', fontSize: isMobile ? '16px' : '0.78rem',
               height: '32px', lineHeight: '1',
             }}
           >
-            📦 Archived {showArchivedTasks ? '✓' : ''}
+            📦 {isMobile ? 'Archive' : 'Archived'} {showArchivedTasks ? '✓' : ''}
           </button>
           <button
             disabled={!hasActiveFilters && !showArchivedTasks}
