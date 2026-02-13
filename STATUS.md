@@ -74,6 +74,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 2. ~~**Custom dropdown chevrons (StyledSelect)**~~ ✅ Done (2026-02-12 04:55 UTC) — Created reusable `StyledSelect` component with custom SVG downward chevron. Uses `appearance:none`/`-webkit-appearance:none` to hide native browser chrome. Chevron positioned at `right:10px` with `paddingRight:32px`. Replaced all 9 `<select>` elements app-wide. Fixes: chevron too close to right edge on desktop, missing on iOS Safari. Commit: 0916f79.
 3. ~~**New board default columns**~~ ✅ Done (2026-02-09) — Remove columns field from board creation UI. Boards are created with default columns: Backlog, Up Next, In Progress, Review, Done. Keep API field as optional.
 4. ~~**Replace priority dropdown with 4-way button toggle**~~ ✅ Done (2026-02-13 04:05 UTC) — Created reusable `PriorityToggle` component: 4 connected buttons (Critical/High/Medium/Low) with color-coded backgrounds (red/orange/yellow/green). Active button filled, inactive muted. Replaced `<StyledSelect>` in both CreateTaskModal and TaskDetailModal edit mode. Filter bar dropdown unchanged. Commit: ac4eec1. 56 tests passing (42 HTTP + 14 integration).
+5. ~~**Mobile scroll: header + board controls can scroll out of view**~~ ✅ Done (2026-02-13 12:03 UTC) — On mobile, switch to page scroll (no fixed-height internal scroller) so header, board title, button bar, search bar, and filters can scroll away. Commit: d82babd. 56 tests passing (42 HTTP + 14 integration).
 
 ### What's Next (Priority Order) - Jordan UI Feedback (2026-02-08)
 
@@ -453,3 +454,32 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 2. ~~**Shift+Enter still working**~~ ✅ Fixed (2026-02-12 04:18 UTC) — Removed `e.shiftKey` from both new task modal global handler and comment textarea onKeyDown. Now ONLY Ctrl/Cmd+Enter submits. Commit: 4445ea2. 56 tests passing.
 3. **Drop-down chevron not visible** (task 169fd738) — Jordan: "I don't see these changes being reflected. On desktop the chevron is too close to the right side and on mobile there is no chevron at all. Research the new iOS look to see if there is anything there that could be affecting this." Custom chevron may not be rendering on iOS. Need to research iOS Safari select element styling.
 4. **SKILL.md research pivot** (task 55faf1e0, non-kanban) — Jordan: "I got the details wrong. Sky.ai uses SKILL.md. Research SKILL.md usage." Original task was STATE.md vs llms.txt; now pivoted to SKILL.md as the standard used by Sky.ai.
+
+## Incoming Directions (Work Queue)
+
+**Triage checks (2026-02-13):**
+- ✅ Fix: allow saving task with description but no title — verified already shipped in `main` (commit 57c81ab). Safe to close.
+- ✅ Fix full-access modal dismiss behavior (click outside to close) — verified already shipped in `main` (commit 7c65736). Safe to close.
+
+<!-- WORK_QUEUE_DIRECTIONS_START -->
+- [ ] Activity button icon doesn't match theme — The icon that's used for the activity button is not very good and doesn't match the theme. Please choose a better one or draw a better one. (Jordan; 2026-02-13 07:52:02; task_id: f37e7f86-de38-4589-ba1a-9b8bd38d567a)
+- [ ] My Links page: improve page title — Give the My Links page a better title. (Jordan; 2026-02-13 07:52:02; task_id: 7c121df8-3df5-47a4-850e-8c77840addd0)
+- [ ] Filter button has white background on desktop — The filter button has a white background when I'm viewing it on desktop. (Jordan; 2026-02-13 07:52:02; task_id: 5ab4b5e7-5913-47c0-bfe6-53ec449c1c34)
+- [ ] Board settings: enlarge description box on desktop — In the board settings, the description box is not large enough on desktop. Utilize the available space better.. (Jordan; 2026-02-13 07:52:02; task_id: 467a1a0b-687d-4a13-95de-2a76cb7f2372)
+- [ ] Create API.md documentation for kanban service endpoints — Make a detailed api.MD document that documents clearly and concisely all the API end points. Move those details out of the read me and make sure they read me mentions the API on MD document. (Jordan; 2026-02-13 07:52:02; task_id: c5a99ef0-55d2-4852-abe3-219fd588e5b7)
+- [ ] Ask sibling agents for kanban naming feedback (Jordan; 2026-02-13 07:52:02; task_id: c4b4586d-e46c-44ad-aca2-cc2da47cff8f)
+- [ ] Collect sibling naming feedback from chat — Naming question posted to sibling-lounge (seq 57) on 2026-02-12. Check for responses from Forge, Drift, Lux re: Dispatch/Relay/Trellis candidates. Summarize consensus and report to Jordan. (Jordan; 2026-02-13 07:52:02; task_id: ff0c06f8-2f9d-4cd8-968b-efb6f327cc2b)
+- [ ] Re-check sibling naming feedback (Dispatch/Relay/Trellis) after polling cycles — Naming question posted to sibling-lounge seq 57 at 2026-02-12 03:06 UTC. No responses yet. Need to check back after siblings have had 1-2 polling cycles (30 min each). Also check footer tagline responses (seq 49). (Jordan; 2026-02-13 07:52:02; task_id: 1057e69d-b48d-4428-8f5d-2215f2642bb9)
+- [ ] Search button has unwanted border/highlight when no search active (Jordan; 2026-02-13 07:52:02; task_id: 834c296e-22b5-4269-a8b7-b78869567c47)
+- [ ] Drop-down style — The style of all drop downs needs to be made more aesthetic. I’d probably recommend a downward Chevron that is custom drawn, and then put into some kind of a reusable component or something so that they all look the same. (Jordan; 2026-02-13 07:52:02; task_id: 169fd738-b11f-42c2-8bc3-ba00a388df6f)
+- [ ] Kanban: Fix filter dropdown left indentation alignment — When the filters are expanded, the left indentation of the filter dropdowns and the search bar is different. They should be the same and they should match the other elements on the page. It looks like the search bar in particular may be correct, and it's the filters that are too far to the left, but do a full investigation. (Jordan; 2026-02-13 07:52:02; task_id: 2b82ac9c-b102-4dbd-b843-23f7594b30a5)
+- [ ] Kanban: Find a catchier product name — The Kanban needs a better name than just Kanban. We need something more catchy. (Jordan; 2026-02-13T09:59:53.412Z; task_id: cf7a6d06-14bc-47ca-bffd-b49fa61293de)
+- [ ] Activity Box My Items - default tab — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:53.595Z; task_id: 00d6fe2a-4cc7-43b9-b6e2-70e3929d8395)
+- [ ] Mylinks ordering — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:53.713Z; task_id: da8e5dca-cda9-445b-8570-681e7d7f07a5)
+- [ ] Fix Anonymous in activity log — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:53.895Z; task_id: 6a7d5297-46a2-4003-adbc-0aaf8ac961c5)
+- [ ] Search field highlight when active — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:54.014Z; task_id: 88cd8c73-01a3-479f-8655-5bf35f828423)
+- [ ] Mylinks page 2 columns on desktop/tablet — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:54.193Z; task_id: a8a8dc72-251c-446b-9f4e-0cf5671c2c61)
+- [ ] Remove horizontal rules around search/filters — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:54.436Z; task_id: 25e8aa27-5058-490a-a86b-0768440743b4)
+- [ ] Fix filter dropdown left indentation — Triage check: verify if this was completed. If evidence in git/code that it's done, close it. If not, work on it. (Jordan; 2026-02-13T09:59:54.558Z; task_id: 0a8a402f-0db7-42d0-8af7-4841bbcf9894)
+- [ ] Remove by-name header from task details — Remove the "by <name>" at the top of task details. (Jordan; 2026-02-13T10:40:28.688Z; task_id: 89ea4c9d-e537-486c-a35a-363ee31646b9)
+<!-- WORK_QUEUE_DIRECTIONS_END -->
