@@ -2939,6 +2939,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
     return true;
   });
   const hasActiveFilters = filterPriority || filterLabel || filterAssignee || showArchivedTasks;
+  const searchActive = searchResults !== null || hasActiveFilters;
   const archived = !!board.archived_at;
 
   return (
@@ -2971,7 +2972,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               )}
             </button>
             <button style={{ flex: '1 1 0', background: '#334155', color: '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 0', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
-            <button style={{ flex: '1 1 0', background: searchResults !== null ? '#312e81' : '#334155', color: searchResults !== null ? '#a5b4fc' : '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 0', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSearchBar(v => !v)} title="Search & Filter">🔍</button>
+            <button style={{ flex: '1 1 0', background: searchActive ? '#312e81' : '#334155', color: searchActive ? '#a5b4fc' : '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 0', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSearchBar(v => !v)} title="Search & Filter">🔍</button>
             {canEdit && !archived && (
               <button style={{ flex: '0 0 33.33%', background: '#6366f1', color: '#fff', border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} onClick={() => setShowCreate(true)}>+ Task</button>
             )}
@@ -3050,13 +3051,15 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             ) : 'Search'}
           </button>
-          <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : '1px solid transparent', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', background: hasActiveFilters ? '#312e81' : '#334155', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '5px', ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={() => setShowFilters(f => !f)} title="Filter">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            {!isMobile && 'Filter'}
-          </button>
+          {!isMobile && (
+            <button style={{ ...styles.btnSmall, border: hasActiveFilters ? '1px solid #6366f1' : '1px solid transparent', color: hasActiveFilters ? '#a5b4fc' : '#cbd5e1', background: hasActiveFilters ? '#312e81' : '#334155', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '5px', ...(isMobile ? { padding: '3px 8px', minWidth: '32px' } : {}) }} onClick={() => setShowFilters(f => !f)} title="Filter">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              {!isMobile && 'Filter'}
+            </button>
+          )}
         </div>
       )}
-      {showSearchBar && showFilters && (
+      {showSearchBar && (isMobile || showFilters) && (
         <div style={{ display: 'flex', gap: '8px', padding: isMobile ? '8px 12px' : '8px 20px', flexWrap: 'wrap', alignItems: 'center' }}>
           <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: 'none', minWidth: '120px', padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterPriority ? '#3b82f611' : '#0f172a', border: `1px solid ${filterPriority ? '#3b82f644' : '#334155'}`, color: filterPriority ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
             <option value="">Any Priority</option>
