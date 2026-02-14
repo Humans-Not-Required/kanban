@@ -3146,7 +3146,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             onClick={() => setShowArchivedTasks(v => !v)}
             style={{
               ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none',
-              ...(isMobile ? { gridColumn: 'span 2', width: '100%' } : {}),
+              ...(isMobile ? { gridColumn: 'span 1', width: '100%' } : {}),
               padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
               background: showArchivedTasks ? '#6366f133' : '#0f172a',
               color: showArchivedTasks ? '#a5b4fc' : '#94a3b8',
@@ -3161,7 +3161,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             disabled={!hasActiveFilters && !showArchivedTasks}
             style={{
               ...styles.btnSmall,
-              ...(isMobile ? { gridColumn: 'span 2', width: '100%' } : {}),
+              ...(isMobile ? { gridColumn: 'span 1', width: '100%' } : {}),
               ...(!hasActiveFilters && !showArchivedTasks ? { opacity: 0.4, cursor: 'not-allowed' } : {}),
             }}
             onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterAssignee(''); setFilterCreatedBy(''); setShowArchivedTasks(false); }}

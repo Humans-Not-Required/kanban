@@ -496,6 +496,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Verify activity endpoint enrichment before archiving — Confirm GET /boards/{id}/activity enriches *created* events with task snapshot and *comment* events with task snapshot + recent_comments (last 5-10). If correct, mark done + archive. (Jordan; 2026-02-13T18:40:08.426Z; task_id: 4eddb19c-1a24-4b92-9a9b-5da9ca9af845)
 <!-- WORK_QUEUE_DIRECTIONS_END -->
 
+### Completed (2026-02-13 Daytime, Session — 22:14 UTC)
+
+- **Column settings popout dismiss on outside click** ✅ Done — Added mousedown/touchstart outside-click handler using useRef + useEffect on the column settings ⚙️ menu. Clicking anywhere outside the popout now closes it. Works on desktop and mobile (touch). Commit: 4f5a764. 56 tests passing (42 HTTP + 14 integration).
+
 ### Completed (2026-02-13 Daytime, Session — 21:32 UTC)
 
 - **Mobile filter grid layout fix** ✅ Done — Root cause: `StyledSelect` wraps `<select>` in a wrapper `<div>` but only forwarded `flex`/`minWidth`/`marginBottom` to the wrapper — not `gridColumn`. On mobile, the CSS grid uses `repeat(4, 1fr)` with `span 2` per item for 50% width, but `gridColumn` never reached the wrapper divs, so each dropdown defaulted to `span 1` = 25%. Fix: forward `gridColumn` and `width` from style prop to wrapper, clear `gridColumn` on inner select. Also bumped Archive button font-size to 16px on mobile (prevents iOS auto-zoom) and shortened label to "Archive". Layout now: Row 1: Priority(50%) + Label(50%), Row 2: Assignee(50%) + Created By(50%), Row 3: Archive(50%) + Clear(50%). Commit: 90806ed. 56 tests passing (42 HTTP + 14 integration).
