@@ -67,6 +67,8 @@ fn test_client() -> Client {
                 kanban::routes::list_webhooks,
                 kanban::routes::update_webhook,
                 kanban::routes::delete_webhook,
+                kanban::routes::openapi,
+                kanban::routes::llms_txt,
             ],
         )
         .register("/", catchers![
@@ -1862,4 +1864,254 @@ fn test_http_reorder_and_batch_actor_attribution() {
     assert!(anon_reorder.is_some(), "Reorder without actor should default to anonymous");
     let batch_default = events.iter().find(|e| e["event_type"] == "updated" && e["actor"] == "batch");
     assert!(batch_default.is_some(), "Batch without actor should default to batch");
+}
+
+// ============ API Discovery Endpoints ============
+
+#[test]
+fn test_http_openapi_json() {
+    let client = test_client();
+    let resp = client.get("/api/v1/openapi.json").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    // Verify it's a valid OpenAPI spec
+    assert_eq!(body["openapi"].as_str().unwrap_or(""), "3.0.3");
+    assert!(body["info"].is_object());
+    assert!(body["paths"].is_object());
+}
+
+#[test]
+fn test_http_llms_txt() {
+    let client = test_client();
+    let resp = client.get("/api/v1/llms.txt").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body = resp.into_string().unwrap();
+    assert!(body.contains("Kanban"), "llms.txt should mention Kanban");
+    assert!(body.contains("/api/v1"), "llms.txt should reference API paths");
+}
+
+// ============ Single Task GET ============
+
+#[test]
+fn test_http_get_single_task() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Single Task Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Get columns to find first column ID
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create a task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(
+            r#"{{"title": "Test Task", "description": "A description", "column_id": "{}", "priority": 2, "labels": ["bug", "urgent"], "actor_name": "Tester"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // GET single task
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let fetched: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(fetched["title"], "Test Task");
+    assert_eq!(fetched["description"], "A description");
+    assert_eq!(fetched["priority"], 2);
+    assert_eq!(fetched["created_by"], "Tester");
+}
+
+#[test]
+fn test_http_get_single_task_not_found() {
+    let client = test_client();
+    let (board_id, _) = create_test_board(&client, "Task Not Found Board");
+
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks/nonexistent-id", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::NotFound);
+}
+
+// ============ Task Events (Activity History) ============
+
+#[test]
+fn test_http_task_events() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Task Events Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Get columns
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+    let col2_id = board["columns"][1]["id"].as_str().unwrap();
+
+    // Create a task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(
+            r#"{{"title": "Events Task", "column_id": "{}", "actor_name": "Creator"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Move the task to generate an event
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}?actor=Mover", board_id, task_id, col2_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Add a comment to generate another event
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"message": "A test comment", "actor_name": "Commenter"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // GET task events
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks/{}/events", board_id, task_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let events: serde_json::Value = resp.into_json().unwrap();
+    let events_arr = events.as_array().unwrap();
+
+    // Should have at least 3 events: created, moved, comment
+    assert!(events_arr.len() >= 3, "Expected at least 3 events, got {}", events_arr.len());
+
+    // Verify event types
+    let event_types: Vec<&str> = events_arr.iter()
+        .map(|e| e["event_type"].as_str().unwrap_or(""))
+        .collect();
+    assert!(event_types.contains(&"created"), "Should have 'created' event");
+    assert!(event_types.contains(&"moved"), "Should have 'moved' event");
+    assert!(event_types.contains(&"comment"), "Should have 'comment' event");
+}
+
+// ============ Column Creation ============
+
+#[test]
+fn test_http_create_column() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Column Create Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Get initial column count
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let initial_count = board["columns"].as_array().unwrap().len();
+
+    // Create a new column
+    let resp = client
+        .post(format!("/api/v1/boards/{}/columns", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"name": "Testing", "wip_limit": 5}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let col: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(col["name"], "Testing");
+    assert_eq!(col["wip_limit"], 5);
+
+    // Verify column count increased
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(board["columns"].as_array().unwrap().len(), initial_count + 1);
+}
+
+#[test]
+fn test_http_create_column_no_auth() {
+    let client = test_client();
+    let (board_id, _) = create_test_board(&client, "Column No Auth Board");
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/columns", board_id))
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Unauthorized Column"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Unauthorized);
+}
+
+// ============ Dependency Deletion ============
+
+#[test]
+fn test_http_delete_dependency() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Dep Delete Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Get first column
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create two tasks
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Blocker", "column_id": "{}", "actor_name": "Tester"}}"#, col_id))
+        .dispatch();
+    let task1: serde_json::Value = resp.into_json().unwrap();
+    let task1_id = task1["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Blocked", "column_id": "{}", "actor_name": "Tester"}}"#, col_id))
+        .dispatch();
+    let task2: serde_json::Value = resp.into_json().unwrap();
+    let task2_id = task2["id"].as_str().unwrap();
+
+    // Create a dependency
+    let resp = client
+        .post(format!("/api/v1/boards/{}/dependencies", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(
+            r#"{{"blocker_task_id": "{}", "blocked_task_id": "{}"}}"#,
+            task1_id, task2_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let dep: serde_json::Value = resp.into_json().unwrap();
+    let dep_id = dep["id"].as_str().unwrap();
+
+    // Verify dependency exists
+    let resp = client
+        .get(format!("/api/v1/boards/{}/dependencies", board_id))
+        .dispatch();
+    let deps: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(deps.as_array().unwrap().len(), 1);
+
+    // Delete the dependency
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/dependencies/{}", board_id, dep_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Verify it's gone
+    let resp = client
+        .get(format!("/api/v1/boards/{}/dependencies", board_id))
+        .dispatch();
+    let deps: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(deps.as_array().unwrap().len(), 0);
 }
