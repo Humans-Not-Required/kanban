@@ -165,52 +165,32 @@ function AutocompleteInput({ value, onChange, suggestions, placeholder, style, i
 }
 
 // ---- Styled Select (custom chevron, consistent across platforms) ----
+// Uses background-image SVG data URL instead of overlay — works reliably on iOS Safari
+// where absolute-positioned elements over <select> get hidden by native compositing.
 function StyledSelect({ style, children, ...props }) {
-  const wrapperStyle = {
-    position: 'relative',
-    display: 'inline-flex',
-    flex: style?.flex ?? 1,
-    minWidth: style?.minWidth ?? undefined,
-    marginBottom: style?.marginBottom ?? undefined,
-    gridColumn: style?.gridColumn ?? undefined,
-    width: style?.width ?? undefined,
-  };
-  const chevronStyle = {
-    position: 'absolute',
-    right: '12px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    pointerEvents: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    zIndex: 1,
-  };
-  // Merge caller styles, force appearance:none and right padding for chevron
+  const chevronSvg = encodeURIComponent(
+    '<svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 1.75L6 6.25L10.5 1.75" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  );
+  // Destructure `background` shorthand from caller styles — it resets backgroundImage.
+  // Convert to backgroundColor so our backgroundImage chevron survives.
+  const { background, backgroundImage: _bi, ...restStyle } = style || {};
   const selectStyle = {
-    ...style,
-    flex: 1,
-    width: '100%',
+    ...restStyle,
+    backgroundColor: restStyle.backgroundColor || background || 'transparent',
     appearance: 'none',
     WebkitAppearance: 'none',
     MozAppearance: 'none',
-    paddingRight: '36px',
+    paddingRight: '40px',
     cursor: 'pointer',
-    backgroundImage: 'none', // suppress iOS native chevron
-    // remove wrapper-level props that don't belong on <select>
-    minWidth: undefined,
-    gridColumn: undefined,
+    backgroundImage: `url("data:image/svg+xml,${chevronSvg}")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 14px center',
+    backgroundSize: '12px 8px',
   };
   return (
-    <div style={wrapperStyle}>
-      <select style={selectStyle} {...props}>
-        {children}
-      </select>
-      <span style={chevronStyle}>
-        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M1.5 1.75L6 6.25L10.5 1.75" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </span>
-    </div>
+    <select style={selectStyle} {...props}>
+      {children}
+    </select>
   );
 }
 
