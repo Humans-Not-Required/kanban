@@ -229,7 +229,7 @@ function useBreakpoint() {
 const styles = {
   app: (mobile) => (mobile
     ? { minHeight: '100dvh', display: 'block', overflowX: 'hidden' }
-    : { height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+    : { height: '100dvh', display: 'flex', flexDirection: 'column' }
   ),
   header: (mobile) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -2087,14 +2087,11 @@ function eventIcon(type) {
 
 function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
   useEscapeKey(onClose);
-  const lastVisitInit = getLastVisit(boardId);
-  const [tab, setTab] = useState('mine'); // 'mine' | 'myactivity' | 'all'
+  const [tab, setTab] = useState('mine'); // 'mine' | 'all'
   const [activity, setActivity] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
-  const [myActivity, setMyActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortMode, setSortMode] = useState('priority'); // 'priority' | 'column'
-  const lastVisit = getLastVisit(boardId);
   const displayName = api.getDisplayName();
 
   // Load recent activity
@@ -2113,27 +2110,15 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
     })();
   }, [boardId, tab]);
 
-  // Load my items (assigned tasks + activity where I'm actor)
+  // Load my items (assigned tasks)
   useEffect(() => {
-    if (tab !== 'mine' && tab !== 'myactivity') return;
+    if (tab !== 'mine') return;
     if (!displayName) { setLoading(false); return; }
     setLoading(true);
     (async () => {
       try {
-        const [tasksRes, activityRes] = await Promise.all([
-          api.listTasks(boardId, `assigned=${encodeURIComponent(displayName)}`),
-          api.getBoardActivity(boardId, { limit: 200 }),
-        ]);
+        const tasksRes = await api.listTasks(boardId, `assigned=${encodeURIComponent(displayName)}`);
         setMyTasks((tasksRes.data || []).filter(t => !t.archived_at));
-        // Filter activity to events where the current user is mentioned or is the actor
-        const dn = displayName.toLowerCase();
-        const relevant = (activityRes.data || []).filter(e =>
-          (e.actor && e.actor.toLowerCase() === dn) ||
-          (e.data?.assigned_to && e.data.assigned_to.toLowerCase() === dn) ||
-          (e.mentions && e.mentions.some(m => m.toLowerCase() === dn)) ||
-          (e.data?.message && e.data.message.toLowerCase().includes('@' + dn))
-        );
-        setMyActivity(relevant.slice(0, 50));
       } catch (err) {
         console.error('Failed to load my items:', err);
       } finally {
@@ -2318,49 +2303,6 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
     );
   };
 
-  const renderMyRecentActivityTab = () => {
-    if (!displayName) {
-      return (
-        <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
-          Set a display name to see your recent activity.
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ overflow: 'auto', maxHeight: isMobile ? 'calc(100vh - 200px)' : '55vh' }}>
-        {myActivity.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {myActivity.map(event => (
-              <div key={event.id} style={{
-                padding: '8px 10px',
-                borderRadius: '4px',
-                background: '#1e293b',
-                border: '1px solid #1e293b',
-                fontSize: '0.8rem',
-                lineHeight: '1.4',
-              }}>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ flexShrink: 0 }}>{eventIcon(event.event_type)}</span>
-                  <span style={{ color: '#e2e8f0', flex: 1 }}>
-                    {formatEventDescription(event)}
-                  </span>
-                  <span style={{ color: '#64748b', fontSize: '0.7rem', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    {formatTimeAgo(event.created_at)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
-            No recent activity.
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div style={styles.modal(isMobile)} onClick={handleClose}>
       <div style={{ ...styles.modalContent(isMobile), width: isMobile ? '100%' : '560px', maxHeight: isMobile ? '100vh' : '85vh' }} onClick={e => e.stopPropagation()}>
@@ -2384,17 +2326,14 @@ function ActivityPanel({ boardId, onClose, isMobile, onOpenTask }) {
               }}>{myTasks.length}</span>
             )}
           </button>
-          <button style={tabStyle(tab === 'myactivity')} onClick={() => setTab('myactivity')}>
-            🕐 My Recent Activity
-          </button>
           <button style={tabStyle(tab === 'all')} onClick={() => setTab('all')}>
-            📋 All Recent
+            📋 All Activity
           </button>
         </div>
 
         {loading ? (
           <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Loading...</div>
-        ) : tab === 'mine' ? renderMyItemsTab() : tab === 'myactivity' ? renderMyRecentActivityTab() : renderActivityList()}
+        ) : tab === 'mine' ? renderMyItemsTab() : renderActivityList()}
       </div>
     </div>
   );
