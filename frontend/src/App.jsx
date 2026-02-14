@@ -177,12 +177,13 @@ function StyledSelect({ style, children, ...props }) {
   };
   const chevronStyle = {
     position: 'absolute',
-    right: '10px',
+    right: '12px',
     top: '50%',
     transform: 'translateY(-50%)',
     pointerEvents: 'none',
     display: 'flex',
     alignItems: 'center',
+    zIndex: 1,
   };
   // Merge caller styles, force appearance:none and right padding for chevron
   const selectStyle = {
@@ -192,8 +193,9 @@ function StyledSelect({ style, children, ...props }) {
     appearance: 'none',
     WebkitAppearance: 'none',
     MozAppearance: 'none',
-    paddingRight: '32px',
+    paddingRight: '36px',
     cursor: 'pointer',
+    backgroundImage: 'none', // suppress iOS native chevron
     // remove wrapper-level props that don't belong on <select>
     minWidth: undefined,
     gridColumn: undefined,
