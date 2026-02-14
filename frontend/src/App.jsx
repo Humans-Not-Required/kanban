@@ -363,7 +363,7 @@ const styles = {
   }),
   btn: (variant = 'primary', mobile) => ({
     background: variant === 'primary' ? '#6366f1' : variant === 'danger' ? '#ef4444' : '#334155',
-    color: '#fff', border: 'none',
+    color: '#fff', border: 'none', outline: 'none',
     padding: mobile ? '8px 14px' : '6px 12px',
     borderRadius: '4px', cursor: 'pointer',
     fontSize: mobile ? '0.85rem' : '0.8rem', fontWeight: 500,
