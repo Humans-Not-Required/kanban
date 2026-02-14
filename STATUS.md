@@ -496,6 +496,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Verify activity endpoint enrichment before archiving — Confirm GET /boards/{id}/activity enriches *created* events with task snapshot and *comment* events with task snapshot + recent_comments (last 5-10). If correct, mark done + archive. (Jordan; 2026-02-13T18:40:08.426Z; task_id: 4eddb19c-1a24-4b92-9a9b-5da9ca9af845)
 <!-- WORK_QUEUE_DIRECTIONS_END -->
 
+### Completed (2026-02-14 Daytime, Session — 05:35 UTC)
+
+- **Fix search results not updating after Done+Archive** ✅ Done — Root cause: `searchResults` was a stale snapshot that never refreshed after task actions. When `baseTasks = searchResults ?? tasks` and the user did Done+Archive, only `tasks` was refreshed via `loadTasks()`, but `searchResults` kept the old data. Fix: created `refreshAll()` that refreshes both tasks AND re-runs the active search query. Replaced `loadTasks` with `refreshAll` as `onRefresh` for all child components (Column, FullScreenColumnView, TaskDetailModal, CreateTaskModal). SSE handler also refreshes search via ref-based state to avoid subscription churn. Commit: 2757bfa. 56 tests passing (42 HTTP + 14 integration).
+
 ### Completed (2026-02-14 Daytime, Session — 01:52 UTC)
 
 - **Fix inconsistent spacing in button bar + header** ✅ Done — (1) Desktop button bar: removed inner grouping div so Activity, Settings, and +Task buttons all share uniform 8px gap (was 4px between Activity/Settings, 8px before +Task). (2) AccessIndicator: removed 4px gap between mode and share pill buttons (they form a connected shape). Commit: acca46d.
