@@ -10,20 +10,15 @@ use rocket::local::blocking::Client;
 use std::time::Duration;
 
 /// Build a Rocket test client with a fresh database.
+/// Uses `init_db_with_path` to avoid process-global env var races in parallel tests.
 fn test_client() -> Client {
     let db_path = format!("/tmp/kanban_http_test_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
+
+    let db = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
+    let webhook_db = kanban::db::init_webhook_db_with_path(&db_path).expect("Webhook DB should initialize");
+
     // High rate limit so tests don't trip over it (unless testing rate limiting specifically)
-    std::env::set_var("BOARD_RATE_LIMIT", "1000");
-
-    let db = kanban::db::init_db().expect("DB should initialize");
-    let webhook_db = kanban::db::init_webhook_db().expect("Webhook DB should initialize");
-
-    let rate_limit = std::env::var("BOARD_RATE_LIMIT")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(1000);
-    let rate_limiter = kanban::rate_limit::RateLimiter::new(Duration::from_secs(3600), rate_limit);
+    let rate_limiter = kanban::rate_limit::RateLimiter::new(Duration::from_secs(3600), 1000);
 
     let rocket = rocket::build()
         .manage(db)

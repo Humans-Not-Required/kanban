@@ -3,9 +3,7 @@
 #[test]
 fn test_db_initialization() {
     let db_path = format!("/tmp/kanban_test_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     // Verify tables exist
@@ -59,9 +57,7 @@ fn test_key_hashing() {
 #[test]
 fn test_db_wal_mode() {
     let db_path = format!("/tmp/kanban_test_wal_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let journal_mode: String = conn
@@ -79,9 +75,7 @@ fn test_db_wal_mode() {
 #[test]
 fn test_board_creation_and_manage_key() {
     let db_path = format!("/tmp/kanban_test_board_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     // Create a board with a manage key
@@ -129,9 +123,7 @@ fn test_access_control_manage_key() {
     use kanban::access;
 
     let db_path = format!("/tmp/kanban_test_access_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     // Create a board
@@ -175,9 +167,7 @@ fn test_board_archiving() {
     use kanban::access;
 
     let db_path = format!("/tmp/kanban_test_archive_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let board_id = uuid::Uuid::new_v4().to_string();
@@ -247,9 +237,7 @@ fn test_board_archiving() {
 #[test]
 fn test_wip_limit_enforcement() {
     let db_path = format!("/tmp/kanban_test_wip_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let board_id = uuid::Uuid::new_v4().to_string();
@@ -324,9 +312,7 @@ fn test_wip_limit_enforcement() {
 #[test]
 fn test_task_search() {
     let db_path = format!("/tmp/kanban_test_search_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let board_id = uuid::Uuid::new_v4().to_string();
@@ -397,9 +383,7 @@ fn test_task_search() {
 #[test]
 fn test_task_ordering_positions() {
     let db_path = format!("/tmp/kanban_test_order_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let board_id = uuid::Uuid::new_v4().to_string();
@@ -472,9 +456,7 @@ fn test_task_ordering_positions() {
 #[test]
 fn test_batch_operations() {
     let db_path = format!("/tmp/kanban_test_batch_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let board_id = uuid::Uuid::new_v4().to_string();
@@ -572,9 +554,7 @@ fn test_batch_operations() {
 #[test]
 fn test_webhooks_crud() {
     let db_path = format!("/tmp/kanban_test_webhooks_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let board_id = uuid::Uuid::new_v4().to_string();
@@ -655,9 +635,7 @@ fn test_webhooks_crud() {
 #[test]
 fn test_task_dependencies() {
     let db_path = format!("/tmp/kanban_test_deps_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let board_id = uuid::Uuid::new_v4().to_string();
@@ -740,9 +718,7 @@ fn test_task_dependencies() {
 #[test]
 fn test_board_public_listing() {
     let db_path = format!("/tmp/kanban_test_public_{}.db", uuid::Uuid::new_v4());
-    std::env::set_var("DATABASE_PATH", &db_path);
-
-    let pool = kanban::db::init_db().expect("DB should initialize");
+    let pool = kanban::db::init_db_with_path(&db_path).expect("DB should initialize");
     let conn = pool.lock().unwrap();
 
     let manage_key_hash = kanban::db::hash_key("test_key");

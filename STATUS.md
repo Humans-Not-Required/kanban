@@ -141,7 +141,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Breaking DB change** - new schema has no `api_keys` table. Fresh DB required. Old DBs will not work.
 - `cargo` not on PATH by default - use `export PATH="$HOME/.cargo/bin:$PATH"` before building
 - CORS wide open (all origins) - tighten for production
-- **Tests must run with `--test-threads=1`** - tests use `std::env::set_var("DATABASE_PATH", ...)` which races under parallel execution
+- **Tests are parallel-safe** — each test uses `init_db_with_path()` with a unique temp DB (no env var race)
 - Rate limiter now active on board creation (10/hr/IP default, configurable via BOARD_RATE_LIMIT env var)
 
 ### Architecture Notes

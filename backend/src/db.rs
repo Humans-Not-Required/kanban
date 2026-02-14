@@ -15,8 +15,13 @@ pub fn hash_key(key: &str) -> String {
 
 pub fn init_db() -> Result<DbPool, String> {
     let db_path = std::env::var("DATABASE_PATH").unwrap_or_else(|_| "kanban.db".to_string());
+    init_db_with_path(&db_path)
+}
 
-    let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
+/// Initialize the database at the given path. Prefer this over `init_db()` in tests
+/// to avoid process-global env var races with `std::env::set_var`.
+pub fn init_db_with_path(db_path: &str) -> Result<DbPool, String> {
+    let conn = Connection::open(db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
     // Enable WAL mode for better concurrent read performance
     // Retry a few times to handle transient locks during test initialization
@@ -201,8 +206,12 @@ pub fn init_db() -> Result<DbPool, String> {
 /// Uses WAL mode for concurrent reads alongside the main connection.
 pub fn init_webhook_db() -> Result<WebhookDb, String> {
     let db_path = std::env::var("DATABASE_PATH").unwrap_or_else(|_| "kanban.db".to_string());
+    init_webhook_db_with_path(&db_path)
+}
 
-    let conn = Connection::open(&db_path)
+/// Initialize webhook database at the given path. Prefer this over `init_webhook_db()` in tests.
+pub fn init_webhook_db_with_path(db_path: &str) -> Result<WebhookDb, String> {
+    let conn = Connection::open(db_path)
         .map_err(|e| format!("Failed to open webhook database: {}", e))?;
 
     // Retry a few times to handle transient locks during test initialization
