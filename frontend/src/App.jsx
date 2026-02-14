@@ -2884,6 +2884,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState(null);
+  const searchRef = useRef({ search: '', hasResults: false });
   const [selectedTask, setSelectedTask] = useState(null);
   const [sseStatus, setSseStatus] = useState('initial');
   const [addingColumn, setAddingColumn] = useState(false);
@@ -2949,7 +2950,17 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
     let debounceTimer = null;
     const debouncedRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => loadTasks(), 300);
+      debounceTimer = setTimeout(async () => {
+        await loadTasks();
+        // Also refresh search results if a search is active
+        const { search: q, hasResults } = searchRef.current;
+        if (hasResults && q.trim()) {
+          try {
+            const { data } = await api.searchTasks(board.id, q.trim());
+            setSearchResults(data.tasks || []);
+          } catch (err) { /* ignore */ }
+        }
+      }, 300);
     };
     const sub = api.subscribeToBoardEvents(
       board.id,
@@ -2967,6 +2978,11 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
     };
   }, [board.id, loadTasks]);
 
+  // Keep ref in sync so SSE handler can check without being a dependency
+  useEffect(() => {
+    searchRef.current = { search, hasResults: searchResults !== null };
+  }, [search, searchResults]);
+
   const doSearch = async () => {
     if (!search.trim()) { setSearchResults(null); return; }
     try {
@@ -2976,6 +2992,19 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
       console.error('Search failed:', err);
     }
   };
+
+  // Refresh both tasks and search results (if active) so the board stays in sync
+  const refreshAll = useCallback(async () => {
+    await loadTasks();
+    if (searchResults !== null && search.trim()) {
+      try {
+        const { data } = await api.searchTasks(board.id, search.trim());
+        setSearchResults(data.tasks || []);
+      } catch (err) {
+        console.error('Search refresh failed:', err);
+      }
+    }
+  }, [loadTasks, searchResults, search, board.id]);
 
   const columns = board.columns || [];
   const baseTasks = searchResults !== null ? searchResults : tasks;
@@ -3178,7 +3207,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             tasks={displayTasks}
             boardId={board.id}
             canEdit={canEdit}
-            onRefresh={loadTasks}
+            onRefresh={refreshAll}
             onBoardRefresh={onBoardRefresh}
             archived={archived}
             onClickTask={setSelectedTask}
@@ -3245,7 +3274,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
             tasks={displayTasks}
             boardId={board.id}
             canEdit={canEdit}
-            onRefresh={loadTasks}
+            onRefresh={refreshAll}
             onClose={() => setFullScreenColumnId(null)}
             onClickTask={setSelectedTask}
             archived={archived}
@@ -3258,7 +3287,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           boardId={board.id}
           columns={columns}
           onClose={() => setShowCreate(false)}
-          onCreated={loadTasks}
+          onCreated={refreshAll}
           isMobile={isMobile}
           allLabels={allLabels}
           allAssignees={allAssignees}
@@ -3271,7 +3300,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           task={selectedTask}
           canEdit={canEdit}
           onClose={() => setSelectedTask(null)}
-          onRefresh={loadTasks}
+          onRefresh={refreshAll}
           isMobile={isMobile}
           allColumns={columns}
           allLabels={allLabels}
