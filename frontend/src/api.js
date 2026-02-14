@@ -41,19 +41,31 @@ function setDisplayName(name) {
 function extractKeyFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const key = params.get('key');
+  const taskId = params.get('task');
   // Try to extract board ID from the path: /board/{id}
   const pathMatch = window.location.pathname.match(/\/board\/([a-f0-9-]+)/i);
   const boardId = pathMatch ? pathMatch[1] : null;
-  return { boardId, key };
+  return { boardId, key, taskId };
 }
 
-/** Remove ?key= from URL without reload (security: don't leave token visible) */
+/** Remove ?key= and ?task= from URL without reload */
 function cleanKeyFromUrl() {
   const url = new URL(window.location.href);
-  if (url.searchParams.has('key')) {
-    url.searchParams.delete('key');
-    window.history.replaceState({}, '', url.toString());
+  let changed = false;
+  if (url.searchParams.has('key')) { url.searchParams.delete('key'); changed = true; }
+  if (url.searchParams.has('task')) { url.searchParams.delete('task'); changed = true; }
+  if (changed) window.history.replaceState({}, '', url.toString());
+}
+
+/** Update or remove ?task= in URL without reload */
+function setTaskInUrl(taskId) {
+  const url = new URL(window.location.href);
+  if (taskId) {
+    url.searchParams.set('task', taskId);
+  } else {
+    url.searchParams.delete('task');
   }
+  window.history.replaceState({}, '', url.toString());
 }
 
 // ---- API request ----
@@ -353,7 +365,7 @@ const health = () => request('/health');
 export {
   getBoardKey, setBoardKey, removeBoardKey, hasBoardKey,
   getDisplayName, setDisplayName,
-  extractKeyFromUrl, cleanKeyFromUrl,
+  extractKeyFromUrl, cleanKeyFromUrl, setTaskInUrl,
   getMyBoards, addMyBoard, removeMyBoard,
   listBoards, getBoard, createBoard, updateBoard, archiveBoard, unarchiveBoard,
   addColumn, updateColumn, deleteColumn, reorderColumns,

@@ -1131,6 +1131,17 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
   const [actorName, setActorName] = useState(() => api.getDisplayName());
   const [loadingEvents, setLoadingEvents] = useState(true);
   const commentsEndRef = useRef(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('task', task.id);
+    url.searchParams.delete('key'); // never share manage key in task links
+    navigator.clipboard.writeText(url.toString()).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    });
+  };
   const [posting, setPosting] = useState(false);
   const [showMove, setShowMove] = useState(false);
   const [markingDone, setMarkingDone] = useState(false);
@@ -1392,6 +1403,11 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                     title="Edit task"
                   >✏️</button>
                 )}
+                <button
+                  style={{ ...styles.btnIcon, color: linkCopied ? '#22c55e' : '#94a3b8' }}
+                  onClick={handleCopyLink}
+                  title="Copy task link"
+                >{linkCopied ? '✓' : '🔗'}</button>
                 <button style={styles.btnClose} onClick={onClose}>×</button>
               </div>
             ) : (
@@ -1399,9 +1415,9 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
             )}
           </div>
           {/* Row 2: Action buttons on mobile (below title) */}
-          {isMobile && canEdit && !editing && (
+          {isMobile && !editing && (
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '10px', flexWrap: 'wrap' }}>
-              {reassignColumn && !isAlreadyInReassignCol && !isArchived && (
+              {canEdit && reassignColumn && !isAlreadyInReassignCol && !isArchived && (
                 <button
                   style={{ ...styles.btnIcon, background: '#f59e0b22', borderColor: '#f59e0b44', color: '#fbbf24' }}
                   onClick={handleQuickReassign}
@@ -1409,7 +1425,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                   title={`Move to ${reassignColumn.name}${quickReassignTo ? ` → ${quickReassignTo}` : ''}`}
                 >{reassigning ? '⏳' : '↩'}</button>
               )}
-              {doneColumn && !isAlreadyDone && !isArchived && (
+              {canEdit && doneColumn && !isAlreadyDone && !isArchived && (
                 <button
                   style={{ ...styles.btnIcon, background: '#22c55e22', borderColor: '#22c55e44', color: '#4ade80' }}
                   onClick={handleMarkDone}
@@ -1417,17 +1433,26 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                   title={`Mark done${quickDoneAutoArchive ? ' & archive' : ''} → ${doneColumn.name}`}
                 >{markingDone ? '⏳' : '✓'}</button>
               )}
+              {canEdit && (
+                <button
+                  style={styles.btnIcon}
+                  onClick={handleArchiveToggle}
+                  disabled={archiving}
+                  title={isArchived ? 'Unarchive task' : 'Archive task'}
+                >{archiving ? '⏳' : isArchived ? '📤' : '📦'}</button>
+              )}
+              {canEdit && (
+                <button
+                  style={styles.btnIcon}
+                  onClick={() => setEditing(true)}
+                  title="Edit task"
+                >✏️</button>
+              )}
               <button
-                style={styles.btnIcon}
-                onClick={handleArchiveToggle}
-                disabled={archiving}
-                title={isArchived ? 'Unarchive task' : 'Archive task'}
-              >{archiving ? '⏳' : isArchived ? '📤' : '📦'}</button>
-              <button
-                style={styles.btnIcon}
-                onClick={() => setEditing(true)}
-                title="Edit task"
-              >✏️</button>
+                style={{ ...styles.btnIcon, color: linkCopied ? '#22c55e' : '#94a3b8' }}
+                onClick={handleCopyLink}
+                title="Copy task link"
+              >{linkCopied ? '✓' : '🔗'}</button>
             </div>
           )}
         </div>
@@ -2820,7 +2845,7 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
   );
 }
 
-function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefresh, isMobile, onSseStatusChange }) {
+function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefresh, isMobile, onSseStatusChange, pendingTaskId, onPendingTaskHandled }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
@@ -2860,6 +2885,22 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
   }, [board.id, showArchivedTasks]);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  // Auto-open task from URL ?task= param
+  useEffect(() => {
+    if (pendingTaskId && tasksLoaded && tasks.length > 0) {
+      const task = tasks.find(t => t.id === pendingTaskId);
+      if (task) {
+        setSelectedTask(task);
+      }
+      if (onPendingTaskHandled) onPendingTaskHandled();
+    }
+  }, [pendingTaskId, tasksLoaded, tasks]);
+
+  // Update URL when task is selected/deselected
+  useEffect(() => {
+    api.setTaskInUrl(selectedTask ? selectedTask.id : null);
+  }, [selectedTask]);
 
   // Sync selectedTask with refreshed tasks data (fixes stale view after edit/save)
   useEffect(() => {
@@ -3004,7 +3045,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
               )}
             </button>
             <button style={{ flex: '1 1 0', background: '#334155', color: '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 0', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
-            <button style={{ flex: '1 1 0', background: searchActive ? '#312e81' : '#334155', color: searchActive ? '#a5b4fc' : '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 0', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSearchBar(v => !v)} title="Search & Filter">🔍</button>
+            <button style={{ flex: '1 1 0', background: searchActive ? '#312e81' : showSearchBar ? '#475569' : '#334155', color: searchActive ? '#a5b4fc' : '#cbd5e1', border: 'none', borderRight: '1px solid #475569', padding: '10px 0', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSearchBar(v => !v)} title="Search & Filter">🔍</button>
             {canEdit && !archived && (
               <button style={{ flex: '0 0 33.33%', background: '#6366f1', color: '#fff', border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} onClick={() => setShowCreate(true)}>+ Task</button>
             )}
@@ -3516,8 +3557,10 @@ function App() {
 
   const refreshMyBoards = useCallback(() => setMyBoards(api.getMyBoards()), []);
 
+  const [pendingTaskId, setPendingTaskId] = useState(null);
+
   useEffect(() => {
-    const { boardId, key } = api.extractKeyFromUrl();
+    const { boardId, key, taskId } = api.extractKeyFromUrl();
     if (boardId && key) {
       api.setBoardKey(boardId, key);
       api.cleanKeyFromUrl();
@@ -3525,6 +3568,7 @@ function App() {
     } else if (boardId) {
       setSelectedBoardId(boardId);
     }
+    if (taskId) setPendingTaskId(taskId);
   }, []);
 
   const loadBoardDetail = useCallback(async (boardId) => {
@@ -3733,7 +3777,7 @@ function App() {
         </div>
 
         {boardDetail ? (
-          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={() => {}} isMobile={isMobile} onSseStatusChange={setSseStatus} />
+          <BoardView board={boardDetail} canEdit={canEdit} onRefresh={() => loadBoardDetail()} onBoardRefresh={() => loadBoardDetail()} onBoardListRefresh={() => {}} isMobile={isMobile} onSseStatusChange={setSseStatus} pendingTaskId={pendingTaskId} onPendingTaskHandled={() => setPendingTaskId(null)} />
         ) : loadError ? (
           <div style={{ ...styles.boardContent(isMobile), ...styles.empty, justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
             <div>
