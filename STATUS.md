@@ -542,8 +542,16 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **New Task modal: priority toggle height + mobile compact labels** ✅ Done - Removed extra bottom margin from the column dropdown in the New Task modal so the Priority segmented control matches its height. On mobile, priority buttons now show color dots instead of full text labels. Commit: 4aca0ad.
 - **Share/View popovers: close button size consistency** ✅ Done - SharePopover and access mode info popover now use standard `btnClose` (32×32) like other modals. Commit: 2dc67a9.
 
+### Completed (2026-02-14 Overnight, Session 2 — 12:30 UTC)
+
+- **Fix popover clipping on tablet** ✅ Done — Root cause: app container had `overflow: hidden` which clipped absolutely-positioned popovers from the header. Removed overflow constraint from app (main area has its own overflow handling). Commit: ae1fa83. 56 tests passing.
+- **Simplify Activity panel** ✅ Done — Removed "My Recent Activity" tab per Jordan feedback. Activity panel now has 2 tabs: "My Items" and "All Activity". Cleaner, less data fetching. Commit: ae1fa83.
+- **Shareable task links** ✅ Done — URL now includes `?task={id}` when task detail is open. Navigate to board URL with `?task=` to auto-open that task. 🔗 Copy Link button in task detail (desktop + mobile). Manage keys stripped from shared links. Commit: 509f928.
+- **Search toggle visual feedback** ✅ Done — Mobile search button now shows slightly lighter background (#475569) when search bar is expanded. Commit: 509f928.
+- **Verified playbooks for actor param** ✅ Confirmed — All playbooks use `?actor=` and `"actor_name"` correctly (board-manager.md verified).
+
 ## Incoming directions (2026-02-13T17:49:01Z)
-- Jordan reports popovers (Share + Access/View mode) are still clipped on tablet; likely overflow/positioning issue in header/container. Needs fix.
-- Jordan: 🔍 mobile toggle button background color should match other header buttons.
-- Jordan: Activity/since-last-visit feature not useful; rethink or simplify.
+- ~~Jordan reports popovers (Share + Access/View mode) are still clipped on tablet.~~ ✅ Fixed (ae1fa83)
+- ~~Jordan: 🔍 mobile toggle button background color should match other header buttons.~~ ✅ Fixed (509f928)
+- ~~Jordan: Activity/since-last-visit feature not useful; rethink or simplify.~~ ✅ Simplified (ae1fa83)
 - (refs: task c3e8b248, 52695b91, 035f9168, 1f4f04be)
