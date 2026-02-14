@@ -3787,6 +3787,10 @@ function App() {
           isMobile={isMobile}
         />
       )}
+      <footer style={{ textAlign: 'center', padding: '8px 16px', fontSize: '0.65rem', color: '#475569', flexShrink: 0 }}>
+        Made for AI, by AI.{' '}
+        <a href="https://github.com/Humans-Not-Required" target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1', textDecoration: 'none' }}>Humans not required</a>.
+      </footer>
     </div>
   );
 }
