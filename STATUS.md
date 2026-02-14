@@ -479,7 +479,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [x] Board settings desc box (467a1a0b) - Fixed: minHeight 140px (commit 88e29bd).
 - [x] API.md documentation (c5a99ef0) - Created 500+ lines (commit 38647d4).
 - [x] Sibling naming feedback (c4b4586d, ff0c06f8, 1057e69d) - Collected: consensus is "Dispatch". Forge+Lux voted Dispatch, Drift agreed.
-- [x] iOS dropdown chevron (169fd738) - Fixed: backgroundImage:none, CSS appearance:none, spacing adjusted (commit c9af77f). Needs hard refresh.
+- [x] iOS dropdown chevron (169fd738) - **Re-fixed (commit 8cb5764):** Replaced overlay approach with background-image SVG data URL. Previous fix still failed on iOS because absolute-positioned elements get hidden by native select compositing. New approach embeds chevron as backgroundImage, converts `background` shorthand to `backgroundColor` to prevent wipe, removes wrapper div entirely.
 - [x] Filter left indentation (2b82ac9c, 0a8a402f) - Fixed (commit fa1fb7e).
 - [x] Activity My Items default tab (00d6fe2a) - Verified done (commit 233f2e1).
 - [x] Anonymous in activity log (6a7d5297) - Verified done (commits eed7724, d9ba12e, e8063d4, 179c495).
@@ -489,7 +489,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [x] Hotkeys Ctrl/Cmd+Enter (34c80cee) - Verified done (commit 4445ea2).
 - [x] Activity endpoint enrichment (4eddb19c) - Verified: created events get task snapshot, comment events get task + recent_comments.
 - [ ] Kanban: Find a catchier product name (cf7a6d06) - Sibling consensus: "Dispatch". Awaiting Jordan's decision.
-- [ ] "New board default" text still visible (828e8cb8) - Text already removed from code. Likely browser cache issue.
+- [x] "New board default" text still visible (828e8cb8) - Confirmed: only a JSX comment (`{/* ... */}`) remains in code, invisible to users. No visible text in any page. Browser cache issue.
 <!-- WORK_QUEUE_DIRECTIONS_END -->
 
 ### Completed (2026-02-14 Overnight, Session — 10:45 UTC)
@@ -549,6 +549,11 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Shareable task links** ✅ Done — URL now includes `?task={id}` when task detail is open. Navigate to board URL with `?task=` to auto-open that task. 🔗 Copy Link button in task detail (desktop + mobile). Manage keys stripped from shared links. Commit: 509f928.
 - **Search toggle visual feedback** ✅ Done — Mobile search button now shows slightly lighter background (#475569) when search bar is expanded. Commit: 509f928.
 - **Verified playbooks for actor param** ✅ Confirmed — All playbooks use `?actor=` and `"actor_name"` correctly (board-manager.md verified).
+
+### Completed (2026-02-14 Daytime, Session — 19:55 UTC)
+
+- **StyledSelect chevron: background-image approach** ✅ Done — Previous overlay approach (absolute-positioned SVG span) failed on iOS Safari because native `<select>` compositing layers hide overlaid elements. Callers passing `background` shorthand also wiped `backgroundImage: 'none'`. New approach: embed chevron as SVG data URL in `backgroundImage`, destructure `background` → `backgroundColor`, remove wrapper div entirely. More spacing (14px from right, 40px padding). Commit: 8cb5764. 64 tests passing (50 HTTP + 14 integration).
+- **8 new HTTP tests** ✅ Done — Coverage for previously untested endpoints: OpenAPI JSON, llms.txt, single task GET (+ 404), task events history, column creation (+ no-auth), dependency deletion. Commit: 23c332d. Test count: 56 → 64.
 
 ## Incoming directions (2026-02-13T17:49:01Z)
 - ~~Jordan reports popovers (Share + Access/View mode) are still clipped on tablet.~~ ✅ Fixed (ae1fa83)
