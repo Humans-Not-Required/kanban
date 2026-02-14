@@ -2756,7 +2756,7 @@ function AccessIndicator({ boardId, canEdit, isMobile, onKeyUpgraded }) {
   };
 
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 0 }}>
       <button
         onClick={() => { setShowModeInfo(v => !v); setKeyError(''); setKeyInput(''); }}
         style={{
@@ -2990,6 +2990,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
     });
     return Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
   })();
+  const allLabelsSorted = [...allLabels].sort((a, b) => a.localeCompare(b));
   const allAssignees = [...new Set(baseTasks.map(t => t.assigned_to || t.claimed_by).filter(Boolean))].sort();
   const allCreators = [...new Set(baseTasks.map(t => t.created_by).filter(Boolean))].sort();
 
@@ -3041,20 +3042,18 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
         ) : (
           /* Desktop: original button layout */
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <button style={{ ...styles.btn('secondary', false), position: 'relative' }} onClick={() => setShowActivity(true)} title="Activity Feed">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                {newActivityCount > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '-2px', right: '-2px',
-                    background: '#6366f1',
-                    width: '8px', height: '8px',
-                    borderRadius: '50%',
-                  }} />
-                )}
-              </button>
-              <button style={styles.btn('secondary', false)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
-            </div>
+            <button style={{ ...styles.btn('secondary', false), position: 'relative' }} onClick={() => setShowActivity(true)} title="Activity Feed">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              {newActivityCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-2px', right: '-2px',
+                  background: '#6366f1',
+                  width: '8px', height: '8px',
+                  borderRadius: '50%',
+                }} />
+              )}
+            </button>
+            <button style={styles.btn('secondary', false)} onClick={() => setShowSettings(true)} title="Board Settings">⚙️</button>
             {canEdit && !archived && (
               <button style={styles.btn('primary', false)} onClick={() => setShowCreate(true)}>+ Task</button>
             )}
@@ -3126,7 +3125,7 @@ function BoardView({ board, canEdit, onRefresh, onBoardRefresh, onBoardListRefre
           </StyledSelect>
           <StyledSelect style={{ ...styles.select, marginBottom: 0, flex: isMobile ? '1 1 auto' : 'none', minWidth: isMobile ? 0 : '120px', width: isMobile ? '100%' : undefined, ...(isMobile ? { gridColumn: 'span 2' } : {}), padding: '6px 12px', fontSize: '16px', borderRadius: '4px', background: filterLabel ? '#3b82f611' : '#0f172a', border: `1px solid ${filterLabel ? '#3b82f644' : '#334155'}`, color: filterLabel ? '#93c5fd' : '#94a3b8', cursor: 'pointer', height: '32px', lineHeight: '1' }} value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
             <option value="">Any Label</option>
-            {allLabels.map(l => (
+            {allLabelsSorted.map(l => (
               <option key={l} value={l}>{l}</option>
             ))}
           </StyledSelect>
