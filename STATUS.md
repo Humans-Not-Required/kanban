@@ -551,6 +551,15 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Search toggle visual feedback** ✅ Done — Mobile search button now shows slightly lighter background (#475569) when search bar is expanded. Commit: 509f928.
 - **Verified playbooks for actor param** ✅ Confirmed — All playbooks use `?actor=` and `"actor_name"` correctly (board-manager.md verified).
 
+### Completed (2026-02-16 Daytime, Session — 00:00 UTC)
+
+- **StyledSelect rewrite: CSS ::after pseudo-element** ✅ Done — Previous background-image SVG approach still failed on iOS Safari. Rewrote StyledSelect to use a wrapper `<div class="ss-wrap">` with CSS `::after` pseudo-element for the chevron (same pattern as Bootstrap/Tailwind). Global CSS injected once via `<style>` element. Layout properties (flex, minWidth, width, gridColumn) forwarded to wrapper; select gets appearance:none !important via CSS class. Commit: a11ce06.
+- **Clippy fix** ✅ Done — Resolved `manual_clamp` warning: `.min(1000).max(1)` → `.clamp(1, 1000)`. Zero clippy warnings. Commit: 8414757.
+- **llms.txt accuracy** ✅ Done — Fixed priority mapping (was 0=critical, corrected to 0=low→3=critical). Added missing `?actor=` params on release/move/archive/unarchive/delete endpoints. Added `?after=` cursor and `?mentioned=` filter on activity endpoint. Commit: e37eeb8.
+- **Verified Jordan bugs resolved:** (1) "New board default text" — removed in commit fae0d2e, deployed. (2) "Actor param in playbooks" — all playbooks already use correct `?actor=`/`actor_name`. (3) Chevron on iOS — rewritten with robust CSS approach above.
+
+- Test suite: **93 unique tests** (73 HTTP + 14 integration + 6 unit). Zero clippy warnings. CI green.
+
 ### Completed (2026-02-15 Daytime, Session — 23:30 UTC)
 
 - **Expanded HTTP test coverage** ✅ Done — 23 new HTTP tests covering previously untested areas: task query filters (column, priority, label, assigned, claimed, archived, limit/offset — 7 tests), webhook HTTP CRUD + error paths (6 tests), board archive listing (1 test), task update validation (2 tests), comment edge cases (2 tests), activity feed limit + cursor pagination (2 tests), dependency listing with task filter (1 test), description-only task creation + board-not-found (2 tests). Also fixed pre-existing clippy warning (unused col_id). Test count: 64 → 87 (73 HTTP + 14 integration). Commit: 6eb4b95.
