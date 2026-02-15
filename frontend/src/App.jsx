@@ -165,32 +165,62 @@ function AutocompleteInput({ value, onChange, suggestions, placeholder, style, i
 }
 
 // ---- Styled Select (custom chevron, consistent across platforms) ----
-// Uses background-image SVG data URL instead of overlay — works reliably on iOS Safari
-// where absolute-positioned elements over <select> get hidden by native compositing.
-function StyledSelect({ style, children, ...props }) {
-  const chevronSvg = encodeURIComponent(
+// Uses wrapper <div> with CSS ::after pseudo-element for the chevron.
+// This approach works reliably on iOS Safari where background-image on <select>
+// elements and absolutely-positioned overlays both fail due to native compositing.
+// Inject global CSS once (::after pseudo-elements can't be done with inline styles).
+if (typeof document !== 'undefined' && !document.getElementById('styled-select-css')) {
+  const _ssStyle = document.createElement('style');
+  _ssStyle.id = 'styled-select-css';
+  const _chevronSvg = encodeURIComponent(
     '<svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 1.75L6 6.25L10.5 1.75" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   );
-  // Destructure `background` shorthand from caller styles — it resets backgroundImage.
-  // Convert to backgroundColor so our backgroundImage chevron survives.
-  const { background, backgroundImage: _bi, ...restStyle } = style || {};
+  _ssStyle.textContent = `
+    .ss-wrap { position: relative; display: inline-flex; }
+    .ss-wrap::after {
+      content: '';
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 12px;
+      height: 8px;
+      background-image: url("data:image/svg+xml,${_chevronSvg}");
+      background-repeat: no-repeat;
+      background-size: 12px 8px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .ss-wrap select {
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+    }
+  `;
+  document.head.appendChild(_ssStyle);
+}
+function StyledSelect({ style, children, ...props }) {
+  const { background, backgroundImage: _bi, flex, minWidth, width, gridColumn, ...restStyle } = style || {};
+  const wrapStyle = {
+    flex: flex,
+    minWidth: minWidth,
+    width: width,
+    gridColumn: gridColumn,
+  };
   const selectStyle = {
     ...restStyle,
     backgroundColor: restStyle.backgroundColor || background || 'transparent',
-    appearance: 'none',
-    WebkitAppearance: 'none',
-    MozAppearance: 'none',
     paddingRight: '40px',
     cursor: 'pointer',
-    backgroundImage: `url("data:image/svg+xml,${chevronSvg}")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 14px center',
-    backgroundSize: '12px 8px',
+    width: '100%',
+    flex: 1,
   };
   return (
-    <select style={selectStyle} {...props}>
-      {children}
-    </select>
+    <div className="ss-wrap" style={wrapStyle}>
+      <select style={selectStyle} {...props}>
+        {children}
+      </select>
+    </div>
   );
 }
 
