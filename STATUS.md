@@ -502,6 +502,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 ### Completed (2026-02-14 Daytime, Session — 05:35 UTC)
 
 - **Fix search results not updating after Done+Archive** ✅ Done - Root cause: `searchResults` was a stale snapshot that never refreshed after task actions. When `baseTasks = searchResults ?? tasks` and the user did Done+Archive, only `tasks` was refreshed via `loadTasks()`, but `searchResults` kept the old data. Fix: created `refreshAll()` that refreshes both tasks AND re-runs the active search query. Replaced `loadTasks` with `refreshAll` as `onRefresh` for all child components (Column, FullScreenColumnView, TaskDetailModal, CreateTaskModal). SSE handler also refreshes search via ref-based state to avoid subscription churn. Commit: 2757bfa. 56 tests passing (42 HTTP + 14 integration).
+- **Fix remaining search refresh timing bug** ✅ Done - All task action handlers (Done+Archive, archive toggle, delete, move, reassign) now `await onRefresh()` before calling `onClose()`. Previously `onRefresh()` was fire-and-forget, causing a race condition where the modal closed before the search refresh API call completed, leaving stale results visible. Commit: b66f97a.
 
 ### Completed (2026-02-14 Daytime, Session - 01:52 UTC)
 
