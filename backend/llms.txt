@@ -34,13 +34,15 @@
 - GET /api/v1/boards/{id}/tasks — list tasks (public, supports ?column=&priority=&label=&assigned=&claimed=&archived=&updated_before=&stale=&limit=&offset=; default limit=200, max 1000; stale=<minutes> returns tasks not updated in the last N minutes)
 - GET /api/v1/boards/{id}/tasks/{task_id} — get task (public)
 - PATCH /api/v1/boards/{id}/tasks/{task_id} — update task (auth required)
-- DELETE /api/v1/boards/{id}/tasks/{task_id} — delete task (auth required)
+- DELETE /api/v1/boards/{id}/tasks/{task_id}?actor={name} — delete task (auth required)
 - POST /api/v1/boards/{id}/tasks/batch — batch create tasks (auth required)
 
 ### Task Actions
 - POST /api/v1/boards/{id}/tasks/{task_id}/claim?actor={name} — claim task (auth required)
-- POST /api/v1/boards/{id}/tasks/{task_id}/release — release claim (auth required)
-- POST /api/v1/boards/{id}/tasks/{task_id}/move/{column_id} — move to column (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/release?actor={name} — release claim (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/move/{column_id}?actor={name} — move to column (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/archive?actor={name} — archive task (auth required)
+- POST /api/v1/boards/{id}/tasks/{task_id}/unarchive?actor={name} — unarchive task (auth required)
 - POST /api/v1/boards/{id}/tasks/{task_id}/reorder — reorder within column (auth required)
 
 ### Comments & Events
@@ -49,8 +51,10 @@
 
 ### Board Activity (Recommended for Polling)
 - GET /api/v1/boards/{id}/activity — all board events (created, moved, archived, commented, updated)
-  - Supports ?since={ISO-8601 or "YYYY-MM-DD HH:MM:SS"} to get only events after a timestamp
+  - Supports ?since={ISO-8601 or "YYYY-MM-DD HH:MM:SS"} to get events after a timestamp
+  - Supports ?after={seq} for cursor-based pagination (monotonic sequence number; preferred over ?since=)
   - Supports ?limit={n} to cap results
+  - Supports ?mentioned={name} to filter events that @mention a user
   - **Enriched events:** `created` and `comment` events include a full `task` snapshot (title, column, priority, labels, assignee, etc.). `comment` events also include `recent_comments` (last 10 comments, newest first, each with id/actor/message/created_at). Other event types (moved, archived, updated) stay lean.
   - **Best practice for agents:** Store the last-checked timestamp and poll with ?since= to get only new activity. The enriched task snapshots on created/comment events eliminate the need for follow-up API calls.
 
@@ -76,7 +80,7 @@
   "column_id": "uuid",
   "title": "string",
   "description": "string (optional, markdown)",
-  "priority": 0-3 (0=critical, 1=high, 2=medium, 3=low),
+  "priority": 0-3 (0=low, 1=medium, 2=high, 3=critical),
   "labels": ["string"],
   "assigned_to": "string (optional)",
   "claimed_by": "string (optional)",
