@@ -1150,7 +1150,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
       } else {
         await api.archiveTask(boardId, task.id);
       }
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (err) {
       alert(err.error || 'Failed to archive/unarchive task');
@@ -1179,7 +1179,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
       if (quickDoneAutoArchive) {
         await api.archiveTask(boardId, task.id);
       }
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (err) {
       alert(err.error || 'Failed to mark task as done');
@@ -1206,7 +1206,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
       if (quickReassignTo) {
         await api.updateTask(boardId, task.id, { assigned_to: quickReassignTo });
       }
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (err) {
       alert(err.error || 'Failed to reassign task');
@@ -1264,7 +1264,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
 
       if (Object.keys(updates).length > 0) {
         await api.updateTask(boardId, task.id, updates);
-        onRefresh();
+        await onRefresh();
       }
       setEditing(false);
     } catch (err) {
@@ -1279,7 +1279,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
     setDeleting(true);
     try {
       await api.deleteTask(boardId, task.id);
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (err) {
       alert(err.error || 'Failed to delete task');
@@ -1536,7 +1536,7 @@ function TaskDetailModal({ boardId, task, canEdit, onClose, onRefresh, isMobile,
                 boardId={boardId}
                 task={task}
                 columns={allColumns}
-                onMoved={() => { setShowMove(false); onRefresh(); onClose(); }}
+                onMoved={async () => { setShowMove(false); await onRefresh(); onClose(); }}
                 onCancel={() => setShowMove(false)}
               />
             ) : (
