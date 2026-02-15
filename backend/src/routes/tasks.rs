@@ -218,7 +218,7 @@ pub fn list_tasks(
 
     sql.push_str(" ORDER BY c.position ASC, t.priority DESC, t.position ASC");
 
-    let effective_limit = limit.unwrap_or(200).min(1000).max(1);
+    let effective_limit = limit.unwrap_or(200).clamp(1, 1000);
     let effective_offset = offset.unwrap_or(0).max(0);
     params.push(Box::new(effective_limit));
     sql.push_str(&format!(" LIMIT ?{}", params.len()));
