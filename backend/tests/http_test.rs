@@ -1501,7 +1501,7 @@ fn test_http_require_display_name_all_endpoints() {
     let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
     let board: serde_json::Value = resp.into_json().unwrap();
     let columns = board["columns"].as_array().unwrap();
-    let col_id = columns[0]["id"].as_str().unwrap().to_string();
+    let _col_id = columns[0]["id"].as_str().unwrap().to_string();
     let col2_id = columns[1]["id"].as_str().unwrap().to_string();
 
     // Create a task WITH actor_name (should succeed)
@@ -2109,4 +2109,769 @@ fn test_http_delete_dependency() {
         .dispatch();
     let deps: serde_json::Value = resp.into_json().unwrap();
     assert_eq!(deps.as_array().unwrap().len(), 0);
+}
+
+// ============ Task Query Filters ============
+
+#[test]
+fn test_http_list_tasks_filter_by_column() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Filter Column Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col1_id = board["columns"][0]["id"].as_str().unwrap();
+    let col2_id = board["columns"][1]["id"].as_str().unwrap();
+
+    // Create tasks in different columns
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Col1 Task", "column_id": "{}", "actor_name": "T"}}"#, col1_id))
+        .dispatch();
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Col2 Task", "column_id": "{}", "actor_name": "T"}}"#, col2_id))
+        .dispatch();
+
+    // Filter by column 1
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?column={}", board_id, col1_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Col1 Task");
+
+    // Filter by column 2
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?column={}", board_id, col2_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Col2 Task");
+}
+
+#[test]
+fn test_http_list_tasks_filter_by_priority() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Filter Priority Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create tasks with different priorities
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Low", "column_id": "{}", "priority": 0, "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "High", "column_id": "{}", "priority": 2, "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Critical", "column_id": "{}", "priority": 3, "actor_name": "T"}}"#, col_id))
+        .dispatch();
+
+    // priority filter returns tasks with priority >= value
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?priority=2", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 2);
+    // Should be sorted by priority DESC
+    assert_eq!(tasks[0]["title"], "Critical");
+    assert_eq!(tasks[1]["title"], "High");
+}
+
+#[test]
+fn test_http_list_tasks_filter_by_label() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Filter Label Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Bug Task", "column_id": "{}", "labels": ["bug", "urgent"], "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Feature Task", "column_id": "{}", "labels": ["feature"], "actor_name": "T"}}"#, col_id))
+        .dispatch();
+
+    // Filter by label
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?label=bug", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Bug Task");
+
+    // Filter by a label that doesn't match
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?label=docs", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 0);
+}
+
+#[test]
+fn test_http_list_tasks_filter_by_assigned() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Filter Assigned Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Alice Task", "column_id": "{}", "assigned_to": "Alice", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Bob Task", "column_id": "{}", "assigned_to": "Bob", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?assigned=Alice", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Alice Task");
+}
+
+#[test]
+fn test_http_list_tasks_filter_archived() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Filter Archived Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create and archive a task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Active Task", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Archived Task", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let archived_task_id = task["id"].as_str().unwrap();
+
+    client
+        .post(format!("/api/v1/boards/{}/tasks/{}/archive?actor=T", board_id, archived_task_id))
+        .header(auth.clone())
+        .dispatch();
+
+    // Default listing excludes archived
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Active Task");
+
+    // Explicitly request archived tasks
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?archived=true", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Archived Task");
+}
+
+#[test]
+fn test_http_list_tasks_limit_and_offset() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Limit Offset Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create 5 tasks
+    for i in 1..=5 {
+        client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(auth.clone())
+            .body(format!(r#"{{"title": "Task {}", "column_id": "{}", "actor_name": "T"}}"#, i, col_id))
+            .dispatch();
+    }
+
+    // Limit to 2
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?limit=2", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 2);
+
+    // Offset by 3, should get 2 remaining
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?offset=3", board_id))
+        .dispatch();
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 2);
+}
+
+#[test]
+fn test_http_list_tasks_filter_by_claimed() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Filter Claimed Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Claimed Task", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Unclaimed Task", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+
+    // Claim the first task
+    client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=Worker", board_id, task_id))
+        .header(auth.clone())
+        .dispatch();
+
+    // Filter by claimed_by
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks?claimed=Worker", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let tasks: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Claimed Task");
+    assert_eq!(tasks[0]["claimed_by"], "Worker");
+}
+
+// ============ Webhook HTTP Tests ============
+
+#[test]
+fn test_http_webhook_crud() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Webhook CRUD Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Create webhook
+    let resp = client
+        .post(format!("/api/v1/boards/{}/webhooks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"url": "https://example.com/hook", "events": ["task.created", "task.updated"]}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let wh: serde_json::Value = resp.into_json().unwrap();
+    let webhook_id = wh["id"].as_str().unwrap().to_string();
+    assert_eq!(wh["url"], "https://example.com/hook");
+    assert!(wh["secret"].as_str().unwrap().starts_with("whsec_"));
+    assert_eq!(wh["active"], true);
+    assert_eq!(wh["events"].as_array().unwrap().len(), 2);
+
+    // List webhooks
+    let resp = client
+        .get(format!("/api/v1/boards/{}/webhooks", board_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let list: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(list.len(), 1);
+    // Secret should not be returned on list
+    assert!(list[0]["secret"].is_null());
+
+    // Update webhook
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/webhooks/{}", board_id, webhook_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"url": "https://new.example.com/hook", "active": false}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let updated: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(updated["url"], "https://new.example.com/hook");
+    assert_eq!(updated["active"], false);
+
+    // Delete webhook
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/webhooks/{}", board_id, webhook_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Verify deleted
+    let resp = client
+        .get(format!("/api/v1/boards/{}/webhooks", board_id))
+        .header(auth.clone())
+        .dispatch();
+    let list: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(list.len(), 0);
+}
+
+#[test]
+fn test_http_webhook_no_auth() {
+    let client = test_client();
+    let (board_id, _) = create_test_board(&client, "Webhook No Auth Board");
+
+    // Create without auth
+    let resp = client
+        .post(format!("/api/v1/boards/{}/webhooks", board_id))
+        .header(ContentType::JSON)
+        .body(r#"{"url": "https://example.com/hook", "events": ["task.created"]}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Unauthorized);
+
+    // List without auth
+    let resp = client
+        .get(format!("/api/v1/boards/{}/webhooks", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Unauthorized);
+}
+
+#[test]
+fn test_http_webhook_invalid_event() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Webhook Invalid Event Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/webhooks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"url": "https://example.com/hook", "events": ["invalid.event"]}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "INVALID_EVENT_TYPE");
+}
+
+#[test]
+fn test_http_webhook_empty_url() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Webhook Empty URL Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/webhooks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"url": "  ", "events": ["task.created"]}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "EMPTY_URL");
+}
+
+#[test]
+fn test_http_webhook_update_not_found() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Webhook Update NF Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/webhooks/nonexistent-id", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"url": "https://example.com"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::NotFound);
+}
+
+#[test]
+fn test_http_webhook_delete_not_found() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Webhook Delete NF Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client
+        .delete(format!("/api/v1/boards/{}/webhooks/nonexistent-id", board_id))
+        .header(auth.clone())
+        .dispatch();
+    assert_eq!(resp.status(), Status::NotFound);
+}
+
+// ============ Board Archive Listing ============
+
+#[test]
+fn test_http_list_boards_include_archived() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Archive List Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    // Make it public so it shows in list
+    client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"is_public": true}"#)
+        .dispatch();
+
+    // Archive the board
+    client
+        .post(format!("/api/v1/boards/{}/archive", board_id))
+        .header(auth.clone())
+        .dispatch();
+
+    // Default listing should NOT include archived
+    let resp = client.get("/api/v1/boards").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let boards: Vec<serde_json::Value> = resp.into_json().unwrap();
+    let found = boards.iter().any(|b| b["id"].as_str() == Some(&board_id));
+    assert!(!found, "Archived board should not appear in default listing");
+
+    // With include_archived=true it should appear
+    let resp = client.get("/api/v1/boards?include_archived=true").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let boards: Vec<serde_json::Value> = resp.into_json().unwrap();
+    let found = boards.iter().any(|b| b["id"].as_str() == Some(&board_id));
+    assert!(found, "Archived board should appear with include_archived=true");
+}
+
+// ============ Task Update Validation ============
+
+#[test]
+fn test_http_update_task_clear_both_title_desc() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Update Validation Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Has Title", "description": "Has Desc", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Try to clear both title and description — should fail
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "", "description": "", "actor_name": "T"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::BadRequest);
+    let err: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(err["code"], "EMPTY_TASK");
+}
+
+#[test]
+fn test_http_update_task_partial() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Update Partial Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Original", "description": "Keep this", "column_id": "{}", "priority": 1, "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Update only the title
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"title": "Updated Title", "actor_name": "T"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let updated: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(updated["title"], "Updated Title");
+    assert_eq!(updated["description"], "Keep this");
+    assert_eq!(updated["priority"], 1);
+}
+
+// ============ Comment Edge Cases ============
+
+#[test]
+fn test_http_comment_empty_message() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Comment Empty Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Comment Test", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Empty comment message
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(r#"{"message": "", "actor_name": "T"}"#)
+        .dispatch();
+    // Should reject empty comment
+    assert!(resp.status() == Status::BadRequest || resp.status() == Status::UnprocessableEntity,
+        "Empty comment should be rejected, got {:?}", resp.status());
+}
+
+#[test]
+fn test_http_comment_no_auth() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Comment Auth Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "Auth Test", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+
+    // Comment without auth — should fail since comments require manage key
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, task_id))
+        .header(ContentType::JSON)
+        .body(r#"{"message": "Unauthorized comment", "actor_name": "Hacker"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Unauthorized);
+}
+
+// ============ Activity Feed Filters ============
+
+#[test]
+fn test_http_activity_feed_with_limit() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Activity Limit Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create several tasks to generate activity
+    for i in 1..=5 {
+        client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(auth.clone())
+            .body(format!(r#"{{"title": "Task {}", "column_id": "{}", "actor_name": "T"}}"#, i, col_id))
+            .dispatch();
+    }
+
+    // Get activity with limit
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=2", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let activity: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(activity.len(), 2);
+
+    // Each event should have a seq field
+    assert!(activity[0]["seq"].is_number(), "Activity events should have seq field");
+}
+
+#[test]
+fn test_http_activity_feed_cursor_pagination() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Activity Cursor Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create tasks to generate events
+    for i in 1..=4 {
+        client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(auth.clone())
+            .body(format!(r#"{{"title": "Cursor Task {}", "column_id": "{}", "actor_name": "T"}}"#, i, col_id))
+            .dispatch();
+    }
+
+    // Get first page
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?limit=2", board_id))
+        .dispatch();
+    let page1: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(page1.len(), 2);
+
+    // Use after= cursor from last event to get next page
+    // Activity is newest-first by default, but after= returns ASC order
+    let last_seq = page1.last().unwrap()["seq"].as_i64().unwrap();
+    let resp = client
+        .get(format!("/api/v1/boards/{}/activity?after={}&limit=10", board_id, last_seq))
+        .dispatch();
+    let page2: Vec<serde_json::Value> = resp.into_json().unwrap();
+    // Should get remaining events after the cursor
+    assert!(!page2.is_empty(), "Should have events after cursor");
+
+    // All events in page2 should have seq > last_seq
+    for evt in &page2 {
+        let seq = evt["seq"].as_i64().unwrap();
+        assert!(seq > last_seq, "Event seq {} should be > cursor {}", seq, last_seq);
+    }
+}
+
+// ============ Dependency Listing with Filter ============
+
+#[test]
+fn test_http_dependency_list_with_task_filter() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Dep Filter Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create 3 tasks
+    let mut task_ids = Vec::new();
+    for i in 1..=3 {
+        let resp = client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(auth.clone())
+            .body(format!(r#"{{"title": "Dep Task {}", "column_id": "{}", "actor_name": "T"}}"#, i, col_id))
+            .dispatch();
+        let task: serde_json::Value = resp.into_json().unwrap();
+        task_ids.push(task["id"].as_str().unwrap().to_string());
+    }
+
+    // Create dependencies: Task1 blocks Task2, Task1 blocks Task3
+    client
+        .post(format!("/api/v1/boards/{}/dependencies", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"blocker_task_id": "{}", "blocked_task_id": "{}"}}"#, task_ids[0], task_ids[1]))
+        .dispatch();
+    client
+        .post(format!("/api/v1/boards/{}/dependencies", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"blocker_task_id": "{}", "blocked_task_id": "{}"}}"#, task_ids[0], task_ids[2]))
+        .dispatch();
+
+    // List all dependencies
+    let resp = client
+        .get(format!("/api/v1/boards/{}/dependencies", board_id))
+        .dispatch();
+    let deps: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(deps.len(), 2);
+
+    // Filter by task ID — should show deps involving that task
+    let resp = client
+        .get(format!("/api/v1/boards/{}/dependencies?task={}", board_id, task_ids[1]))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let deps: Vec<serde_json::Value> = resp.into_json().unwrap();
+    assert_eq!(deps.len(), 1);
+}
+
+// ============ Board Not Found ============
+
+#[test]
+fn test_http_tasks_board_not_found() {
+    let client = test_client();
+
+    let resp = client
+        .get("/api/v1/boards/nonexistent-board/tasks")
+        .dispatch();
+    assert_eq!(resp.status(), Status::NotFound);
+}
+
+// ============ Task Create with Description Only ============
+
+#[test]
+fn test_http_create_task_description_only() {
+    let client = test_client();
+    let (board_id, manage_key) = create_test_board(&client, "Desc Only Board");
+    let auth = Header::new("Authorization", format!("Bearer {}", manage_key));
+
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let board: serde_json::Value = resp.into_json().unwrap();
+    let col_id = board["columns"][0]["id"].as_str().unwrap();
+
+    // Create task with only description (empty title)
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(auth.clone())
+        .body(format!(r#"{{"title": "", "description": "Just a description", "column_id": "{}", "actor_name": "T"}}"#, col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(task["description"], "Just a description");
 }
