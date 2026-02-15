@@ -551,6 +551,10 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Search toggle visual feedback** ✅ Done — Mobile search button now shows slightly lighter background (#475569) when search bar is expanded. Commit: 509f928.
 - **Verified playbooks for actor param** ✅ Confirmed — All playbooks use `?actor=` and `"actor_name"` correctly (board-manager.md verified).
 
+### Completed (2026-02-15 Daytime, Session — 23:30 UTC)
+
+- **Expanded HTTP test coverage** ✅ Done — 23 new HTTP tests covering previously untested areas: task query filters (column, priority, label, assigned, claimed, archived, limit/offset — 7 tests), webhook HTTP CRUD + error paths (6 tests), board archive listing (1 test), task update validation (2 tests), comment edge cases (2 tests), activity feed limit + cursor pagination (2 tests), dependency listing with task filter (1 test), description-only task creation + board-not-found (2 tests). Also fixed pre-existing clippy warning (unused col_id). Test count: 64 → 87 (73 HTTP + 14 integration). Commit: 6eb4b95.
+
 ### Completed (2026-02-15 Daytime, Session — 22:25 UTC)
 
 - **Backend route decomposition** ✅ Done — Monolithic 3266-line `backend/src/routes.rs` split into 12 focused module files under `backend/src/routes/`. Shared helpers (normalize_label, extract_mentions, db_error, not_found, check_wip_limit, log_event, load responses, row_to_task) in mod.rs with re-exports for backward compatibility. Domain routes: system, boards, columns, tasks, task_actions, batch, search, activity, comments, stream, webhook_routes, dependencies. No file over 450 lines. Zero functional changes. All 64 tests pass. Zero warnings. Commit: 5dd0049.
