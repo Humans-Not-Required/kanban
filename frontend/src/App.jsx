@@ -165,32 +165,15 @@ function AutocompleteInput({ value, onChange, suggestions, placeholder, style, i
 }
 
 // ---- Styled Select (custom chevron, consistent across platforms) ----
-// Uses wrapper <div> with CSS ::after pseudo-element for the chevron.
-// This approach works reliably on iOS Safari where background-image on <select>
-// elements and absolutely-positioned overlays both fail due to native compositing.
-// Inject global CSS once (::after pseudo-elements can't be done with inline styles).
+// Uses wrapper <div> with an actual <span> element for the chevron.
+// Previous ::after pseudo-element approach was invisible on iOS Safari.
+// Real DOM element is the most reliable cross-browser solution.
+// Inject global CSS once for appearance reset.
 if (typeof document !== 'undefined' && !document.getElementById('styled-select-css')) {
   const _ssStyle = document.createElement('style');
   _ssStyle.id = 'styled-select-css';
-  const _chevronSvg = encodeURIComponent(
-    '<svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 1.75L6 6.25L10.5 1.75" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-  );
   _ssStyle.textContent = `
     .ss-wrap { position: relative; display: inline-flex; }
-    .ss-wrap::after {
-      content: '';
-      position: absolute;
-      right: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 12px;
-      height: 8px;
-      background-image: url("data:image/svg+xml,${_chevronSvg}");
-      background-repeat: no-repeat;
-      background-size: 12px 8px;
-      pointer-events: none;
-      z-index: 1;
-    }
     .ss-wrap select {
       -webkit-appearance: none !important;
       -moz-appearance: none !important;
@@ -215,11 +198,26 @@ function StyledSelect({ style, children, ...props }) {
     width: '100%',
     flex: 1,
   };
+  const chevronStyle = {
+    position: 'absolute',
+    right: '16px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    pointerEvents: 'none',
+    zIndex: 1,
+    display: 'flex',
+    alignItems: 'center',
+  };
   return (
     <div className="ss-wrap" style={wrapStyle}>
       <select style={selectStyle} {...props}>
         {children}
       </select>
+      <span style={chevronStyle}>
+        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M1.5 1.75L6 6.25L10.5 1.75" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
     </div>
   );
 }
