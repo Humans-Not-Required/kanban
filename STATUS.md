@@ -367,7 +367,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
   - ✅ Deploy pipeline healthy: Watchtower pulling latest images, CI/CD all green, all 4 services UP
 - **Kanban tasks updated** - added verification comments to "Board option to disable anonymous" (c10bc7dc) and "Check deploy" (d6c982ea)
 
-*Last updated: 2026-02-10 09:52 UTC - verification pass. Tests: 52 backend (38 HTTP + 14 integration) all passing.*
+*Last updated: 2026-02-16 02:40 UTC. Tests: 123 (103 HTTP + 14 integration + 6 unit) all passing.*
 
 ### Completed (2026-02-09 Overnight, Session 4 - 09:05 UTC)
 
@@ -553,12 +553,13 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 
 ### Completed (2026-02-16 Daytime, Session — 00:00 UTC)
 
+- **Expanded HTTP test coverage (30 new tests)** ✅ Done — Batch operations (move/update/delete/empty/no-auth/bad-column/mixed/skip-nonexistent), dependencies (create/self-ref/circular-direct/circular-indirect/duplicate/nonexistent-task/no-auth/empty-list), move error paths, delete error paths, unarchive board, custom columns, write-on-archived, search edge cases, activity mentioned filter, claim/release edge cases, priority string parsing, WIP limit enforcement. 93 → 123 total tests. Commit: 4807334.
 - **StyledSelect rewrite: CSS ::after pseudo-element** ✅ Done — Previous background-image SVG approach still failed on iOS Safari. Rewrote StyledSelect to use a wrapper `<div class="ss-wrap">` with CSS `::after` pseudo-element for the chevron (same pattern as Bootstrap/Tailwind). Global CSS injected once via `<style>` element. Layout properties (flex, minWidth, width, gridColumn) forwarded to wrapper; select gets appearance:none !important via CSS class. Commit: a11ce06.
 - **Clippy fix** ✅ Done — Resolved `manual_clamp` warning: `.min(1000).max(1)` → `.clamp(1, 1000)`. Zero clippy warnings. Commit: 8414757.
 - **llms.txt accuracy** ✅ Done — Fixed priority mapping (was 0=critical, corrected to 0=low→3=critical). Added missing `?actor=` params on release/move/archive/unarchive/delete endpoints. Added `?after=` cursor and `?mentioned=` filter on activity endpoint. Commit: e37eeb8.
 - **Verified Jordan bugs resolved:** (1) "New board default text" — removed in commit fae0d2e, deployed. (2) "Actor param in playbooks" — all playbooks already use correct `?actor=`/`actor_name`. (3) Chevron on iOS — rewritten with robust CSS approach above.
 
-- Test suite: **93 unique tests** (73 HTTP + 14 integration + 6 unit). Zero clippy warnings. CI green.
+- Test suite: **123 unique tests** (103 HTTP + 14 integration + 6 unit). Zero clippy warnings. CI green.
 
 ### Completed (2026-02-15 Daytime, Session — 23:30 UTC)
 
