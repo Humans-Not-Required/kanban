@@ -479,7 +479,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [x] Board settings desc box (467a1a0b) - Fixed: minHeight 140px (commit 88e29bd).
 - [x] API.md documentation (c5a99ef0) - Created 500+ lines (commit 38647d4).
 - [x] Sibling naming feedback (c4b4586d, ff0c06f8, 1057e69d) - Collected: consensus is "Dispatch". Forge+Lux voted Dispatch, Drift agreed.
-- [x] iOS dropdown chevron (169fd738) - **Re-fixed (commit 8cb5764):** Replaced overlay approach with background-image SVG data URL. Previous fix still failed on iOS because absolute-positioned elements get hidden by native select compositing. New approach embeds chevron as backgroundImage, converts `background` shorthand to `backgroundColor` to prevent wipe, removes wrapper div entirely.
+- [x] iOS dropdown chevron (169fd738) - **Re-fixed (commit 943841b):** Replaced CSS ::after pseudo-element with actual `<span>` DOM element containing SVG chevron. Most reliable cross-browser approach — previous CSS pseudo-element, background-image, and overlay approaches all failed on iOS Safari due to native select compositing.
 - [x] Filter left indentation (2b82ac9c, 0a8a402f) - Fixed (commit fa1fb7e).
 - [x] Activity My Items default tab (00d6fe2a) - Verified done (commit 233f2e1).
 - [x] Anonymous in activity log (6a7d5297) - Verified done (commits eed7724, d9ba12e, e8063d4, 179c495).
@@ -491,6 +491,11 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - [ ] Kanban: Find a catchier product name (cf7a6d06) - Sibling consensus: "Dispatch". Awaiting Jordan's decision.
 - [x] "New board default" text still visible (828e8cb8) - Confirmed: only a JSX comment (`{/* ... */}`) remains in code, invisible to users. No visible text in any page. Browser cache issue.
 <!-- WORK_QUEUE_DIRECTIONS_END -->
+
+### Completed (2026-02-16 Daytime, Session — 02:55 UTC)
+
+- **StyledSelect chevron: real DOM element approach** ✅ Done — Fourth iteration of the iOS chevron fix. Replaced CSS ::after pseudo-element with actual `<span>` containing inline SVG. Previous approaches (overlay span, background-image, ::after pseudo-element) all failed on iOS Safari due to native `<select>` compositing. Real DOM element is the most robust cross-browser solution. Moved chevron from right:14px to right:16px for better desktop spacing. Commit: 943841b. 123 tests passing.
+- **Playbook actor param verification** ✅ Done — Confirmed all active playbooks use correct `?actor=` (not `?agent=`) and `actor_name` (not `actor`) conventions. Archived playbooks have old references but are not actively used.
 
 ### Completed (2026-02-14 Overnight, Session — 10:45 UTC)
 
