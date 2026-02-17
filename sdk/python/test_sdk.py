@@ -298,8 +298,9 @@ class TestTasks(KanbanTestCase):
     def test_list_tasks_filter_priority(self):
         self.kb.create_task(f"High {time.time_ns()}", priority=2)
         tasks = self.kb.list_tasks(priority=2)
+        self.assertTrue(len(tasks) >= 1, "Should return at least one task")
         for t in tasks:
-            self.assertEqual(t["priority"], 2)
+            self.assertGreaterEqual(t["priority"], 2, "Priority filter uses >= comparison")
 
     def test_list_tasks_filter_label(self):
         label = f"sdk-{time.time_ns()}"
