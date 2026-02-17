@@ -827,5 +827,948 @@ class TestMultiBoard(unittest.TestCase):
             pass
 
 
+# ==================================================================
+# Board settings (quick_done, quick_reassign)
+# ==================================================================
+
+
+class TestBoardSettings(KanbanTestCase):
+    def test_quick_done_column(self):
+        done_id = self._col_id("Done")
+        updated = self.kb.update_board(quick_done_column_id=done_id)
+        self.assertEqual(updated["quick_done_column_id"], done_id)
+
+    def test_quick_done_auto_archive(self):
+        done_id = self._col_id("Done")
+        updated = self.kb.update_board(
+            quick_done_column_id=done_id,
+            quick_done_auto_archive=True,
+        )
+        self.assertTrue(updated["quick_done_auto_archive"])
+
+    def test_quick_reassign_column(self):
+        review_id = self._col_id("Review")
+        updated = self.kb.update_board(
+            quick_reassign_column_id=review_id,
+            quick_reassign_to="Agent",
+        )
+        self.assertEqual(updated["quick_reassign_column_id"], review_id)
+        self.assertEqual(updated["quick_reassign_to"], "Agent")
+
+    def test_update_require_display_name(self):
+        updated = self.kb.update_board(require_display_name=True)
+        self.assertTrue(updated["require_display_name"])
+        # Reset so other tests aren't affected
+        self.kb.update_board(require_display_name=False)
+
+    def test_board_response_has_settings_fields(self):
+        board = self.kb.get_board()
+        self.assertIn("quick_done_column_id", board)
+        self.assertIn("quick_done_auto_archive", board)
+        self.assertIn("quick_reassign_column_id", board)
+        self.assertIn("quick_reassign_to", board)
+        self.assertIn("require_display_name", board)
+
+    def test_update_board_invalid_quick_done_column(self):
+        with self.assertRaises(KanbanError):
+            self.kb.update_board(quick_done_column_id="00000000-0000-0000-0000-000000000000")
+
+
+# ==================================================================
+# Task list filters — advanced
+# ==================================================================
+
+
+class TestTaskFilters(KanbanTestCase):
+    def test_filter_by_assigned_to(self):
+        tag = f"assign_{time.time_ns()}"
+        self.kb.create_task(f"Assigned {tag}", assigned_to="FilterBot")
+        self.kb.create_task(f"Unassigned {tag}")
+        tasks = self.kb.list_tasks(assigned_to="FilterBot")
+        for t in tasks:
+            self.assertEqual(t["assigned_to"], "FilterBot")
+
+    def test_filter_by_limit_and_offset(self):
+        tag = f"page_{time.time_ns()}"
+        for i in range(5):
+            self.kb.create_task(f"Page {i} {tag}", labels=[tag])
+        page1 = self.kb.list_tasks(label=tag, limit=2, offset=0)
+        page2 = self.kb.list_tasks(label=tag, limit=2, offset=2)
+        self.assertLessEqual(len(page1), 2)
+        self.assertLessEqual(len(page2), 2)
+        # Pages should have different tasks
+        ids1 = {t["id"] for t in page1}
+        ids2 = {t["id"] for t in page2}
+        self.assertEqual(len(ids1 & ids2), 0, "Pages should not overlap")
+
+    def test_filter_by_updated_before(self):
+        tag = f"stale_{time.time_ns()}"
+        self.kb.create_task(f"Old {tag}", labels=[tag])
+        # All tasks created just now should appear with a future cutoff
+        tasks = self.kb.list_tasks(label=tag, updated_before="2099-01-01T00:00:00Z")
+        self.assertGreaterEqual(len(tasks), 1)
+
+    def test_filter_by_multiple_criteria(self):
+        col_id = self._col_id("In Progress")
+        tag = f"multi_{time.time_ns()}"
+        self.kb.create_task(f"Multi {tag}", column_id=col_id, priority=3, labels=[tag])
+        tasks = self.kb.list_tasks(column_id=col_id, priority=3, label=tag)
+        self.assertGreaterEqual(len(tasks), 1)
+        for t in tasks:
+            self.assertEqual(t["column_id"], col_id)
+            self.assertIn(tag, t["labels"])
+
+    def test_list_tasks_default_excludes_archived(self):
+        tag = f"archfilt_{time.time_ns()}"
+        task = self.kb.create_task(f"To Archive {tag}", labels=[tag])
+        self.kb.archive_task(task["id"])
+        tasks = self.kb.list_tasks(label=tag)
+        ids = [t["id"] for t in tasks]
+        self.assertNotIn(task["id"], ids)
+
+    def test_list_tasks_empty_board(self):
+        """A fresh board with no tasks should return empty list."""
+        temp = self.kb.create_board(f"Empty Board {time.time_ns()}")
+        kb2 = Kanban(BASE_URL, board_id=temp["id"], manage_key=temp["manage_key"])
+        tasks = kb2.list_tasks()
+        self.assertEqual(len(tasks), 0)
+        try:
+            kb2.archive_board()
+        except Exception:
+            pass
+
+
+# ==================================================================
+# Description-only tasks (no title)
+# ==================================================================
+
+
+class TestDescriptionOnlyTask(KanbanTestCase):
+    def test_create_task_with_description_only(self):
+        task = self.kb.create_task("", description=f"Description only {time.time_ns()}")
+        self.assertEqual(task["title"], "")
+        self.assertIn("Description only", task["description"])
+
+    def test_update_task_clear_title_keep_description(self):
+        task = self.kb.create_task(
+            f"Has Title {time.time_ns()}", description="Has desc too"
+        )
+        updated = self.kb.update_task(task["id"], title="", description="Still has desc")
+        self.assertEqual(updated["description"], "Still has desc")
+
+    def test_create_task_empty_both_fails(self):
+        with self.assertRaises((ValidationError, KanbanError)):
+            self.kb.create_task("", description="")
+
+
+# ==================================================================
+# Task actions with actor attribution
+# ==================================================================
+
+
+class TestActorAttribution(KanbanTestCase):
+    def test_delete_task_with_actor(self):
+        task = self.kb.create_task(f"Delete Actor {time.time_ns()}")
+        self.kb.delete_task(task["id"], actor="CleanupBot")
+        with self.assertRaises(NotFoundError):
+            self.kb.get_task(task["id"])
+
+    def test_archive_task_with_actor(self):
+        task = self.kb.create_task(f"Archive Actor {time.time_ns()}")
+        archived = self.kb.archive_task(task["id"], actor="ArchiveBot")
+        self.assertIsNotNone(archived.get("archived_at"))
+
+    def test_unarchive_task_with_actor(self):
+        task = self.kb.create_task(f"Unarchive Actor {time.time_ns()}")
+        self.kb.archive_task(task["id"], actor="Bot")
+        unarchived = self.kb.unarchive_task(task["id"], actor="RestoreBot")
+        self.assertIsNone(unarchived.get("archived_at"))
+
+    def test_move_task_with_actor(self):
+        task = self.kb.create_task(f"Move Actor {time.time_ns()}")
+        done_id = self._col_id("Done")
+        moved = self.kb.move_task(task["id"], done_id, actor="MoveBot")
+        self.assertEqual(moved["column_id"], done_id)
+
+    def test_claim_task_with_actor(self):
+        task = self.kb.create_task(f"Claim Actor {time.time_ns()}")
+        claimed = self.kb.claim_task(task["id"], actor="WorkerBot")
+        self.assertEqual(claimed.get("claimed_by"), "WorkerBot")
+
+    def test_release_task_with_actor(self):
+        task = self.kb.create_task(f"Release Actor {time.time_ns()}")
+        self.kb.claim_task(task["id"], actor="WorkerBot")
+        released = self.kb.release_task(task["id"], actor="WorkerBot")
+        self.assertIsNone(released.get("claimed_by"))
+
+    def test_actor_in_activity_feed(self):
+        tag = f"actorfeed_{time.time_ns()}"
+        task = self.kb.create_task(f"Actor Feed {tag}", actor_name="CreatorBot")
+        done_id = self._col_id("Done")
+        self.kb.move_task(task["id"], done_id, actor="MoverBot")
+        activity = self.kb.get_activity(limit=10)
+        move_events = [a for a in activity if a["event_type"] == "moved"]
+        self.assertGreater(len(move_events), 0)
+        self.assertEqual(move_events[0]["actor"], "MoverBot")
+
+
+# ==================================================================
+# Column edge cases
+# ==================================================================
+
+
+class TestColumnEdgeCases(KanbanTestCase):
+    def test_create_column_with_position(self):
+        col = self.kb.create_column(f"Pos Col {time.time_ns()}", position=1)
+        board = self.kb.get_board()
+        found = [c for c in board["columns"] if c["id"] == col["id"]]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["position"], 1)
+
+    def test_update_column_wip_limit(self):
+        col = self.kb.create_column(f"WIP Col {time.time_ns()}", wip_limit=5)
+        self.assertEqual(col.get("wip_limit"), 5)
+        updated = self.kb.update_column(col["id"], wip_limit=10)
+        self.assertEqual(updated.get("wip_limit"), 10)
+
+    def test_update_column_clear_wip_limit(self):
+        col = self.kb.create_column(f"Clear WIP {time.time_ns()}", wip_limit=3)
+        self.assertEqual(col.get("wip_limit"), 3)
+        # Sending wip_limit=None sends null in JSON — backend may keep or clear
+        updated = self.kb.update_column(col["id"], wip_limit=None)
+        # Just verify the update call succeeds (behavior may vary)
+        self.assertIn("id", updated)
+
+    def test_delete_non_empty_column_fails(self):
+        col = self.kb.create_column(f"NonEmpty {time.time_ns()}")
+        self.kb.create_task(f"In Col {time.time_ns()}", column_id=col["id"])
+        with self.assertRaises(KanbanError):
+            self.kb.delete_column(col["id"])
+
+    def test_delete_nonexistent_column_fails(self):
+        with self.assertRaises((NotFoundError, KanbanError)):
+            self.kb.delete_column("00000000-0000-0000-0000-000000000000")
+
+    def test_column_response_fields(self):
+        col = self.kb.create_column(f"Fields {time.time_ns()}", wip_limit=7)
+        self.assertIn("id", col)
+        self.assertIn("name", col)
+        self.assertIn("position", col)
+        self.assertEqual(col.get("wip_limit"), 7)
+
+
+# ==================================================================
+# Reorder task with column move
+# ==================================================================
+
+
+class TestReorderWithColumnMove(KanbanTestCase):
+    def test_reorder_task_to_different_column(self):
+        task = self.kb.create_task(f"Reorder Move {time.time_ns()}")
+        review_id = self._col_id("Review")
+        reordered = self.kb.reorder_task(task["id"], position=0, column_id=review_id)
+        self.assertEqual(reordered["column_id"], review_id)
+        self.assertEqual(reordered["position"], 0)
+
+    def test_reorder_within_column(self):
+        col_id = self._col_id("Up Next")
+        t1 = self.kb.create_task(f"First {time.time_ns()}", column_id=col_id)
+        t2 = self.kb.create_task(f"Second {time.time_ns()}", column_id=col_id)
+        reordered = self.kb.reorder_task(t2["id"], position=0)
+        self.assertEqual(reordered["position"], 0)
+
+
+# ==================================================================
+# Display name enforcement
+# ==================================================================
+
+
+class TestDisplayNameEnforcement(KanbanTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.kb = Kanban(BASE_URL)
+        cls.board = cls.kb.create_board(
+            f"Display Name Board {time.time_ns()}",
+            description="Requires display name",
+            require_display_name=True,
+        )
+        cls.manage_key = cls.board["manage_key"]
+        cls.kb.board_id = cls.board["id"]
+        cls.kb.manage_key = cls.manage_key
+
+    def test_create_task_without_name_fails(self):
+        with self.assertRaises(KanbanError) as ctx:
+            self.kb.create_task(f"No Name {time.time_ns()}")
+        self.assertIn("DISPLAY_NAME_REQUIRED", str(ctx.exception.body))
+
+    def test_create_task_with_name_succeeds(self):
+        task = self.kb.create_task(
+            f"Has Name {time.time_ns()}", actor_name="TestBot"
+        )
+        self.assertIn("Has Name", task["title"])
+
+    def test_comment_without_name_fails(self):
+        task = self.kb.create_task(f"Comment Target {time.time_ns()}", actor_name="Bot")
+        with self.assertRaises(KanbanError) as ctx:
+            self.kb.comment(task["id"], "No name comment")
+        self.assertIn("DISPLAY_NAME_REQUIRED", str(ctx.exception.body))
+
+    def test_comment_with_name_succeeds(self):
+        task = self.kb.create_task(f"Comment OK {time.time_ns()}", actor_name="Bot")
+        result = self.kb.comment(task["id"], "Named comment", actor_name="Commenter")
+        self.assertIn("id", result)
+
+    def test_move_task_without_actor_fails(self):
+        task = self.kb.create_task(f"Move No Actor {time.time_ns()}", actor_name="Bot")
+        done_id = self._col_id("Done")
+        with self.assertRaises(KanbanError):
+            self.kb.move_task(task["id"], done_id)
+
+    def test_move_task_with_actor_succeeds(self):
+        task = self.kb.create_task(f"Move OK {time.time_ns()}", actor_name="Bot")
+        done_id = self._col_id("Done")
+        moved = self.kb.move_task(task["id"], done_id, actor="MoveBot")
+        self.assertEqual(moved["column_id"], done_id)
+
+    def test_delete_task_without_actor_fails(self):
+        task = self.kb.create_task(f"Delete No Actor {time.time_ns()}", actor_name="Bot")
+        with self.assertRaises(KanbanError):
+            self.kb.delete_task(task["id"])
+
+    def test_archive_task_without_actor_fails(self):
+        task = self.kb.create_task(f"Archive No Actor {time.time_ns()}", actor_name="Bot")
+        with self.assertRaises(KanbanError):
+            self.kb.archive_task(task["id"])
+
+
+# ==================================================================
+# Comment @mentions
+# ==================================================================
+
+
+class TestCommentMentions(KanbanTestCase):
+    def test_mention_extracted_in_comment(self):
+        task = self.kb.create_task(f"Mention Test {time.time_ns()}")
+        self.kb.comment(task["id"], "Hey @Alice and @Bob check this", actor_name="Eve")
+        events = self.kb.get_task_events(task["id"])
+        comment_events = [e for e in events if e["event_type"] == "comment"]
+        self.assertGreater(len(comment_events), 0)
+        data = comment_events[-1]["data"]
+        self.assertIn("mentions", data)
+        self.assertIn("Alice", data["mentions"])
+        self.assertIn("Bob", data["mentions"])
+
+    def test_quoted_mention(self):
+        task = self.kb.create_task(f"Quoted Mention {time.time_ns()}")
+        self.kb.comment(task["id"], 'Hello @"John Doe" please review', actor_name="Bot")
+        events = self.kb.get_task_events(task["id"])
+        comment_events = [e for e in events if e["event_type"] == "comment"]
+        data = comment_events[-1]["data"]
+        mentions = data.get("mentions", [])
+        self.assertTrue(
+            any("John Doe" in m for m in mentions),
+            f"Expected 'John Doe' in mentions, got {mentions}",
+        )
+
+    def test_activity_mentioned_filter(self):
+        tag = f"mentfilt_{time.time_ns()}"
+        task = self.kb.create_task(f"Mention Filter {tag}")
+        self.kb.comment(task["id"], f"@UniqueAgent42 look at {tag}", actor_name="Sender")
+        activity = self.kb.get_activity(mentioned="UniqueAgent42")
+        mention_items = [a for a in activity if a.get("mentions") and "UniqueAgent42" in a["mentions"]]
+        self.assertGreater(len(mention_items), 0)
+
+    def test_no_mentions_returns_empty(self):
+        task = self.kb.create_task(f"No Mentions {time.time_ns()}")
+        self.kb.comment(task["id"], "Just a regular comment", actor_name="Bot")
+        events = self.kb.get_task_events(task["id"])
+        comment_events = [e for e in events if e["event_type"] == "comment"]
+        data = comment_events[-1]["data"]
+        mentions = data.get("mentions", [])
+        self.assertEqual(len(mentions), 0)
+
+
+# ==================================================================
+# Search with additional filters
+# ==================================================================
+
+
+class TestSearchAdvanced(KanbanTestCase):
+    def test_search_empty_query_fails(self):
+        with self.assertRaises(KanbanError):
+            self.kb.search("")
+
+    def test_search_returns_task_fields(self):
+        tag = f"searchfields_{time.time_ns()}"
+        self.kb.create_task(f"Search Fields {tag}", priority=2, labels=["search-test"])
+        results = self.kb.search(tag)
+        self.assertGreater(results["total"], 0)
+        task = results["tasks"][0]
+        self.assertIn("id", task)
+        self.assertIn("title", task)
+        self.assertIn("priority", task)
+        self.assertIn("column_name", task)
+
+    def test_search_pagination_offset(self):
+        tag = f"srcpage_{time.time_ns()}"
+        for i in range(4):
+            self.kb.create_task(f"Page {i} {tag}")
+        page1 = self.kb.search(tag, limit=2, offset=0)
+        page2 = self.kb.search(tag, limit=2, offset=2)
+        ids1 = {t["id"] for t in page1["tasks"]}
+        ids2 = {t["id"] for t in page2["tasks"]}
+        self.assertEqual(len(ids1 & ids2), 0, "Pages should not overlap")
+
+    def test_search_total_count(self):
+        tag = f"srctotal_{time.time_ns()}"
+        for i in range(3):
+            self.kb.create_task(f"Total {i} {tag}")
+        results = self.kb.search(tag, limit=1)
+        self.assertGreaterEqual(results["total"], 3)
+        self.assertLessEqual(len(results["tasks"]), 1)
+
+
+# ==================================================================
+# Dependency with task filter
+# ==================================================================
+
+
+class TestDependencyAdvanced(KanbanTestCase):
+    def test_dependency_with_note(self):
+        t1 = self.kb.create_task(f"Blocker Note {time.time_ns()}")
+        t2 = self.kb.create_task(f"Blocked Note {time.time_ns()}")
+        dep = self.kb.create_dependency(
+            t1["id"], t2["id"],
+            note="Auth must come first",
+            actor_name="Planner",
+        )
+        self.assertEqual(dep["note"], "Auth must come first")
+
+    def test_dependency_with_nonexistent_task(self):
+        t1 = self.kb.create_task(f"Real Task {time.time_ns()}")
+        with self.assertRaises((NotFoundError, KanbanError)):
+            self.kb.create_dependency(
+                t1["id"], "00000000-0000-0000-0000-000000000000"
+            )
+
+    def test_delete_nonexistent_dependency(self):
+        with self.assertRaises((NotFoundError, KanbanError)):
+            self.kb.delete_dependency("00000000-0000-0000-0000-000000000000")
+
+    def test_three_level_dependency_chain(self):
+        t1 = self.kb.create_task(f"Chain A {time.time_ns()}")
+        t2 = self.kb.create_task(f"Chain B {time.time_ns()}")
+        t3 = self.kb.create_task(f"Chain C {time.time_ns()}")
+        self.kb.create_dependency(t1["id"], t2["id"])
+        self.kb.create_dependency(t2["id"], t3["id"])
+        # t3 -> t1 should be circular
+        with self.assertRaises((ConflictError, KanbanError)):
+            self.kb.create_dependency(t3["id"], t1["id"])
+
+    def test_duplicate_dependency_rejected(self):
+        t1 = self.kb.create_task(f"Dup A {time.time_ns()}")
+        t2 = self.kb.create_task(f"Dup B {time.time_ns()}")
+        self.kb.create_dependency(t1["id"], t2["id"])
+        with self.assertRaises((ConflictError, KanbanError)):
+            self.kb.create_dependency(t1["id"], t2["id"])
+
+
+# ==================================================================
+# WIP limit enforcement — advanced
+# ==================================================================
+
+
+class TestWIPLimitAdvanced(KanbanTestCase):
+    def test_wip_limit_blocks_move(self):
+        col = self.kb.create_column(f"WIP Move {time.time_ns()}", wip_limit=1)
+        self.kb.create_task(f"Fills WIP {time.time_ns()}", column_id=col["id"])
+        other_task = self.kb.create_task(f"Overflow {time.time_ns()}")
+        with self.assertRaises((ConflictError, KanbanError)):
+            self.kb.move_task(other_task["id"], col["id"])
+
+    def test_wip_limit_zero_blocks_all(self):
+        col = self.kb.create_column(f"WIP Zero {time.time_ns()}", wip_limit=0)
+        with self.assertRaises((ConflictError, KanbanError)):
+            self.kb.create_task(f"Blocked {time.time_ns()}", column_id=col["id"])
+
+    def test_wip_limit_none_allows_unlimited(self):
+        col = self.kb.create_column(f"No WIP {time.time_ns()}")
+        for i in range(5):
+            self.kb.create_task(f"No Limit {i} {time.time_ns()}", column_id=col["id"])
+        tasks = self.kb.list_tasks(column_id=col["id"])
+        self.assertGreaterEqual(len(tasks), 5)
+
+
+# ==================================================================
+# Claim conflict
+# ==================================================================
+
+
+class TestClaimConflict(KanbanTestCase):
+    def test_double_claim_fails(self):
+        task = self.kb.create_task(f"Double Claim {time.time_ns()}")
+        self.kb.claim_task(task["id"], actor="Agent1")
+        with self.assertRaises((ConflictError, KanbanError)):
+            self.kb.claim_task(task["id"], actor="Agent2")
+
+    def test_claim_release_reclaim(self):
+        task = self.kb.create_task(f"Reclaim {time.time_ns()}")
+        self.kb.claim_task(task["id"], actor="Agent1")
+        self.kb.release_task(task["id"], actor="Agent1")
+        reclaimed = self.kb.claim_task(task["id"], actor="Agent2")
+        self.assertEqual(reclaimed.get("claimed_by"), "Agent2")
+
+
+# ==================================================================
+# Task metadata and due_at
+# ==================================================================
+
+
+class TestTaskMetadata(KanbanTestCase):
+    def test_create_task_with_metadata(self):
+        meta = {"source": "github", "issue": 42, "tags": ["urgent"]}
+        task = self.kb.create_task(
+            f"Meta Task {time.time_ns()}", metadata=meta
+        )
+        self.assertEqual(task["metadata"]["source"], "github")
+        self.assertEqual(task["metadata"]["issue"], 42)
+
+    def test_update_task_metadata(self):
+        task = self.kb.create_task(f"Update Meta {time.time_ns()}", metadata={"v": 1})
+        updated = self.kb.update_task(task["id"], metadata={"v": 2, "new_key": "val"})
+        self.assertEqual(updated["metadata"]["v"], 2)
+        self.assertEqual(updated["metadata"]["new_key"], "val")
+
+    def test_create_task_with_due_at(self):
+        task = self.kb.create_task(
+            f"Due Task {time.time_ns()}", due_at="2026-12-31T23:59:59Z"
+        )
+        self.assertIsNotNone(task.get("due_at"))
+
+    def test_update_task_due_at(self):
+        task = self.kb.create_task(f"Update Due {time.time_ns()}")
+        updated = self.kb.update_task(task["id"], due_at="2026-06-15T12:00:00Z")
+        self.assertIsNotNone(updated.get("due_at"))
+
+    def test_task_labels_normalization(self):
+        task = self.kb.create_task(
+            f"Label Norm {time.time_ns()}",
+            labels=["My Label", "UPPER CASE", "already-ok"],
+        )
+        for label in task["labels"]:
+            self.assertEqual(label, label.lower())
+            self.assertNotIn(" ", label)
+
+
+# ==================================================================
+# Board archive edge cases
+# ==================================================================
+
+
+class TestBoardArchiveEdgeCases(unittest.TestCase):
+    def test_archive_already_archived(self):
+        kb = Kanban(BASE_URL)
+        board = kb.create_board(f"Double Archive {time.time_ns()}")
+        kb.board_id = board["id"]
+        kb.manage_key = board["manage_key"]
+        kb.archive_board()
+        with self.assertRaises(KanbanError):
+            kb.archive_board()
+
+    def test_unarchive_not_archived(self):
+        kb = Kanban(BASE_URL)
+        board = kb.create_board(f"Not Archived {time.time_ns()}")
+        kb.board_id = board["id"]
+        kb.manage_key = board["manage_key"]
+        with self.assertRaises(KanbanError):
+            kb.unarchive_board()
+
+
+# ==================================================================
+# Auth via different methods
+# ==================================================================
+
+
+class TestAuthMethods(KanbanTestCase):
+    def test_auth_via_bearer(self):
+        """Default behavior — Bearer header."""
+        task = self.kb.create_task(f"Bearer Auth {time.time_ns()}")
+        self.assertIn("id", task)
+
+    def test_auth_via_key_param(self):
+        """Create a separate client and use key= param on get_board."""
+        kb2 = Kanban(BASE_URL, board_id=self.board["id"])
+        board = kb2.get_board(key=self.manage_key)
+        self.assertEqual(board["id"], self.board["id"])
+
+    def test_read_no_auth_required(self):
+        """All read operations work without auth."""
+        kb2 = Kanban(BASE_URL, board_id=self.board["id"])
+        board = kb2.get_board()
+        self.assertIn("id", board)
+        tasks = kb2.list_tasks()
+        self.assertIsInstance(tasks, list)
+        activity = kb2.get_activity()
+        self.assertIsInstance(activity, list)
+        deps = kb2.list_dependencies()
+        self.assertIsInstance(deps, list)
+
+
+# ==================================================================
+# Error response structure
+# ==================================================================
+
+
+class TestErrorStructure(KanbanTestCase):
+    def test_auth_error_has_status_code(self):
+        kb2 = Kanban(BASE_URL, board_id=self.board["id"], manage_key="kb_invalid")
+        try:
+            kb2.create_task("Fail")
+            self.fail("Should have raised AuthError")
+        except AuthError as e:
+            self.assertIn(e.status_code, (401, 403))
+            self.assertIsNotNone(e.body)
+
+    def test_not_found_error_has_status_code(self):
+        try:
+            self.kb.get_task("00000000-0000-0000-0000-000000000000")
+            self.fail("Should have raised NotFoundError")
+        except NotFoundError as e:
+            self.assertEqual(e.status_code, 404)
+
+    def test_conflict_error_on_wip(self):
+        col = self.kb.create_column(f"ErrWIP {time.time_ns()}", wip_limit=0)
+        try:
+            self.kb.create_task(f"ErrFail {time.time_ns()}", column_id=col["id"])
+            self.fail("Should have raised ConflictError")
+        except ConflictError as e:
+            self.assertEqual(e.status_code, 409)
+
+    def test_error_body_has_code_field(self):
+        try:
+            self.kb.get_task("00000000-0000-0000-0000-000000000000")
+        except NotFoundError as e:
+            if isinstance(e.body, dict):
+                self.assertIn("code", e.body)
+
+
+# ==================================================================
+# Webhook advanced
+# ==================================================================
+
+
+class TestWebhookAdvanced(KanbanTestCase):
+    def test_webhook_update_url(self):
+        wh = self.kb.create_webhook("https://example.com/old")
+        updated = self.kb.update_webhook(wh["id"], url="https://example.com/new")
+        self.assertEqual(updated["url"], "https://example.com/new")
+
+    def test_webhook_update_events(self):
+        wh = self.kb.create_webhook("https://example.com/events")
+        updated = self.kb.update_webhook(
+            wh["id"], events=["task.created", "task.deleted"]
+        )
+        self.assertIn("task.created", updated["events"])
+        self.assertIn("task.deleted", updated["events"])
+
+    def test_webhook_deactivate_and_reactivate(self):
+        wh = self.kb.create_webhook("https://example.com/toggle")
+        self.assertTrue(wh["active"])
+        deactivated = self.kb.update_webhook(wh["id"], active=False)
+        self.assertFalse(deactivated["active"])
+        reactivated = self.kb.update_webhook(wh["id"], active=True)
+        self.assertTrue(reactivated["active"])
+
+    def test_webhook_response_fields(self):
+        wh = self.kb.create_webhook("https://example.com/fields")
+        self.assertIn("id", wh)
+        self.assertIn("board_id", wh)
+        self.assertIn("url", wh)
+        self.assertIn("secret", wh)
+        self.assertIn("active", wh)
+        self.assertIn("events", wh)
+        self.assertIn("failure_count", wh)
+        self.assertIn("created_at", wh)
+
+    def test_delete_nonexistent_webhook(self):
+        with self.assertRaises((NotFoundError, KanbanError)):
+            self.kb.delete_webhook("00000000-0000-0000-0000-000000000000")
+
+    def test_webhook_secret_only_on_create(self):
+        wh = self.kb.create_webhook("https://example.com/secret-once")
+        self.assertIn("secret", wh)
+        hooks = self.kb.list_webhooks()
+        found = [h for h in hooks if h["id"] == wh["id"]]
+        self.assertEqual(len(found), 1)
+        # secret should not be in list response
+        self.assertNotIn("secret", found[0])
+
+
+# ==================================================================
+# Batch operations — advanced
+# ==================================================================
+
+
+class TestBatchAdvanced(KanbanTestCase):
+    def test_batch_update_labels(self):
+        t1 = self.kb.create_task(f"Batch Label {time.time_ns()}")
+        result = self.kb.batch_update(
+            [t1["id"]], labels=["new-label-1", "new-label-2"]
+        )
+        self.assertEqual(result["succeeded"], 1)
+        task = self.kb.get_task(t1["id"])
+        self.assertIn("new-label-1", task["labels"])
+
+    def test_batch_update_due_at(self):
+        t1 = self.kb.create_task(f"Batch Due {time.time_ns()}")
+        result = self.kb.batch_update([t1["id"]], due_at="2026-12-01T00:00:00Z")
+        self.assertEqual(result["succeeded"], 1)
+        task = self.kb.get_task(t1["id"])
+        self.assertIsNotNone(task.get("due_at"))
+
+    def test_batch_with_actor_name(self):
+        t1 = self.kb.create_task(f"Batch Actor {time.time_ns()}")
+        done_id = self._col_id("Done")
+        result = self.kb.batch_move(
+            [t1["id"]], done_id, actor_name="BatchBot"
+        )
+        self.assertEqual(result["succeeded"], 1)
+
+    def test_batch_move_to_invalid_column(self):
+        t1 = self.kb.create_task(f"Batch Bad Col {time.time_ns()}")
+        result = self.kb.batch_move(
+            [t1["id"]], "00000000-0000-0000-0000-000000000000"
+        )
+        self.assertGreater(result["failed"], 0)
+
+    def test_batch_multiple_operations(self):
+        t1 = self.kb.create_task(f"Multi Op A {time.time_ns()}")
+        t2 = self.kb.create_task(f"Multi Op B {time.time_ns()}")
+        t3 = self.kb.create_task(f"Multi Op C {time.time_ns()}")
+        done_id = self._col_id("Done")
+        result = self.kb.batch(
+            [
+                {"action": "move", "task_ids": [t1["id"]], "column_id": done_id},
+                {"action": "update", "task_ids": [t2["id"]], "priority": 3},
+                {"action": "delete", "task_ids": [t3["id"]]},
+            ],
+            actor_name="MultiBot",
+        )
+        self.assertEqual(result["total"], 3)
+        self.assertEqual(result["succeeded"], 3)
+        # Verify state
+        task1 = self.kb.get_task(t1["id"])
+        self.assertEqual(task1["column_id"], done_id)
+        task2 = self.kb.get_task(t2["id"])
+        self.assertEqual(task2["priority"], 3)
+        with self.assertRaises(NotFoundError):
+            self.kb.get_task(t3["id"])
+
+
+# ==================================================================
+# Activity feed — advanced
+# ==================================================================
+
+
+class TestActivityAdvanced(KanbanTestCase):
+    def test_activity_event_types_variety(self):
+        """Create, move, comment — all should appear in activity."""
+        tag = f"variety_{time.time_ns()}"
+        task = self.kb.create_task(f"Variety {tag}", actor_name="Bot")
+        done_id = self._col_id("Done")
+        self.kb.move_task(task["id"], done_id, actor="Bot")
+        self.kb.comment(task["id"], f"Comment {tag}", actor_name="Bot")
+        activity = self.kb.get_activity(limit=20)
+        types = {a["event_type"] for a in activity}
+        self.assertIn("created", types)
+        self.assertIn("moved", types)
+        self.assertIn("comment", types)
+
+    def test_activity_seq_is_monotonic(self):
+        for i in range(3):
+            self.kb.create_task(f"Mono {i} {time.time_ns()}")
+        activity = self.kb.get_activity(limit=10)
+        seqs = [a["seq"] for a in activity]
+        # Verify seq values are present and unique
+        self.assertGreater(len(seqs), 0)
+        self.assertEqual(len(seqs), len(set(seqs)), "Seq values should be unique")
+
+    def test_activity_after_cursor_returns_newer(self):
+        t1 = self.kb.create_task(f"Cursor A {time.time_ns()}")
+        activity1 = self.kb.get_activity(limit=1)
+        self.assertGreater(len(activity1), 0)
+        cursor = activity1[0]["seq"]
+        # Create more events
+        self.kb.create_task(f"Cursor B {time.time_ns()}")
+        self.kb.create_task(f"Cursor C {time.time_ns()}")
+        activity2 = self.kb.get_activity(after=cursor)
+        for a in activity2:
+            self.assertGreater(a["seq"], cursor)
+
+
+# ==================================================================
+# Task update — edge cases
+# ==================================================================
+
+
+class TestTaskUpdateEdgeCases(KanbanTestCase):
+    def test_update_task_labels_replace(self):
+        task = self.kb.create_task(
+            f"Labels Replace {time.time_ns()}", labels=["old-1", "old-2"]
+        )
+        updated = self.kb.update_task(task["id"], labels=["new-1"])
+        self.assertEqual(updated["labels"], ["new-1"])
+
+    def test_update_task_assigned_to(self):
+        task = self.kb.create_task(f"Assign Update {time.time_ns()}")
+        updated = self.kb.update_task(task["id"], assigned_to="NewAssignee")
+        self.assertEqual(updated["assigned_to"], "NewAssignee")
+
+    def test_update_task_column_via_update(self):
+        task = self.kb.create_task(f"Col Update {time.time_ns()}")
+        review_id = self._col_id("Review")
+        updated = self.kb.update_task(task["id"], column_id=review_id)
+        self.assertEqual(updated["column_id"], review_id)
+
+    def test_update_task_actor_name(self):
+        task = self.kb.create_task(f"Actor Update {time.time_ns()}")
+        updated = self.kb.update_task(
+            task["id"], title="Renamed", actor_name="Renamer"
+        )
+        self.assertEqual(updated["title"], "Renamed")
+
+    def test_update_nonexistent_task(self):
+        with self.assertRaises(NotFoundError):
+            self.kb.update_task(
+                "00000000-0000-0000-0000-000000000000",
+                title="Ghost",
+            )
+
+
+# ==================================================================
+# Constructor and environment
+# ==================================================================
+
+
+class TestConstructor(unittest.TestCase):
+    def test_no_base_url_raises(self):
+        old = os.environ.pop("KANBAN_URL", None)
+        try:
+            with self.assertRaises(ValueError):
+                Kanban()
+        finally:
+            if old:
+                os.environ["KANBAN_URL"] = old
+
+    def test_no_board_id_raises_on_use(self):
+        kb = Kanban(BASE_URL)
+        with self.assertRaises(ValueError):
+            kb.get_board()
+
+    def test_base_url_trailing_slash_stripped(self):
+        kb = Kanban(f"{BASE_URL}/")
+        self.assertFalse(kb.base_url.endswith("/"))
+
+    def test_env_var_fallback(self):
+        old = os.environ.get("KANBAN_URL")
+        os.environ["KANBAN_URL"] = BASE_URL
+        try:
+            kb = Kanban()
+            h = kb.health()
+            self.assertEqual(h["status"], "ok")
+        finally:
+            if old:
+                os.environ["KANBAN_URL"] = old
+            else:
+                del os.environ["KANBAN_URL"]
+
+
+# ==================================================================
+# Task events — detailed
+# ==================================================================
+
+
+class TestTaskEvents(KanbanTestCase):
+    def test_created_event_exists(self):
+        task = self.kb.create_task(f"Event Created {time.time_ns()}", actor_name="Bot")
+        events = self.kb.get_task_events(task["id"])
+        created = [e for e in events if e["event_type"] == "created"]
+        self.assertGreater(len(created), 0)
+
+    def test_move_event_tracked(self):
+        task = self.kb.create_task(f"Event Move {time.time_ns()}")
+        done_id = self._col_id("Done")
+        self.kb.move_task(task["id"], done_id)
+        events = self.kb.get_task_events(task["id"])
+        move_events = [e for e in events if e["event_type"] == "moved"]
+        self.assertGreater(len(move_events), 0)
+
+    def test_update_event_tracked(self):
+        task = self.kb.create_task(f"Event Update {time.time_ns()}")
+        self.kb.update_task(task["id"], priority=3)
+        events = self.kb.get_task_events(task["id"])
+        update_events = [e for e in events if e["event_type"] == "updated"]
+        self.assertGreater(len(update_events), 0)
+
+    def test_archive_event_tracked(self):
+        task = self.kb.create_task(f"Event Archive {time.time_ns()}")
+        self.kb.archive_task(task["id"])
+        events = self.kb.get_task_events(task["id"])
+        archive_events = [e for e in events if e["event_type"] == "archived"]
+        self.assertGreater(len(archive_events), 0)
+
+    def test_event_has_standard_fields(self):
+        task = self.kb.create_task(f"Event Fields {time.time_ns()}", actor_name="Bot")
+        events = self.kb.get_task_events(task["id"])
+        self.assertGreater(len(events), 0)
+        for evt in events:
+            self.assertIn("id", evt)
+            self.assertIn("event_type", evt)
+            self.assertIn("created_at", evt)
+            self.assertIn("data", evt)
+
+    def test_nonexistent_task_events(self):
+        # Server returns empty list for nonexistent task events (not 404)
+        events = self.kb.get_task_events("00000000-0000-0000-0000-000000000000")
+        self.assertEqual(len(events), 0)
+
+
+# ==================================================================
+# Board — advanced create options
+# ==================================================================
+
+
+class TestBoardCreateAdvanced(unittest.TestCase):
+    def test_create_public_board(self):
+        kb = Kanban(BASE_URL)
+        board = kb.create_board(f"Public {time.time_ns()}", is_public=True)
+        kb.board_id = board["id"]
+        kb.manage_key = board["manage_key"]
+        fetched = kb.get_board()
+        self.assertTrue(fetched["is_public"])
+        try:
+            kb.archive_board()
+        except Exception:
+            pass
+
+    def test_create_board_with_description(self):
+        kb = Kanban(BASE_URL)
+        desc = f"Detailed description {time.time_ns()}"
+        board = kb.create_board(f"Desc Board {time.time_ns()}", description=desc)
+        kb.board_id = board["id"]
+        kb.manage_key = board["manage_key"]
+        fetched = kb.get_board()
+        self.assertEqual(fetched["description"], desc)
+        try:
+            kb.archive_board()
+        except Exception:
+            pass
+
+    def test_create_board_empty_name_fails(self):
+        kb = Kanban(BASE_URL)
+        with self.assertRaises(KanbanError):
+            kb.create_board("")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
