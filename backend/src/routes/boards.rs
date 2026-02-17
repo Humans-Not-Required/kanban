@@ -4,7 +4,7 @@ use rocket::State;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::models::*;
 use crate::rate_limit::{ClientIp, RateLimiter};
 
@@ -52,7 +52,7 @@ pub fn create_board(
     let manage_key = format!("kb_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
     let manage_key_hash = hash_key(&manage_key);
 
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     conn.execute(
         "INSERT INTO boards (id, name, description, manage_key_hash, is_public, require_display_name) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -110,7 +110,7 @@ pub fn list_boards(
     include_archived: Option<bool>,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<BoardSummary>>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let show_archived = include_archived.unwrap_or(false);
 
     let archive_filter = if show_archived {
@@ -158,7 +158,7 @@ pub fn update_board(
     token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_board_exists(&conn, board_id)?;
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -269,7 +269,7 @@ pub fn archive_board(
     token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
 
@@ -308,7 +308,7 @@ pub fn unarchive_board(
     token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
 
@@ -346,6 +346,6 @@ pub fn get_board(
     board_id: &str,
     db: &State<DbPool>,
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     load_board_response(&conn, board_id)
 }

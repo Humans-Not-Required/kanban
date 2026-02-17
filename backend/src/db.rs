@@ -7,6 +7,17 @@ use std::time::Duration;
 pub type DbPool = Mutex<Connection>;
 pub type WebhookDb = Arc<Mutex<Connection>>;
 
+/// Extension trait for DbPool to recover from mutex poison
+pub trait DbPoolExt {
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection>;
+}
+
+impl DbPoolExt for DbPool {
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
 pub fn hash_key(key: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(key.as_bytes());

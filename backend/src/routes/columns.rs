@@ -4,7 +4,7 @@ use rocket::State;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::models::*;
 
 use super::db_error;
@@ -18,7 +18,7 @@ pub fn create_column(
     db: &State<DbPool>,
 ) -> Result<Json<ColumnResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -59,7 +59,7 @@ pub fn update_column(
     db: &State<DbPool>,
 ) -> Result<Json<ColumnResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -121,7 +121,7 @@ pub fn delete_column(
     token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -216,7 +216,7 @@ pub fn reorder_columns(
     db: &State<DbPool>,
 ) -> Result<Json<Vec<ColumnResponse>>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;

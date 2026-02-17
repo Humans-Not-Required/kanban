@@ -59,7 +59,7 @@ impl EventBus {
     /// Subscribe to events for a specific board.
     /// Returns a broadcast receiver that yields BoardEvents.
     pub fn subscribe(&self, board_id: &str) -> broadcast::Receiver<BoardEvent> {
-        let mut channels = self.channels.lock().unwrap();
+        let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
         let sender = channels
             .entry(board_id.to_string())
             .or_insert_with(|| broadcast::channel(CHANNEL_CAPACITY).0);
@@ -70,7 +70,7 @@ impl EventBus {
     /// Also delivers to registered webhooks asynchronously.
     pub fn emit(&self, event: BoardEvent) {
         // Deliver to SSE subscribers
-        let channels = self.channels.lock().unwrap();
+        let channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(sender) = channels.get(&event.board_id) {
             // Ignore send errors (no subscribers)
             let _ = sender.send(event.clone());

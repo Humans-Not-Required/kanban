@@ -6,7 +6,7 @@ use rocket::tokio::time::Duration;
 use rocket::{Shutdown, State};
 
 use crate::access;
-use crate::db::DbPool;
+use crate::db::{DbPool, DbPoolExt};
 use crate::events::EventBus;
 use crate::models::ApiError;
 
@@ -18,7 +18,7 @@ pub fn board_event_stream(
     bus: &State<EventBus>,
     mut shutdown: Shutdown,
 ) -> Result<EventStream![], (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     access::require_board_exists(&conn, board_id)?;
     drop(conn);
 

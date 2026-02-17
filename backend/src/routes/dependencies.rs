@@ -5,7 +5,7 @@ use rusqlite::Connection;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::events::EventBus;
 use crate::models::*;
 
@@ -21,7 +21,7 @@ pub fn create_dependency(
     bus: &State<EventBus>,
 ) -> Result<Json<DependencyResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
@@ -110,7 +110,7 @@ pub fn list_dependencies(
     task: Option<&str>,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<DependencyResponse>>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     access::require_board_exists(&conn, board_id)?;
 
     let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(task_id) = task {
@@ -171,7 +171,7 @@ pub fn delete_dependency(
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;

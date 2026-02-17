@@ -3,7 +3,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 
 use crate::access;
-use crate::db::DbPool;
+use crate::db::{DbPool, DbPoolExt};
 use crate::models::*;
 
 use super::{db_error, row_to_task};
@@ -18,7 +18,7 @@ pub fn get_board_activity(
     mentioned: Option<&str>,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<BoardActivityItem>>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     access::require_board_exists(&conn, board_id)?;
 
     let limit = limit.unwrap_or(50).min(200);
@@ -180,7 +180,7 @@ pub fn get_task_events(
     task_id: &str,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<TaskEventResponse>>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     access::require_board_exists(&conn, board_id)?;
 
     let mut stmt = conn.prepare(

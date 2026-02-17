@@ -123,7 +123,7 @@ impl RateLimiter {
     /// and the current rate limit state for response headers.
     pub fn check(&self, key_id: &str, limit: u64) -> RateLimitResult {
         let now = Instant::now();
-        let mut buckets = self.buckets.lock().unwrap();
+        let mut buckets = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
 
         let entry = buckets
             .entry(key_id.to_string())
@@ -162,7 +162,7 @@ impl RateLimiter {
     #[allow(dead_code)]
     pub fn prune_stale(&self) {
         let now = Instant::now();
-        let mut buckets = self.buckets.lock().unwrap();
+        let mut buckets = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
         buckets.retain(|_, (start, _)| now.duration_since(*start) < self.window);
     }
 }

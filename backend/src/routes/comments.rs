@@ -4,7 +4,7 @@ use rocket::State;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::events::EventBus;
 use crate::models::*;
 
@@ -24,7 +24,7 @@ pub fn comment_on_task(
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskEventResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
 

@@ -4,7 +4,7 @@ use rocket::State;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::models::*;
 
 use super::{db_error, not_found};
@@ -18,7 +18,7 @@ pub fn create_webhook(
     db: &State<DbPool>,
 ) -> Result<Json<WebhookResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -76,7 +76,7 @@ pub fn list_webhooks(
     token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<WebhookResponse>>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
 
@@ -117,7 +117,7 @@ pub fn update_webhook(
     db: &State<DbPool>,
 ) -> Result<Json<WebhookResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
 
@@ -197,7 +197,7 @@ pub fn delete_webhook(
     token: BoardToken,
     db: &State<DbPool>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
 

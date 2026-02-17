@@ -4,7 +4,7 @@ use rocket::State;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::events::EventBus;
 use crate::models::*;
 
@@ -20,7 +20,7 @@ pub fn claim_task(
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
@@ -77,7 +77,7 @@ pub fn release_task(
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let actor = actor.unwrap_or("anonymous");
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
@@ -112,7 +112,7 @@ pub fn move_task(
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let actor = actor.unwrap_or("anonymous");
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
@@ -203,7 +203,7 @@ pub fn reorder_task(
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;

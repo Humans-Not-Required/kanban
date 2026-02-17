@@ -29,7 +29,7 @@ fn sign_payload(secret: &str, payload: &[u8]) -> String {
 pub fn deliver_webhooks(db: WebhookDb, event: BoardEvent, client: reqwest::Client) {
     tokio::spawn(async move {
         let targets = {
-            let conn = db.lock().unwrap();
+            let conn = db.lock().unwrap_or_else(|e| e.into_inner());
             let mut stmt = conn
                 .prepare(
                     "SELECT id, url, secret, events FROM webhooks
@@ -97,13 +97,13 @@ pub fn deliver_webhooks(db: WebhookDb, event: BoardEvent, client: reqwest::Clien
             let db_ref = db.clone();
             let webhook_id = target.id.clone();
             if success {
-                let conn = db_ref.lock().unwrap();
+                let conn = db_ref.lock().unwrap_or_else(|e| e.into_inner());
                 let _ = conn.execute(
                     "UPDATE webhooks SET failure_count = 0, last_triggered_at = datetime('now') WHERE id = ?1",
                     rusqlite::params![webhook_id],
                 );
             } else {
-                let conn = db_ref.lock().unwrap();
+                let conn = db_ref.lock().unwrap_or_else(|e| e.into_inner());
                 let _ = conn.execute(
                     "UPDATE webhooks SET failure_count = failure_count + 1, last_triggered_at = datetime('now') WHERE id = ?1",
                     rusqlite::params![webhook_id],

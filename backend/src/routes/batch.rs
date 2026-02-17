@@ -5,7 +5,7 @@ use rusqlite::Connection;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::events::EventBus;
 use crate::models::*;
 
@@ -21,7 +21,7 @@ pub fn batch_tasks(
     bus: &State<EventBus>,
 ) -> Result<Json<BatchResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;

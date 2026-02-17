@@ -99,11 +99,11 @@ pub(crate) fn extract_mentions(text: &str) -> Vec<String> {
 
 // ============ Shared Helpers ============
 
-pub(crate) fn db_error(msg: &str) -> (Status, Json<ApiError>) {
+pub(crate) fn db_error(_msg: &str) -> (Status, Json<ApiError>) {
     (
         Status::InternalServerError,
         Json(ApiError {
-            error: format!("Database error: {}", msg),
+            error: "Internal server error".to_string(),
             code: "DB_ERROR".to_string(),
             status: 500,
         }),

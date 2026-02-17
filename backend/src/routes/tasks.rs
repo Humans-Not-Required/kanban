@@ -5,7 +5,7 @@ use rocket::State;
 
 use crate::access;
 use crate::auth::BoardToken;
-use crate::db::{hash_key, DbPool};
+use crate::db::{hash_key, DbPool, DbPoolExt};
 use crate::events::EventBus;
 use crate::models::*;
 
@@ -21,7 +21,7 @@ pub fn create_task(
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -148,7 +148,7 @@ pub fn list_tasks(
     offset: Option<i64>,
     db: &State<DbPool>,
 ) -> Result<Json<Vec<TaskResponse>>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     access::require_board_exists(&conn, board_id)?;
 
     let mut sql = String::from(
@@ -244,7 +244,7 @@ pub fn get_task(
     task_id: &str,
     db: &State<DbPool>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     access::require_board_exists(&conn, board_id)?;
     load_task_response(&conn, task_id)
 }
@@ -260,7 +260,7 @@ pub fn update_task(
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let req = req.into_inner();
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
 
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
@@ -348,7 +348,7 @@ pub fn delete_task(
     db: &State<DbPool>,
     bus: &State<EventBus>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
@@ -388,7 +388,7 @@ pub fn archive_task(
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let actor = actor.unwrap_or("anonymous");
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;
@@ -424,7 +424,7 @@ pub fn unarchive_task(
     bus: &State<EventBus>,
 ) -> Result<Json<TaskResponse>, (Status, Json<ApiError>)> {
     let actor = actor.unwrap_or("anonymous");
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     let token_hash = hash_key(&token.0);
     access::require_manage_key(&conn, board_id, &token_hash)?;
     access::require_not_archived(&conn, board_id)?;

@@ -3,7 +3,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 
 use crate::access;
-use crate::db::DbPool;
+use crate::db::{DbPool, DbPoolExt};
 use crate::models::*;
 
 use super::{db_error, row_to_task};
@@ -25,7 +25,7 @@ pub fn search_tasks(
     offset: Option<i64>,
     db: &State<DbPool>,
 ) -> Result<Json<SearchResponse>, (Status, Json<ApiError>)> {
-    let conn = db.lock().unwrap();
+    let conn = db.conn();
     access::require_board_exists(&conn, board_id)?;
 
     let query = q.trim();
