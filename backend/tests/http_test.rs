@@ -66,6 +66,10 @@ fn test_client() -> Client {
                 kanban::routes::llms_txt,
             ],
         )
+        .mount("/", routes![
+            kanban::routes::skills_index,
+            kanban::routes::skills_skill_md,
+        ])
         .register("/", catchers![
             kanban::catchers::unauthorized,
             kanban::catchers::not_found,
@@ -3831,4 +3835,84 @@ fn test_http_column_wip_limit() {
     // Should fail with conflict or bad request
     assert!(resp.status() == Status::Conflict || resp.status() == Status::BadRequest,
         "WIP limit should prevent 3rd task, got {:?}", resp.status());
+}
+
+// ── Well-Known Skills Discovery ──
+
+#[test]
+fn test_http_skills_index_json() {
+    let client = test_client();
+    let resp = client.get("/.well-known/skills/index.json").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    let skills = body["skills"].as_array().unwrap();
+    assert_eq!(skills.len(), 1);
+    assert_eq!(skills[0]["name"], "kanban");
+    assert!(skills[0]["description"].as_str().unwrap().len() > 20);
+    let files = skills[0]["files"].as_array().unwrap();
+    assert!(files.contains(&serde_json::json!("SKILL.md")));
+}
+
+#[test]
+fn test_http_skills_skill_md() {
+    let client = test_client();
+    let resp = client.get("/.well-known/skills/kanban/SKILL.md").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body = resp.into_string().unwrap();
+    // YAML frontmatter
+    assert!(body.starts_with("---"));
+    assert!(body.contains("name: kanban"));
+    assert!(body.contains("description:"));
+    // Content sections
+    assert!(body.contains("# Kanban Integration"));
+    assert!(body.contains("## Quick Start"));
+    assert!(body.contains("## Auth Model"));
+    assert!(body.contains("## Core Patterns"));
+    assert!(body.contains("## Gotchas"));
+}
+
+#[test]
+fn test_http_skills_index_name_matches_skill_md() {
+    let client = test_client();
+
+    let resp = client.get("/.well-known/skills/index.json").dispatch();
+    let index: serde_json::Value = resp.into_json().unwrap();
+    let skill_name = index["skills"][0]["name"].as_str().unwrap();
+
+    let skill_url = format!("/.well-known/skills/{}/SKILL.md", skill_name);
+    let resp = client.get(&skill_url).dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body = resp.into_string().unwrap();
+    let name_line = format!("name: {}", skill_name);
+    assert!(body.contains(&name_line));
+}
+
+#[test]
+fn test_http_skills_description_within_spec_limits() {
+    let client = test_client();
+    let resp = client.get("/.well-known/skills/index.json").dispatch();
+    let body: serde_json::Value = resp.into_json().unwrap();
+    let desc = body["skills"][0]["description"].as_str().unwrap();
+    assert!(desc.len() <= 500, "Description too long: {} chars", desc.len());
+    assert!(desc.len() >= 20, "Description too short: {} chars", desc.len());
+}
+
+#[test]
+fn test_http_skills_skill_md_documents_endpoints() {
+    let client = test_client();
+    let resp = client.get("/.well-known/skills/kanban/SKILL.md").dispatch();
+    let body = resp.into_string().unwrap();
+    assert!(body.contains("POST /api/v1/boards"));
+    assert!(body.contains("GET /api/v1/boards"));
+    assert!(body.contains("/api/v1/health"));
+    assert!(body.contains("manage_key"));
+}
+
+#[test]
+fn test_http_skills_llms_txt_mentions_skills() {
+    let client = test_client();
+    let resp = client.get("/api/v1/llms.txt").dispatch();
+    let body = resp.into_string().unwrap();
+    assert!(body.contains("/.well-known/skills/index.json"));
+    assert!(body.contains("/.well-known/skills/kanban/SKILL.md"));
 }

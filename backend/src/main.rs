@@ -107,8 +107,12 @@ fn rocket() -> _ {
             ],
         );
 
-    // Mount llms.txt at root level for standard discovery
-    build = build.mount("/", routes![routes::root_llms_txt]);
+    // Mount llms.txt and well-known skills at root level for standard discovery
+    build = build.mount("/", routes![
+        routes::root_llms_txt,
+        routes::skills_index,
+        routes::skills_skill_md,
+    ]);
 
     // Serve frontend static files if the directory exists
     if static_dir.is_dir() {

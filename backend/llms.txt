@@ -96,5 +96,9 @@
 ## OpenAPI
 Full spec available at: GET /api/v1/openapi.json
 
+## Skills Discovery
+GET /.well-known/skills/index.json — Skills discovery index (Cloudflare RFC). Lists available skills for progressive loading by compatible agents.
+GET /.well-known/skills/kanban/SKILL.md — Integration skill with YAML frontmatter (agentskills.io format). Contains quick start, patterns, auth model, and gotchas. Compatible with Claude Code, OpenAI Codex, VS Code Copilot, and other skills-compatible agents.
+
 ## Source
 https://github.com/Humans-Not-Required/kanban
