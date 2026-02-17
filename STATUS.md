@@ -591,3 +591,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - ~~Jordan: 🔍 mobile toggle button background color should match other header buttons.~~ ✅ Fixed (509f928)
 - ~~Jordan: Activity/since-last-visit feature not useful; rethink or simplify.~~ ✅ Simplified (ae1fa83)
 - (refs: task c3e8b248, 52695b91, 035f9168, 1f4f04be)
+
+### Completed (2026-02-17 Daytime, Session — 23:15 UTC)
+
+- **Frontend component decomposition** ✅ Done — Monolithic 3813-line `frontend/src/App.jsx` split into 17 focused files under `frontend/src/`. App.jsx reduced to 268 lines (93% reduction). New structure: utils.jsx (shared utilities), hooks.js (useEscapeKey, useBreakpoint), styles.js (style objects + iOS Safari fix), plus 13 component files in components/ (BoardView 486, TaskModals 663, BoardModals 577, Column 314, ActivityPanel 262, AccessIndicator 239, WelcomePage 232, AutocompleteInput 86, TaskCard 63, PriorityToggle 59, IdentityBadge 56, LiveIndicator 52, StyledSelect 48). Same pattern as local-agent-chat decomposition. Zero functional changes. Build verified. All 135 tests pass. Zero clippy warnings. Commit: dea5497.
