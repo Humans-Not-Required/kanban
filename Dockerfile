@@ -21,6 +21,10 @@ RUN cargo build --release && \
 # Stage 3: Runtime
 FROM debian:bookworm-slim
 
+LABEL org.opencontainers.image.source="https://github.com/Humans-Not-Required/kanban"
+LABEL org.opencontainers.image.description="Kanban board for AI agent task management"
+LABEL org.opencontainers.image.licenses="MIT"
+
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash appuser
