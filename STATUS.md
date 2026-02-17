@@ -367,7 +367,9 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
   - ✅ Deploy pipeline healthy: Watchtower pulling latest images, CI/CD all green, all 4 services UP
 - **Kanban tasks updated** - added verification comments to "Board option to disable anonymous" (c10bc7dc) and "Check deploy" (d6c982ea)
 
-*Last updated: 2026-02-17 10:50 UTC. Tests: 135 (109 HTTP + 14 integration + 12 unit) all passing.*
+*Last updated: 2026-02-17 14:45 UTC. Tests: 135 Rust (109 HTTP + 14 integration + 12 unit) + 86 Python SDK integration. All passing.*
+
+- ✅ **Python SDK** — Complete zero-dependency client library (`sdk/python/kanban.py`). Covers all API endpoints: boards, columns, tasks, batch operations, comments, activity feed, search, dependencies, webhooks, SSE streaming, discovery. Convenience helpers (find_column by name, move_task_to, quick_task). Typed error hierarchy. 86 integration tests.
 
 ### Completed (2026-02-09 Overnight, Session 4 - 09:05 UTC)
 
