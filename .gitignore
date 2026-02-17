@@ -3,3 +3,9 @@ frontend/node_modules/
 frontend/dist/
 .env
 sdk/python/__pycache__/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
