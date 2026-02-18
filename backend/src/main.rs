@@ -104,6 +104,7 @@ fn rocket() -> _ {
                 routes::list_webhooks,
                 routes::update_webhook,
                 routes::delete_webhook,
+                routes::api_skills_skill_md,
             ],
         );
 
