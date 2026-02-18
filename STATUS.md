@@ -39,7 +39,7 @@ Per-board token auth model implemented. Zero-signup, link-based access control.
 - **Core API** - all routes working with new auth model
 - **Frontend** - React + Vite dashboard with drag-and-drop
 - **Docker** - 3-stage multi-stage build
-- **Tests** - 44 passing (14 DB/unit integration + 30 HTTP integration), zero clippy warnings
+- **Tests** - 166 passing (146 HTTP integration + 14 DB/unit integration + 6 unit), zero clippy warnings
 - **Deployed** - kanban.ckbdev.com via Cloudflare Tunnel
 
 ### Tech Stack
