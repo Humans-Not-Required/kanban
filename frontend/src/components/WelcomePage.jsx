@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import * as api from "../api";
 import styles from "../styles";
+import { formatTimeAgo } from "../utils";
 
 function DirectBoardInput({ onOpen }) {
   const [boardId, setBoardId] = useState('');
