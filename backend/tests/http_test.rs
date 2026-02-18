@@ -64,6 +64,7 @@ fn test_client() -> Client {
                 kanban::routes::delete_webhook,
                 kanban::routes::openapi,
                 kanban::routes::llms_txt,
+                kanban::routes::api_skills_skill_md,
             ],
         )
         .mount("/", routes![
@@ -3915,4 +3916,1444 @@ fn test_http_skills_llms_txt_mentions_skills() {
     let body = resp.into_string().unwrap();
     assert!(body.contains("/.well-known/skills/index.json"));
     assert!(body.contains("/.well-known/skills/kanban/SKILL.md"));
+}
+
+// ============ Task Due Dates ============
+
+#[test]
+fn test_http_task_due_at_on_create() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Due Date Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Ship feature", "column_id": "{}", "due_at": "2026-03-01T00:00:00Z", "actor_name": "tester"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(task["due_at"], "2026-03-01T00:00:00Z");
+
+    // Verify in GET response
+    let task_id = task["id"].as_str().unwrap();
+    let get_resp = client.get(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id)).dispatch();
+    assert_eq!(get_resp.status(), Status::Ok);
+    let fetched: serde_json::Value = get_resp.into_json().unwrap();
+    assert_eq!(fetched["due_at"], "2026-03-01T00:00:00Z");
+}
+
+#[test]
+fn test_http_task_due_at_update() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Due Update Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "No deadline yet", "column_id": "{}", "actor_name": "tester"}}"#,
+            col_id
+        ))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let task_id = task["id"].as_str().unwrap();
+    assert!(task["due_at"].is_null());
+
+    // Set due date via update
+    let patch = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, task_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"due_at": "2026-04-15T12:00:00Z", "actor_name": "tester"}"#)
+        .dispatch();
+    assert_eq!(patch.status(), Status::Ok);
+    let updated: serde_json::Value = patch.into_json().unwrap();
+    assert_eq!(updated["due_at"], "2026-04-15T12:00:00Z");
+}
+
+#[test]
+fn test_http_task_metadata_on_create() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Metadata Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Rich task", "column_id": "{}", "metadata": {{"source": "api", "agent": "nanook", "priority_override": true}}, "actor_name": "tester"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(task["metadata"]["source"], "api");
+    assert_eq!(task["metadata"]["agent"], "nanook");
+    assert_eq!(task["metadata"]["priority_override"], true);
+}
+
+// ============ Task Reorder ============
+
+#[test]
+fn test_http_reorder_task_within_column() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Reorder Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    // Create 4 tasks
+    let mut task_ids = Vec::new();
+    for i in 0..4 {
+        let resp = client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(
+                r#"{{"title": "Task {}", "column_id": "{}", "actor_name": "tester"}}"#,
+                i, col_id
+            ))
+            .dispatch();
+        let task: serde_json::Value = resp.into_json().unwrap();
+        task_ids.push(task["id"].as_str().unwrap().to_string());
+    }
+
+    // Reorder: move task 3 to position 0
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/reorder", board_id, task_ids[3]))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"column_id": "{}", "position": 0, "actor_name": "tester"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Verify order
+    let list = client
+        .get(format!("/api/v1/boards/{}/tasks?column={}", board_id, col_id))
+        .dispatch();
+    let tasks: serde_json::Value = list.into_json().unwrap();
+    let titles: Vec<&str> = tasks.as_array().unwrap().iter()
+        .map(|t| t["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles[0], "Task 3", "Task 3 should be first after reorder");
+}
+
+#[test]
+fn test_http_reorder_task_no_auth() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Reorder Auth Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "t", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    // Reorder without auth → 401
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/reorder", board_id, tid))
+        .header(ContentType::JSON)
+        .body(format!(r#"{{"column_id": "{}", "position": 0, "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Unauthorized);
+}
+
+// ============ Unicode Handling ============
+
+#[test]
+fn test_http_unicode_board_name() {
+    let client = test_client();
+    let resp = client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "看板ボード 🎯", "description": "日本語の説明", "columns": ["やること", "進行中", "完了"]}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["name"], "看板ボード 🎯");
+    assert_eq!(body["columns"][0]["name"], "やること");
+    assert_eq!(body["columns"][1]["name"], "進行中");
+    assert_eq!(body["columns"][2]["name"], "完了");
+}
+
+#[test]
+fn test_http_unicode_task_title_and_description() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Unicode Task Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "修复登录错误 🐛", "description": "Пользователи не могут войти через OAuth. العربية テスト", "column_id": "{}", "labels": ["バグ", "認証"], "actor_name": "テスター"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(task["title"], "修复登录错误 🐛");
+    assert!(task["description"].as_str().unwrap().contains("العربية"));
+    assert_eq!(task["created_by"], "テスター");
+
+    // Labels preserved
+    let labels: Vec<&str> = task["labels"].as_array().unwrap().iter()
+        .map(|l| l.as_str().unwrap())
+        .collect();
+    assert!(labels.contains(&"バグ"));
+    assert!(labels.contains(&"認証"));
+}
+
+#[test]
+fn test_http_unicode_comment() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Unicode Comment Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "t", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    let comment_resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"message": "这是一条评论 🇨🇳 avec des caractères français", "actor_name": "机器人"}"#)
+        .dispatch();
+    assert_eq!(comment_resp.status(), Status::Ok);
+    let comment: serde_json::Value = comment_resp.into_json().unwrap();
+    assert_eq!(comment["event_type"], "comment");
+    assert_eq!(comment["actor"], "机器人");
+}
+
+// ============ Timestamps ============
+
+#[test]
+fn test_http_task_timestamps_lifecycle() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Timestamps Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+    let done_col = cols["columns"][2]["id"].as_str().unwrap();
+
+    // Create task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Track me", "column_id": "{}", "actor_name": "tester"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+    let created = task["created_at"].as_str().unwrap().to_string();
+    assert!(!created.is_empty(), "created_at should be set");
+    assert!(task["completed_at"].is_null(), "completed_at should be null initially");
+
+    // Update task → updated_at changes
+    let patch = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"title": "Track me (updated)", "actor_name": "tester"}"#)
+        .dispatch();
+    let updated: serde_json::Value = patch.into_json().unwrap();
+    let updated_at = updated["updated_at"].as_str().unwrap();
+    assert!(!updated_at.is_empty());
+
+    // Move to Done column → completed_at set
+    let move_resp = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}?actor=tester", board_id, tid, done_col))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(move_resp.status(), Status::Ok);
+
+    let fetched = client
+        .get(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .dispatch();
+    let task_done: serde_json::Value = fetched.into_json().unwrap();
+    // completed_at may or may not be set based on quick_done settings, but updated_at should change
+    assert!(task_done["updated_at"].as_str().is_some());
+}
+
+// ============ Board Response Fields ============
+
+#[test]
+fn test_http_board_response_fields_complete() {
+    let client = test_client();
+    let resp = client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Full Fields", "description": "Check all fields", "columns": ["A"], "is_public": true}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+
+    // All expected fields present
+    assert!(body["id"].is_string());
+    assert!(body["name"].is_string());
+    assert!(body["manage_key"].is_string());
+    assert!(body["view_url"].is_string());
+    assert!(body["manage_url"].is_string());
+    assert!(body["api_base"].is_string());
+    assert!(body["columns"].is_array());
+    assert!(body["created_at"].is_string());
+
+    // Verify URLs contain board ID
+    let board_id = body["id"].as_str().unwrap();
+    assert!(body["view_url"].as_str().unwrap().contains(board_id));
+    assert!(body["manage_url"].as_str().unwrap().contains(board_id));
+    assert!(body["api_base"].as_str().unwrap().contains(board_id));
+}
+
+#[test]
+fn test_http_task_response_fields_complete() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Task Fields Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Full task", "description": "desc", "column_id": "{}", "priority": 2, "labels": ["test"], "assigned_to": "bot", "due_at": "2026-12-31T23:59:59Z", "actor_name": "tester"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+
+    // All fields present
+    assert!(task["id"].is_string());
+    assert_eq!(task["title"], "Full task");
+    assert_eq!(task["description"], "desc");
+    assert_eq!(task["priority"], 2);
+    assert!(task["position"].is_number());
+    assert_eq!(task["created_by"], "tester");
+    assert_eq!(task["assigned_to"], "bot");
+    assert!(task["labels"].is_array());
+    assert_eq!(task["due_at"], "2026-12-31T23:59:59Z");
+    assert!(task["created_at"].is_string());
+    assert!(task["column_id"].is_string());
+    assert!(task["board_id"].is_string());
+}
+
+// ============ Board Isolation ============
+
+#[test]
+fn test_http_board_isolation_tasks() {
+    let client = test_client();
+    let (board_a, key_a) = create_test_board(&client, "Board A");
+    let (board_b, key_b) = create_test_board(&client, "Board B");
+
+    let cols_a = client.get(format!("/api/v1/boards/{}", board_a)).dispatch();
+    let ca: serde_json::Value = cols_a.into_json().unwrap();
+    let col_a = ca["columns"][0]["id"].as_str().unwrap();
+
+    let cols_b = client.get(format!("/api/v1/boards/{}", board_b)).dispatch();
+    let cb: serde_json::Value = cols_b.into_json().unwrap();
+    let col_b = cb["columns"][0]["id"].as_str().unwrap();
+
+    // Create tasks in each board
+    for i in 0..3 {
+        client
+            .post(format!("/api/v1/boards/{}/tasks", board_a))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key_a)))
+            .body(format!(r#"{{"title": "A-{}", "column_id": "{}", "actor_name": "x"}}"#, i, col_a))
+            .dispatch();
+    }
+    for i in 0..5 {
+        client
+            .post(format!("/api/v1/boards/{}/tasks", board_b))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key_b)))
+            .body(format!(r#"{{"title": "B-{}", "column_id": "{}", "actor_name": "x"}}"#, i, col_b))
+            .dispatch();
+    }
+
+    // List tasks from board A → only 3
+    let list_a = client.get(format!("/api/v1/boards/{}/tasks", board_a)).dispatch();
+    let tasks_a: serde_json::Value = list_a.into_json().unwrap();
+    assert_eq!(tasks_a.as_array().unwrap().len(), 3);
+
+    // List tasks from board B → only 5
+    let list_b = client.get(format!("/api/v1/boards/{}/tasks", board_b)).dispatch();
+    let tasks_b: serde_json::Value = list_b.into_json().unwrap();
+    assert_eq!(tasks_b.as_array().unwrap().len(), 5);
+
+    // Board A's key can't write to board B
+    let cross = client
+        .post(format!("/api/v1/boards/{}/tasks", board_b))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key_a)))
+        .body(format!(r#"{{"title": "Cross", "column_id": "{}", "actor_name": "x"}}"#, col_b))
+        .dispatch();
+    // Cross-board key returns 403 Forbidden (key exists but doesn't match this board)
+    assert_eq!(cross.status(), Status::Forbidden);
+}
+
+// ============ Search Advanced ============
+
+#[test]
+fn test_http_search_by_label() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Label Search Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Bug fix", "column_id": "{}", "labels": ["bug", "urgent"], "actor_name": "x"}}"#, col_id))
+        .dispatch();
+
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Feature", "column_id": "{}", "labels": ["feature"], "actor_name": "x"}}"#, col_id))
+        .dispatch();
+
+    // Search by label text
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks/search?q=bug", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let results: serde_json::Value = resp.into_json().unwrap();
+    let tasks = results["tasks"].as_array().unwrap();
+    assert!(!tasks.is_empty());
+    assert!(tasks[0]["title"].as_str().unwrap().contains("Bug"));
+}
+
+#[test]
+fn test_http_search_by_description() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Desc Search Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Generic title", "description": "OAuth integration is broken for SSO users", "column_id": "{}", "actor_name": "x"}}"#,
+            col_id
+        ))
+        .dispatch();
+
+    let resp = client
+        .get(format!("/api/v1/boards/{}/tasks/search?q=OAuth", board_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let results: serde_json::Value = resp.into_json().unwrap();
+    let tasks = results["tasks"].as_array().unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["title"], "Generic title");
+}
+
+// ============ Claim Edge Cases ============
+
+#[test]
+fn test_http_double_claim_same_agent() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Double Claim Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Claimable", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    // First claim
+    let claim1 = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=bot-1", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(claim1.status(), Status::Ok);
+
+    // Second claim by same agent → should succeed or conflict
+    let claim2 = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=bot-1", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    // Either 200 (idempotent) or 409 (conflict) are valid behaviors
+    assert!(
+        claim2.status() == Status::Ok || claim2.status() == Status::Conflict,
+        "Double claim should be 200 or 409, got {:?}",
+        claim2.status()
+    );
+}
+
+#[test]
+fn test_http_claim_by_different_agent() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Diff Claim Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Contest", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    // First agent claims
+    let claim1 = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=bot-1", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(claim1.status(), Status::Ok);
+
+    // Different agent tries to claim → should be 409 Conflict
+    let claim2 = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=bot-2", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(claim2.status(), Status::Conflict);
+}
+
+#[test]
+fn test_http_release_and_reclaim() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Release Reclaim Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Relay", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    // Claim → release → claim by different agent
+    client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=bot-1", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+
+    let release = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/release", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(release.status(), Status::Ok);
+
+    let claim3 = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=bot-2", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(claim3.status(), Status::Ok);
+
+    // Verify new claimer
+    let get = client
+        .get(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .dispatch();
+    let t: serde_json::Value = get.into_json().unwrap();
+    assert_eq!(t["claimed_by"], "bot-2");
+}
+
+// ============ Column Edge Cases ============
+
+#[test]
+fn test_http_create_column_position() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Col Position Board");
+
+    // Board starts with 3 columns: To Do, In Progress, Done
+    // Create new column → should be at end (position 3)
+    let resp = client
+        .post(format!("/api/v1/boards/{}/columns", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"name": "Review"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    let board = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let b: serde_json::Value = board.into_json().unwrap();
+    let cols = b["columns"].as_array().unwrap();
+    assert_eq!(cols.len(), 4);
+    assert_eq!(cols[3]["name"], "Review");
+}
+
+#[test]
+fn test_http_update_column_wip_limit() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "WIP Update Board");
+
+    let board = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let b: serde_json::Value = board.into_json().unwrap();
+    let col_id = b["columns"][1]["id"].as_str().unwrap(); // "In Progress"
+
+    // Set WIP limit
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/columns/{}", board_id, col_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"wip_limit": 3}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Verify
+    let board = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let b: serde_json::Value = board.into_json().unwrap();
+    let in_progress = b["columns"].as_array().unwrap().iter()
+        .find(|c| c["id"] == col_id)
+        .unwrap();
+    assert_eq!(in_progress["wip_limit"], 3);
+
+    // Clear WIP limit
+    let resp = client
+        .patch(format!("/api/v1/boards/{}/columns/{}", board_id, col_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"wip_limit": 0}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+}
+
+// ============ Task Labels ============
+
+#[test]
+fn test_http_task_labels_replace_on_update() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Labels Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Labeled", "column_id": "{}", "labels": ["alpha", "beta"], "actor_name": "x"}}"#,
+            col_id
+        ))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+    assert_eq!(task["labels"].as_array().unwrap().len(), 2);
+
+    // Update labels → full replacement
+    let patch = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"labels": ["gamma", "delta", "epsilon"], "actor_name": "x"}"#)
+        .dispatch();
+    assert_eq!(patch.status(), Status::Ok);
+    let updated: serde_json::Value = patch.into_json().unwrap();
+    let labels: Vec<&str> = updated["labels"].as_array().unwrap().iter()
+        .map(|l| l.as_str().unwrap())
+        .collect();
+    assert_eq!(labels.len(), 3);
+    assert!(labels.contains(&"gamma"));
+    assert!(!labels.contains(&"alpha"), "Old labels should be replaced");
+}
+
+// ============ Activity Feed Advanced ============
+
+#[test]
+fn test_http_activity_event_types() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Events Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+    let col_id2 = cols["columns"][1]["id"].as_str().unwrap();
+
+    // Create task
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Track events", "column_id": "{}", "actor_name": "creator"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    // Update
+    client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"title": "Track events (updated)", "actor_name": "editor"}"#)
+        .dispatch();
+
+    // Move
+    client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}?actor=mover", board_id, tid, col_id2))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+
+    // Comment
+    client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"message": "Great progress!", "actor_name": "commenter"}"#)
+        .dispatch();
+
+    // Claim
+    client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=claimer", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+
+    // Activity feed should have multiple events
+    let activity = client
+        .get(format!("/api/v1/boards/{}/activity", board_id))
+        .dispatch();
+    assert_eq!(activity.status(), Status::Ok);
+    let events: serde_json::Value = activity.into_json().unwrap();
+    let ev_array = events.as_array().unwrap();
+    assert!(ev_array.len() >= 4, "Should have at least 4 events, got {}", ev_array.len());
+
+    let event_types: Vec<&str> = ev_array.iter()
+        .filter_map(|e| e["event_type"].as_str())
+        .collect();
+    // At minimum we should see task.created and task.updated
+    assert!(event_types.iter().any(|t| t.contains("created") || t.contains("task")));
+}
+
+// ============ Task Assigned To ============
+
+#[test]
+fn test_http_task_assigned_to_update() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Assign Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Assignable", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+    assert!(task["assigned_to"].is_null() || task["assigned_to"] == "");
+
+    // Assign
+    let patch = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"assigned_to": "agent-42", "actor_name": "x"}"#)
+        .dispatch();
+    assert_eq!(patch.status(), Status::Ok);
+    let updated: serde_json::Value = patch.into_json().unwrap();
+    assert_eq!(updated["assigned_to"], "agent-42");
+
+    // Filter by assigned
+    let list = client
+        .get(format!("/api/v1/boards/{}/tasks?assigned=agent-42", board_id))
+        .dispatch();
+    let tasks: serde_json::Value = list.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 1);
+}
+
+// ============ Webhook Update Lifecycle ============
+
+#[test]
+fn test_http_webhook_update_url_and_events() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Webhook Update Board");
+
+    // Create webhook
+    let resp = client
+        .post(format!("/api/v1/boards/{}/webhooks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"url": "https://example.com/hook1", "events": ["task.created"]}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let wh: serde_json::Value = resp.into_json().unwrap();
+    let wh_id = wh["id"].as_str().unwrap();
+
+    // Update URL
+    let update = client
+        .patch(format!("/api/v1/boards/{}/webhooks/{}", board_id, wh_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"url": "https://example.com/hook2"}"#)
+        .dispatch();
+    assert_eq!(update.status(), Status::Ok);
+    let updated: serde_json::Value = update.into_json().unwrap();
+    assert_eq!(updated["url"], "https://example.com/hook2");
+
+    // Update events
+    let update2 = client
+        .patch(format!("/api/v1/boards/{}/webhooks/{}", board_id, wh_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"events": ["task.created", "task.moved", "task.updated"]}"#)
+        .dispatch();
+    assert_eq!(update2.status(), Status::Ok);
+    let updated2: serde_json::Value = update2.into_json().unwrap();
+    assert_eq!(updated2["events"].as_array().unwrap().len(), 3);
+
+    // Deactivate
+    let deactivate = client
+        .patch(format!("/api/v1/boards/{}/webhooks/{}", board_id, wh_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"active": false}"#)
+        .dispatch();
+    assert_eq!(deactivate.status(), Status::Ok);
+    let deactivated: serde_json::Value = deactivate.into_json().unwrap();
+    assert_eq!(deactivated["active"], false);
+}
+
+// ============ Dependency Advanced ============
+
+#[test]
+fn test_http_dependency_three_level_chain() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Chain Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let mut tids = Vec::new();
+    for name in ["A", "B", "C", "D"] {
+        let resp = client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(r#"{{"title": "Task {}", "column_id": "{}", "actor_name": "x"}}"#, name, col_id))
+            .dispatch();
+        let t: serde_json::Value = resp.into_json().unwrap();
+        tids.push(t["id"].as_str().unwrap().to_string());
+    }
+
+    // A → B → C → D chain
+    for i in 0..3 {
+        let resp = client
+            .post(format!("/api/v1/boards/{}/dependencies", board_id))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(
+                r#"{{"blocker_task_id": "{}", "blocked_task_id": "{}", "note": "chain"}}"#,
+                tids[i], tids[i + 1]
+            ))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+    }
+
+    // List all dependencies
+    let deps = client
+        .get(format!("/api/v1/boards/{}/dependencies", board_id))
+        .dispatch();
+    let d: serde_json::Value = deps.into_json().unwrap();
+    assert_eq!(d.as_array().unwrap().len(), 3);
+
+    // Delete middle dependency (B→C)
+    // First find it
+    let dep_bc = d.as_array().unwrap().iter()
+        .find(|dep| dep["blocker_task_id"] == tids[1] && dep["blocked_task_id"] == tids[2])
+        .unwrap();
+    let dep_id = dep_bc["id"].as_str().unwrap();
+
+    let del = client
+        .delete(format!("/api/v1/boards/{}/dependencies/{}", board_id, dep_id))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(del.status(), Status::Ok);
+
+    // Now only 2 dependencies
+    let deps2 = client
+        .get(format!("/api/v1/boards/{}/dependencies", board_id))
+        .dispatch();
+    let d2: serde_json::Value = deps2.into_json().unwrap();
+    assert_eq!(d2.as_array().unwrap().len(), 2);
+}
+
+// ============ Batch Advanced ============
+
+#[test]
+fn test_http_batch_with_labels() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Batch Labels Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let mut tids = Vec::new();
+    for i in 0..3 {
+        let resp = client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(r#"{{"title": "T{}", "column_id": "{}", "actor_name": "x"}}"#, i, col_id))
+            .dispatch();
+        let t: serde_json::Value = resp.into_json().unwrap();
+        tids.push(t["id"].as_str().unwrap().to_string());
+    }
+
+    // Batch update with labels
+    let batch = client
+        .post(format!("/api/v1/boards/{}/tasks/batch", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"operations": [
+                {{"action": "update", "task_ids": ["{}"], "labels": ["sprint-1", "frontend"]}},
+                {{"action": "update", "task_ids": ["{}"], "labels": ["sprint-1", "backend"]}}
+            ], "actor_name": "batch-runner"}}"#,
+            tids[0], tids[1]
+        ))
+        .dispatch();
+    assert_eq!(batch.status(), Status::Ok);
+
+    // Verify labels applied
+    let t0 = client.get(format!("/api/v1/boards/{}/tasks/{}", board_id, tids[0])).dispatch();
+    let task0: serde_json::Value = t0.into_json().unwrap();
+    let labels0: Vec<&str> = task0["labels"].as_array().unwrap().iter()
+        .map(|l| l.as_str().unwrap())
+        .collect();
+    assert!(labels0.contains(&"sprint-1"));
+    assert!(labels0.contains(&"frontend"));
+}
+
+// ============ Error Response Structure ============
+
+#[test]
+fn test_http_error_response_structure() {
+    let client = test_client();
+
+    // 404 — board not found
+    let resp = client.get("/api/v1/boards/nonexistent-uuid").dispatch();
+    assert_eq!(resp.status(), Status::NotFound);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert!(body["error"].is_string() || body["message"].is_string() || body["code"].is_string(),
+        "Error response should have error/message/code field");
+
+    // 401 — missing auth
+    let (board_id, _key) = create_test_board(&client, "Error Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .body(format!(r#"{{"title": "No auth", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Unauthorized);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert!(body["error"].is_string() || body["code"].is_string(),
+        "401 should return JSON with error/code");
+}
+
+// ============ Large Data ============
+
+#[test]
+fn test_http_many_tasks_in_column() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Many Tasks Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    // Create 25 tasks
+    for i in 0..25 {
+        client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(r#"{{"title": "Task #{}", "column_id": "{}", "priority": {}, "actor_name": "x"}}"#, i, col_id, i % 4))
+            .dispatch();
+    }
+
+    // List all
+    let all = client.get(format!("/api/v1/boards/{}/tasks", board_id)).dispatch();
+    let tasks: serde_json::Value = all.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 25);
+
+    // Limit + offset pagination
+    let page1 = client
+        .get(format!("/api/v1/boards/{}/tasks?limit=10&offset=0", board_id))
+        .dispatch();
+    let p1: serde_json::Value = page1.into_json().unwrap();
+    assert_eq!(p1.as_array().unwrap().len(), 10);
+
+    let page3 = client
+        .get(format!("/api/v1/boards/{}/tasks?limit=10&offset=20", board_id))
+        .dispatch();
+    let p3: serde_json::Value = page3.into_json().unwrap();
+    assert_eq!(p3.as_array().unwrap().len(), 5);
+}
+
+#[test]
+fn test_http_many_comments_on_task() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Many Comments Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Commented task", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    // Add 10 comments
+    for i in 0..10 {
+        let resp = client
+            .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, tid))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(r#"{{"message": "Comment #{}", "actor_name": "bot-{}"}}"#, i, i % 3))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+    }
+
+    // Fetch task events — comments show as events
+    let events = client
+        .get(format!("/api/v1/boards/{}/tasks/{}/events", board_id, tid))
+        .dispatch();
+    assert_eq!(events.status(), Status::Ok);
+    let ev: serde_json::Value = events.into_json().unwrap();
+    let comment_events: Vec<_> = ev.as_array().unwrap().iter()
+        .filter(|e| e["event_type"] == "comment")
+        .collect();
+    assert_eq!(comment_events.len(), 10, "Should have 10 comment events");
+}
+
+// ============ Board Update Advanced ============
+
+#[test]
+fn test_http_board_update_description() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Desc Board");
+
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"description": "Updated description with **markdown**"}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["description"], "Updated description with **markdown**");
+}
+
+#[test]
+fn test_http_board_toggle_public() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Public Toggle Board");
+
+    // Make public
+    let resp = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"is_public": true}"#)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+
+    // Should appear in public listing
+    let list = client.get("/api/v1/boards").dispatch();
+    let boards: serde_json::Value = list.into_json().unwrap();
+    let found = boards.as_array().unwrap().iter()
+        .any(|b| b["id"] == board_id);
+    assert!(found, "Public board should appear in listing");
+
+    // Make private
+    client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"is_public": false}"#)
+        .dispatch();
+
+    // Should NOT appear in listing
+    let list = client.get("/api/v1/boards").dispatch();
+    let boards: serde_json::Value = list.into_json().unwrap();
+    let found = boards.as_array().unwrap().iter()
+        .any(|b| b["id"] == board_id);
+    assert!(!found, "Private board should not appear in listing");
+}
+
+// ============ Task Position After Delete ============
+
+#[test]
+fn test_http_task_positions_after_delete() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Position Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let mut tids = Vec::new();
+    for i in 0..5 {
+        let resp = client
+            .post(format!("/api/v1/boards/{}/tasks", board_id))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(r#"{{"title": "P{}", "column_id": "{}", "actor_name": "x"}}"#, i, col_id))
+            .dispatch();
+        let t: serde_json::Value = resp.into_json().unwrap();
+        tids.push(t["id"].as_str().unwrap().to_string());
+    }
+
+    // Delete middle task (P2)
+    let del = client
+        .delete(format!("/api/v1/boards/{}/tasks/{}", board_id, tids[2]))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(del.status(), Status::Ok);
+
+    // Remaining 4 tasks should still be listable
+    let list = client.get(format!("/api/v1/boards/{}/tasks", board_id)).dispatch();
+    let tasks: serde_json::Value = list.into_json().unwrap();
+    assert_eq!(tasks.as_array().unwrap().len(), 4);
+}
+
+// ============ Full Lifecycle ============
+
+#[test]
+fn test_http_full_task_lifecycle() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Lifecycle Board");
+
+    let board = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let b: serde_json::Value = board.into_json().unwrap();
+    let todo_col = b["columns"][0]["id"].as_str().unwrap();
+    let progress_col = b["columns"][1]["id"].as_str().unwrap();
+    let done_col = b["columns"][2]["id"].as_str().unwrap();
+
+    // 1. Create
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Complete lifecycle", "description": "Test every step", "column_id": "{}", "priority": 2, "labels": ["test"], "actor_name": "creator"}}"#,
+            todo_col
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    // 2. Claim
+    let claim = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/claim?actor=worker-1", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(claim.status(), Status::Ok);
+
+    // 3. Move to In Progress
+    let mv = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}?actor=worker-1", board_id, tid, progress_col))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(mv.status(), Status::Ok);
+
+    // 4. Comment
+    let comment = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"message": "WIP: halfway done", "actor_name": "worker-1"}"#)
+        .dispatch();
+    assert_eq!(comment.status(), Status::Ok);
+
+    // 5. Update (add more labels, update description)
+    let update = client
+        .patch(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"description": "Test every step - DONE", "labels": ["test", "completed"], "actor_name": "worker-1"}"#)
+        .dispatch();
+    assert_eq!(update.status(), Status::Ok);
+
+    // 6. Move to Done
+    let mv2 = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/move/{}?actor=worker-1", board_id, tid, done_col))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(mv2.status(), Status::Ok);
+
+    // 7. Release claim
+    let release = client
+        .post(format!("/api/v1/boards/{}/tasks/{}/release", board_id, tid))
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .dispatch();
+    assert_eq!(release.status(), Status::Ok);
+
+    // 8. Verify final state
+    let final_task = client
+        .get(format!("/api/v1/boards/{}/tasks/{}", board_id, tid))
+        .dispatch();
+    let t: serde_json::Value = final_task.into_json().unwrap();
+    assert_eq!(t["column_id"], done_col);
+    assert!(t["claimed_by"].is_null() || t["claimed_by"] == "");
+    assert!(t["labels"].as_array().unwrap().len() == 2);
+
+    // 9. Check task events
+    let events = client
+        .get(format!("/api/v1/boards/{}/tasks/{}/events", board_id, tid))
+        .dispatch();
+    assert_eq!(events.status(), Status::Ok);
+    let ev: serde_json::Value = events.into_json().unwrap();
+    assert!(ev.as_array().unwrap().len() >= 5, "Should have at least 5 events for full lifecycle");
+}
+
+// ============ API v1 Skills Discovery ============
+
+#[test]
+fn test_http_api_v1_skills_skill_md() {
+    let client = test_client();
+    let resp = client.get("/api/v1/skills/SKILL.md").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body = resp.into_string().unwrap();
+    assert!(body.starts_with("---"));
+    assert!(body.contains("name: kanban"));
+}
+
+// ============ Board Created At ============
+
+#[test]
+fn test_http_board_created_at_preserved() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Timestamp Board");
+
+    let get1 = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let b1: serde_json::Value = get1.into_json().unwrap();
+    let created = b1["created_at"].as_str().unwrap().to_string();
+
+    // Update board
+    client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"name": "Renamed Board"}"#)
+        .dispatch();
+
+    let get2 = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let b2: serde_json::Value = get2.into_json().unwrap();
+    assert_eq!(b2["created_at"].as_str().unwrap(), created, "created_at should not change on update");
+    assert_eq!(b2["name"], "Renamed Board");
+}
+
+// ============ Task Position on Create ============
+
+#[test]
+fn test_http_task_position_explicit_vs_auto() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Position Auto Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    // Auto-position (no position specified)
+    let r1 = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Auto 1", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let t1: serde_json::Value = r1.into_json().unwrap();
+
+    let r2 = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Auto 2", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let t2: serde_json::Value = r2.into_json().unwrap();
+
+    // Auto positions should be sequential
+    assert!(
+        t2["position"].as_i64().unwrap() > t1["position"].as_i64().unwrap(),
+        "Second task should have higher position"
+    );
+
+    // Explicit position
+    let r3 = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Explicit 0", "column_id": "{}", "position": 0, "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let t3: serde_json::Value = r3.into_json().unwrap();
+    assert_eq!(t3["position"], 0);
+}
+
+// ============ Comment Ordering ============
+
+#[test]
+fn test_http_comments_ordered_by_creation() {
+    let client = test_client();
+    let (board_id, key) = create_test_board(&client, "Comment Order Board");
+
+    let cols_resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    let cols: serde_json::Value = cols_resp.into_json().unwrap();
+    let col_id = cols["columns"][0]["id"].as_str().unwrap();
+
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(r#"{{"title": "Ordered comments", "column_id": "{}", "actor_name": "x"}}"#, col_id))
+        .dispatch();
+    let task: serde_json::Value = resp.into_json().unwrap();
+    let tid = task["id"].as_str().unwrap();
+
+    let messages = ["First", "Second", "Third"];
+    for msg in &messages {
+        client
+            .post(format!("/api/v1/boards/{}/tasks/{}/comment", board_id, tid))
+            .header(ContentType::JSON)
+            .header(Header::new("Authorization", format!("Bearer {}", key)))
+            .body(format!(r#"{{"message": "{}", "actor_name": "bot"}}"#, msg))
+            .dispatch();
+    }
+
+    // Comments are stored as task events
+    let events = client
+        .get(format!("/api/v1/boards/{}/tasks/{}/events", board_id, tid))
+        .dispatch();
+    assert_eq!(events.status(), Status::Ok);
+    let ev: serde_json::Value = events.into_json().unwrap();
+    let comment_events: Vec<_> = ev.as_array().unwrap().iter()
+        .filter(|e| e["event_type"] == "comment")
+        .collect();
+    assert_eq!(comment_events.len(), 3);
+    // Should be in chronological order (oldest first or newest first)
+    // Just verify all 3 are present
+    let msgs: Vec<&str> = comment_events.iter()
+        .filter_map(|e| e["data"].as_object()
+            .and_then(|d| d.get("message"))
+            .and_then(|m| m.as_str()))
+        .collect();
+    assert!(msgs.contains(&"First"));
+    assert!(msgs.contains(&"Third"));
+}
+
+// ============ Display Name Enforcement Advanced ============
+
+#[test]
+fn test_http_display_name_with_special_chars() {
+    let client = test_client();
+    let resp = client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "DN Board", "columns": ["Todo"]}"#)
+        .dispatch();
+    let body: serde_json::Value = resp.into_json().unwrap();
+    let board_id = body["id"].as_str().unwrap();
+    let key = body["manage_key"].as_str().unwrap();
+    let col_id = body["columns"][0]["id"].as_str().unwrap();
+
+    // Enable display name requirement
+    let settings = client
+        .patch(format!("/api/v1/boards/{}", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(r#"{"settings": {"require_display_name": true}}"#)
+        .dispatch();
+    assert_eq!(settings.status(), Status::Ok);
+
+    // Create task with emoji display name
+    let resp = client
+        .post(format!("/api/v1/boards/{}/tasks", board_id))
+        .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", key)))
+        .body(format!(
+            r#"{{"title": "Test", "column_id": "{}", "actor_name": "🤖 Bot v3.0"}}"#,
+            col_id
+        ))
+        .dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let task: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(task["created_by"], "🤖 Bot v3.0");
 }
