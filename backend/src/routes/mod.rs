@@ -29,7 +29,7 @@ pub use comments::comment_on_task;
 pub use dependencies::{create_dependency, list_dependencies, delete_dependency};
 pub use search::search_tasks;
 pub use stream::board_event_stream;
-pub use system::{health, openapi, llms_txt, root_llms_txt, skills_index, skills_skill_md, api_skills_skill_md, spa_fallback};
+pub use system::{health, openapi, skill_md, llms_txt, root_llms_txt, skills_index, skills_skill_md, api_skills_skill_md, spa_fallback};
 pub use task_actions::{claim_task, release_task, move_task, reorder_task};
 pub use tasks::{create_task, list_tasks, get_task, update_task, delete_task, archive_task, unarchive_task};
 pub use webhook_routes::{create_webhook, list_webhooks, update_webhook, delete_webhook};

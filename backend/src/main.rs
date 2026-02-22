@@ -108,8 +108,9 @@ fn rocket() -> _ {
             ],
         );
 
-    // Mount llms.txt and well-known skills at root level for standard discovery
+    // Mount SKILL.md, llms.txt and well-known skills at root level for standard discovery
     build = build.mount("/", routes![
+        routes::skill_md,
         routes::root_llms_txt,
         routes::skills_index,
         routes::skills_skill_md,
