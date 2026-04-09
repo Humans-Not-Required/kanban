@@ -69,7 +69,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BoardResponse"
+                  "$ref": "#/components/schemas/CreateBoardResponse"
                 }
               }
             }
@@ -1948,6 +1948,11 @@
             "type": "string",
             "default": ""
           },
+          "actor_name": {
+            "type": "string",
+            "default": "",
+            "description": "Optional display name / actor identifier to attribute board creation (defaults to anonymous when empty)."
+          },
           "columns": {
             "type": "array",
             "items": {
@@ -1969,6 +1974,10 @@
           },
           "description": {
             "type": "string"
+          },
+          "created_by": {
+            "type": "string",
+            "description": "Actor name recorded when the board was created."
           },
           "owner": {
             "type": "string",
@@ -2008,6 +2017,10 @@
           },
           "description": {
             "type": "string"
+          },
+          "created_by": {
+            "type": "string",
+            "description": "Actor name recorded when the board was created."
           },
           "task_count": {
             "type": "integer"
@@ -2171,6 +2184,11 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "actor_name": {
+            "type": "string",
+            "default": "",
+            "description": "Optional display name / actor identifier to attribute task creation (defaults to anonymous when empty)."
           }
         }
       },
@@ -2750,6 +2768,48 @@
             "type": "string",
             "default": "",
             "description": "Optional note explaining the dependency"
+          }
+        }
+      },
+      "CreateBoardResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string",
+            "description": "Actor name recorded when the board was created."
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnResponse"
+            }
+          },
+          "manage_key": {
+            "type": "string",
+            "description": "Board manage key, returned only at creation time."
+          },
+          "view_url": {
+            "type": "string"
+          },
+          "manage_url": {
+            "type": "string"
+          },
+          "api_base": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
