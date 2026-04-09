@@ -36,6 +36,9 @@ pub struct CreateBoardRequest {
     pub name: String,
     #[serde(default)]
     pub description: String,
+    /// Optional: identify who created this board (free text, e.g. "bridge", "sync")
+    #[serde(default, deserialize_with = "deserialize_string_or_null")]
+    pub actor_name: String,
     /// Optional initial columns. If omitted, creates default: Backlog, Up Next, In Progress, Review, Done
     #[serde(default)]
     pub columns: Vec<String>,
@@ -66,6 +69,7 @@ pub struct CreateBoardResponse {
     pub id: String,
     pub name: String,
     pub description: String,
+    pub created_by: String,
     pub columns: Vec<ColumnResponse>,
     pub manage_key: String,
     pub view_url: String,
@@ -79,6 +83,7 @@ pub struct BoardResponse {
     pub id: String,
     pub name: String,
     pub description: String,
+    pub created_by: String,
     pub columns: Vec<ColumnResponse>,
     pub task_count: usize,
     pub archived: bool,
@@ -97,6 +102,7 @@ pub struct BoardSummary {
     pub id: String,
     pub name: String,
     pub description: String,
+    pub created_by: String,
     pub task_count: i64,
     pub archived: bool,
     pub is_public: bool,

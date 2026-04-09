@@ -143,6 +143,44 @@ fn test_http_create_board() {
 }
 
 #[test]
+fn test_http_create_board_with_actor_name_returns_created_by() {
+    let client = test_client();
+    let resp = client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Actor Board", "actor_name": "sync", "columns": ["Todo", "Done"]}"#)
+        .dispatch();
+
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(body["created_by"], "sync");
+
+    let board_id = body["id"].as_str().unwrap();
+    let resp = client.get(format!("/api/v1/boards/{}", board_id)).dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let board: serde_json::Value = resp.into_json().unwrap();
+    assert_eq!(board["created_by"], "sync");
+}
+
+#[test]
+fn test_http_list_boards_includes_created_by() {
+    let client = test_client();
+
+    client
+        .post("/api/v1/boards")
+        .header(ContentType::JSON)
+        .body(r#"{"name": "Public Actor Board", "is_public": true, "actor_name": "bridge", "columns": ["Todo"]}"#)
+        .dispatch();
+
+    let resp = client.get("/api/v1/boards").dispatch();
+    assert_eq!(resp.status(), Status::Ok);
+    let body: serde_json::Value = resp.into_json().unwrap();
+    let boards = body.as_array().unwrap();
+    assert_eq!(boards.len(), 1);
+    assert_eq!(boards[0]["created_by"], "bridge");
+}
+
+#[test]
 fn test_http_create_board_empty_name_rejected() {
     let client = test_client();
     let resp = client

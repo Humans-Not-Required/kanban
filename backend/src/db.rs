@@ -58,6 +58,7 @@ pub fn init_db_with_path(db_path: &str) -> Result<DbPool, String> {
             name TEXT NOT NULL,
             description TEXT NOT NULL DEFAULT '',
             manage_key_hash TEXT NOT NULL,
+            created_by TEXT NOT NULL DEFAULT 'anonymous',
             is_public INTEGER NOT NULL DEFAULT 0,
             archived INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -185,6 +186,15 @@ pub fn init_db_with_path(db_path: &str) -> Result<DbPool, String> {
         "ALTER TABLE boards ADD COLUMN require_display_name INTEGER NOT NULL DEFAULT 0;"
     );
     // (silently ignored if column already exists)
+
+    // Migration: add created_by attribution to boards
+    let _ = conn.execute_batch(
+        "ALTER TABLE boards ADD COLUMN created_by TEXT NOT NULL DEFAULT 'anonymous';"
+    );
+    let _ = conn.execute(
+        "UPDATE boards SET created_by = 'anonymous' WHERE TRIM(COALESCE(created_by, '')) = ''",
+        [],
+    );
 
     // Migration: add monotonic seq column to task_events for cursor pagination
     let _ = conn.execute_batch(

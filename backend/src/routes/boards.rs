@@ -48,6 +48,12 @@ pub fn create_board(
         ));
     }
 
+    let creator = if req.actor_name.trim().is_empty() {
+        "anonymous".to_string()
+    } else {
+        req.actor_name.trim().to_string()
+    };
+
     let board_id = uuid::Uuid::new_v4().to_string();
     let manage_key = format!("kb_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
     let manage_key_hash = hash_key(&manage_key);
@@ -55,8 +61,8 @@ pub fn create_board(
     let conn = db.conn();
 
     conn.execute(
-        "INSERT INTO boards (id, name, description, manage_key_hash, is_public, require_display_name) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![board_id, req.name.trim(), req.description, manage_key_hash, req.is_public as i32, req.require_display_name as i32],
+        "INSERT INTO boards (id, name, description, manage_key_hash, created_by, is_public, require_display_name) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![board_id, req.name.trim(), req.description, manage_key_hash, creator, req.is_public as i32, req.require_display_name as i32],
     )
     .map_err(|e| db_error(&e.to_string()))?;
 
@@ -95,6 +101,7 @@ pub fn create_board(
         id: board_id.clone(),
         name: req.name,
         description: req.description,
+        created_by: creator,
         columns: col_responses,
         manage_key: manage_key.clone(),
         view_url: format!("/board/{}", board_id),
@@ -122,6 +129,7 @@ pub fn list_boards(
     // Only show public boards in the listing
     let sql = format!(
         "SELECT b.id, b.name, b.description, b.archived, b.is_public, b.created_at,
+                b.created_by,
                 (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id)
          FROM boards b
          WHERE b.is_public = 1{}
@@ -140,7 +148,8 @@ pub fn list_boards(
                 archived: row.get::<_, i32>(3)? == 1,
                 is_public: row.get::<_, i32>(4)? == 1,
                 created_at: row.get(5)?,
-                task_count: row.get(6)?,
+                created_by: row.get(6)?,
+                task_count: row.get(7)?,
             })
         })
         .map_err(|e| db_error(&e.to_string()))?

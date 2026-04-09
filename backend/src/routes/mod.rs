@@ -211,7 +211,7 @@ pub(crate) fn load_board_response(
 ) -> Result<Json<BoardResponse>, (Status, Json<ApiError>)> {
     let board = conn
         .query_row(
-            "SELECT b.id, b.name, b.description, b.archived, b.is_public, b.created_at, b.updated_at,
+            "SELECT b.id, b.name, b.description, b.created_by, b.archived, b.is_public, b.created_at, b.updated_at,
                     b.quick_done_column_id, b.quick_done_auto_archive,
                     b.quick_reassign_column_id, b.quick_reassign_to,
                     b.require_display_name
@@ -223,15 +223,16 @@ pub(crate) fn load_board_response(
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
-                    row.get::<_, i32>(3)? == 1,
+                    row.get::<_, String>(3)?,
                     row.get::<_, i32>(4)? == 1,
-                    row.get::<_, String>(5)?,
+                    row.get::<_, i32>(5)? == 1,
                     row.get::<_, String>(6)?,
-                    row.get::<_, Option<String>>(7)?,
-                    row.get::<_, i32>(8).unwrap_or(0) == 1,
-                    row.get::<_, Option<String>>(9)?,
+                    row.get::<_, String>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                    row.get::<_, i32>(9).unwrap_or(0) == 1,
                     row.get::<_, Option<String>>(10)?,
-                    row.get::<_, i32>(11).unwrap_or(0) == 1,
+                    row.get::<_, Option<String>>(11)?,
+                    row.get::<_, i32>(12).unwrap_or(0) == 1,
                 ))
             },
         )
@@ -266,17 +267,18 @@ pub(crate) fn load_board_response(
         id: board.0,
         name: board.1,
         description: board.2,
+        created_by: board.3,
         columns,
         task_count,
-        archived: board.3,
-        is_public: board.4,
-        require_display_name: board.11,
-        quick_done_column_id: board.7,
-        quick_done_auto_archive: board.8,
-        quick_reassign_column_id: board.9,
-        quick_reassign_to: board.10,
-        created_at: board.5,
-        updated_at: board.6,
+        archived: board.4,
+        is_public: board.5,
+        require_display_name: board.12,
+        quick_done_column_id: board.8,
+        quick_done_auto_archive: board.9,
+        quick_reassign_column_id: board.10,
+        quick_reassign_to: board.11,
+        created_at: board.6,
+        updated_at: board.7,
     }))
 }
 
